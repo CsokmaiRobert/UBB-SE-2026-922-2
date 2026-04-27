@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using BoardRentAndProperty.Mappers;
 
-namespace BoardRentAndProperty.Services
+namespace BoardRentAndProperty.Repositories
 {
     public interface IRepository<TRepositoryItem>
         where TRepositoryItem : notnull, IEntity

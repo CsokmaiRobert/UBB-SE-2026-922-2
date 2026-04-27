@@ -1,5 +1,5 @@
 using System;
-using BoardRentAndProperty.Services;
+using BoardRentAndProperty.Mappers;
 using BoardRentAndProperty.Models;
 
 namespace BoardRentAndProperty.DataTransferObjects

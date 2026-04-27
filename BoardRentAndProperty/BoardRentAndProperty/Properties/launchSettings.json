@@ -1,13 +1,13 @@
 {
     "profiles": {
-        "Property_and_Management (Unpackaged)": {
+        "BoardRentAndProperty (Unpackaged)": {
             "commandName": "Project"
         },
-        "Property_and_Management (Unpackaged) -- UserID: 1": {
+        "BoardRentAndProperty (Unpackaged) -- UserID: 1": {
             "commandName": "Project",
             "commandLineArgs": "1"
         },
-        "Property_and_Management (Unpackaged) -- UserID: 2": {
+        "BoardRentAndProperty (Unpackaged) -- UserID: 2": {
             "commandName": "Project",
             "commandLineArgs": "2"
         }

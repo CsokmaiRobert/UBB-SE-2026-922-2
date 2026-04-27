@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Immutable;
+using BoardRentAndProperty.Mappers;
 using BoardRentAndProperty.Models;
 
-namespace BoardRentAndProperty.Services
+namespace BoardRentAndProperty.Repositories
 {
     public interface IRequestRepository : IRepository<Request>
     {

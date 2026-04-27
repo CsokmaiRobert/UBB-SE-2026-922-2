@@ -1,5 +1,20 @@
+// ConstantsBridge — re-exports top-level static-class members from
+// `BoardRentAndProperty.Resources.Constants` (the merged-from-PaM root constants class)
+// into the `BoardRentAndProperty.Constants` namespace, so PaM's existing call sites of
+// the form `Constants.DialogTitles.X` keep working without modification.
+//
+// Why: the original PaM `Constants.cs` lived in the root namespace `Property_and_Management`.
+// The bulk merge would have put it into `BoardRentAndProperty.Constants`, which collides
+// with the `BoardRentAndProperty.Constants.DomainConstants` from the PaM `src/Constants/`
+// subfolder. Resolution: place the merged-from-root file in `BoardRentAndProperty.Resources`
+// and bridge its members back here.
 namespace BoardRentAndProperty.Constants
 {
+    internal static class App
+    {
+        public const string AppTrayIconUri = global::BoardRentAndProperty.Resources.Constants.AppTrayIconUri;
+    }
+
     internal static class DialogTitles
     {
         public const string ValidationError = global::BoardRentAndProperty.Resources.Constants.DialogTitles.ValidationError;

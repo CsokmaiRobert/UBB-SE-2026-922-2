@@ -1,4 +1,4 @@
-namespace BoardRentAndProperty.Services
+namespace BoardRentAndProperty.Mappers
 {
     public interface IDTO<TDomainModel>
         where TDomainModel : IEntity

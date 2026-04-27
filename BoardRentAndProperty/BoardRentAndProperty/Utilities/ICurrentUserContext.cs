@@ -1,4 +1,4 @@
-namespace BoardRentAndProperty.Services
+namespace BoardRentAndProperty.Utilities
 {
     public interface ICurrentUserContext
     {
