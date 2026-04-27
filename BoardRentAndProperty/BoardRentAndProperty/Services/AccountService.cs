@@ -7,6 +7,7 @@ namespace BoardRentAndProperty.Services
     using System.Threading.Tasks;
     using BoardRentAndProperty.Data;
     using BoardRentAndProperty.DataTransferObjects;
+    using BoardRentAndProperty.Mappers;
     using BoardRentAndProperty.Models;
     using BoardRentAndProperty.Repositories;
     using BoardRentAndProperty.Utilities;
@@ -16,19 +17,20 @@ namespace BoardRentAndProperty.Services
         private const int MinimumDisplayNameLength = 2;
         private const int MaximumDisplayNameLength = 50;
         private const int MaximumStreetNumberLength = 10;
-        private const string StandardAccountRoleName = "Standard User";
         private const string AvatarFolderName = "Avatars";
         private const string ApplicationName = "BoardRent";
 
         private readonly IAccountRepository accountRepository;
         private readonly IUnitOfWorkFactory unitOfWorkFactory;
         private readonly ISessionContext sessionContext;
+        private readonly AccountProfileMapper accountProfileMapper;
 
-        public AccountService(IAccountRepository accountRepository, IUnitOfWorkFactory unitOfWorkFactory, ISessionContext sessionContext)
+        public AccountService(IAccountRepository accountRepository, IUnitOfWorkFactory unitOfWorkFactory, ISessionContext sessionContext, AccountProfileMapper accountProfileMapper)
         {
             this.accountRepository = accountRepository;
             this.unitOfWorkFactory = unitOfWorkFactory;
             this.sessionContext = sessionContext;
+            this.accountProfileMapper = accountProfileMapper;
         }
 
         public async Task<ServiceResult<AccountProfileDataTransferObject>> GetProfileAsync(Guid accountId)
@@ -44,7 +46,7 @@ namespace BoardRentAndProperty.Services
                     return ServiceResult<AccountProfileDataTransferObject>.Fail("Account not found.");
                 }
 
-                return ServiceResult<AccountProfileDataTransferObject>.Ok(this.MapEntityToProfileDataTransferObject(accountEntity));
+                return ServiceResult<AccountProfileDataTransferObject>.Ok(this.accountProfileMapper.ToDto(accountEntity));
             }
         }
 
@@ -77,7 +79,7 @@ namespace BoardRentAndProperty.Services
                     return ServiceResult<bool>.Fail(string.Join(";", validationErrors));
                 }
 
-                this.ApplyProfileUpdatesToEntity(accountEntity, profileUpdateData);
+                this.accountProfileMapper.ApplyTo(accountEntity, profileUpdateData);
                 await this.accountRepository.UpdateAsync(accountEntity);
 
                 return ServiceResult<bool>.Ok(true);
@@ -196,41 +198,5 @@ namespace BoardRentAndProperty.Services
             return errors;
         }
 
-        private void ApplyProfileUpdatesToEntity(Account accountEntity, AccountProfileDataTransferObject profileUpdateData)
-        {
-            accountEntity.DisplayName = profileUpdateData.DisplayName;
-            accountEntity.Email = profileUpdateData.Email;
-            accountEntity.PhoneNumber = profileUpdateData.PhoneNumber;
-            accountEntity.Country = profileUpdateData.Country;
-            accountEntity.City = profileUpdateData.City;
-            accountEntity.StreetName = profileUpdateData.StreetName;
-            accountEntity.StreetNumber = profileUpdateData.StreetNumber;
-            accountEntity.UpdatedAt = DateTime.UtcNow;
-        }
-
-        private AccountProfileDataTransferObject MapEntityToProfileDataTransferObject(Account accountEntity)
-        {
-            var primaryRole = accountEntity.Roles?.FirstOrDefault();
-
-            return new AccountProfileDataTransferObject
-            {
-                Id = accountEntity.Id,
-                Username = accountEntity.Username,
-                DisplayName = accountEntity.DisplayName,
-                Email = accountEntity.Email,
-                PhoneNumber = accountEntity.PhoneNumber,
-                AvatarUrl = accountEntity.AvatarUrl,
-                Role = new RoleDataTransferObject
-                {
-                    Id = primaryRole?.Id ?? Guid.Empty,
-                    Name = primaryRole?.Name ?? StandardAccountRoleName,
-                },
-                IsSuspended = accountEntity.IsSuspended,
-                Country = accountEntity.Country,
-                City = accountEntity.City,
-                StreetName = accountEntity.StreetName,
-                StreetNumber = accountEntity.StreetNumber,
-            };
-        }
     }
 }
