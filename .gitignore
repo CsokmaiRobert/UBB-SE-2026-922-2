@@ -2,4 +2,5 @@
 *.exe
 /bin/
 /obj/
+/.vs/
 *.log
