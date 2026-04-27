@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<Page
+    x:Class="BoardRent.Views.ProfilePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:BoardRent.Views"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewmodels="using:BoardRent.ViewModels"
+    d:DataContext="{d:DesignInstance Type=viewmodels:ProfileViewModel}"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+    mc:Ignorable="d">
+
+    <Grid>
+        <StackPanel HorizontalAlignment="Center"  Spacing="15">
+
+            <Grid Background="#555" Height="50">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0" Spacing="15">
+                    <TextBlock Text="My profile" Foreground="White" VerticalAlignment="Center"/>
+                    <Button Content="Admin Panel" Background="#FF8C00" Foreground="White"
+                            Visibility="{Binding AdminButtonVisibility}"
+                            Command="{Binding NavigateToAdminPanelCommand}"/>
+                </StackPanel>
+                <Button Content="Sign out" Background="Red" Foreground="White" HorizontalAlignment="Right" Margin="0,5,10,5" Command="{Binding SignOutCommand}"/>
+            </Grid>
+            
+
+            <TabView IsAddTabButtonVisible="False" Padding="0,0,0,20" MinHeight="400" >
+
+                <TabViewItem Header="Personal Info" IsSelected="True" IsClosable="False" MinHeight="50"  >
+                    <TabViewItem.HeaderTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" FontSize="14" FontWeight="SemiBold"/>
+                        </DataTemplate>
+                    </TabViewItem.HeaderTemplate>
+                    <ScrollViewer >
+                        <StackPanel Spacing="15">
+
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Border Width="100" Height="100" Background="#ccc" CornerRadius="50">
+                                    <Grid>
+                                        <FontIcon Glyph="&#xE77B;" FontSize="48" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#888"/>
+                                        <Image Source="{Binding AvatarUrl}" Stretch="UniformToFill"/>
+                                    </Grid>
+                                </Border>
+                                <StackPanel Spacing="10">
+                                    <Button Content="Remove Picture"
+                                            Background="Red"
+                                            Foreground="White"
+                                            Command="{Binding RemoveAvatarCommand}"/>
+                                    <Button Content="Upload Avatar"
+                                            Background="Blue"
+                                            Foreground="White"
+                                            Command="{Binding SelectAvatarCommand}"/>   
+                                </StackPanel>       
+                            </StackPanel>
+
+                            <Grid ColumnSpacing="20" RowSpacing="5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBox Grid.Row="0" Grid.Column="0"
+                                         Header="Username"
+                                         Text="{Binding Username}"
+                                         IsReadOnly="True"
+                                         Margin="0,0,0,24"/>
+
+                                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,4">
+                                    <TextBox Header="Email"
+                                             Text="{Binding Email, Mode=TwoWay}"/>
+                                    <TextBlock Text="{Binding EmailError}" Foreground="Red" FontSize="12" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="2" Grid.Column="0">
+                                    <TextBox
+                                         Header="Display Name"
+                                         Text="{Binding DisplayName, Mode=TwoWay}"/>
+                                    <TextBlock  Text="{Binding DisplayNameError}" Foreground="Red" FontSize="12"  TextWrapping="Wrap" Margin="0,0,0,0" VerticalAlignment="Top"  />
+
+                                </StackPanel>
+                                <StackPanel Grid.Row="3" Grid.Column="0">
+                                    <TextBox
+                                        Header="Phone Number"
+                                         Text="{Binding PhoneNumber, Mode=TwoWay}"/>
+                                    <TextBlock Text="{Binding PhoneError}" Foreground="Red" FontSize="12" MinHeight="24" TextWrapping="Wrap" Margin="0,0,0,0"/>
+
+                                </StackPanel>
+
+                                <TextBox Grid.Row="0" Grid.Column="1" 
+                                         Header="Street Name"
+                                         Text="{Binding StreetName, Mode=TwoWay}"
+                                         Margin="0,0,0,24"
+                                         />
+                                <StackPanel Grid.Row="1" Grid.Column="1">
+                                    <TextBox
+                                         Header="Street Number"
+                                         Text="{Binding StreetNumber, Mode=TwoWay}"/>
+                                    <TextBlock  Text="{Binding StreetNumberError}" Foreground="Red" FontSize="12" MinHeight="24" TextWrapping="Wrap"/>
+                                </StackPanel>
+
+                                <TextBox Grid.Row="2" Grid.Column="1"
+                                         Header="City"
+                                         Text="{Binding City, Mode=TwoWay}"
+                                         Margin="0,0,0,24"/>
+
+                                <ComboBox Grid.Row="3" Grid.Column="1"
+                                          Header="Country"
+                                          ItemsSource="{Binding Countries}"
+                                          SelectedItem="{Binding Country, Mode=TwoWay}" />
+                            </Grid>
+
+                            <Button Content="Save Changes"
+                                    Background="Green"
+                                    Foreground="White"
+                                    Command="{Binding SaveProfileCommand}" />
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabViewItem>
+
+                <TabViewItem Header="Security" IsClosable="False">
+                    <TabViewItem.HeaderTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" FontSize="14" FontWeight="SemiBold"/>
+                        </DataTemplate>
+                    </TabViewItem.HeaderTemplate>
+                    <ScrollViewer>
+                        <StackPanel Spacing="5">
+
+                            <PasswordBox Header="Current Password"
+                                     Password="{Binding CurrentPassword, Mode=TwoWay}"/>
+                            <TextBlock Text="{Binding CurrentPasswordError}"
+                                       Foreground="Red"
+                                       FontSize="12"
+                                       TextWrapping="Wrap"
+                                        MaxHeight="20"/>
+
+                            <PasswordBox Header="New Password"
+                                         Password="{Binding NewPassword, Mode=TwoWay}"/>
+                            <TextBlock Text="{Binding NewPasswordError}"
+                                       Foreground="Red"
+                                       FontSize="12"
+                                       TextWrapping="Wrap"
+                                        MaxHeight="20"/>
+
+                            <PasswordBox Header="Confirm New Password"
+                                         Password="{Binding ConfirmPassword, Mode=TwoWay}"/>
+                            <TextBlock Text="{Binding ConfirmPasswordError}"
+                                       Foreground="Red"
+                                       FontSize="12"
+                                       TextWrapping="Wrap"
+                                       MaxHeight="20"/>
+
+                            <Button Content="Save Changes"
+                                    Background="Green"
+                                    Foreground="White"
+                                    Command="{Binding SaveNewPasswordCommand}" />
+
+                            <TextBlock Text="{Binding ErrorMessage}"
+                                       Foreground="Red"
+                                       TextWrapping="Wrap"/>
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabViewItem>
+
+                <TabViewItem Header="Booking History" IsClosable="False">
+                    <TabViewItem.HeaderTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" FontSize="14" FontWeight="SemiBold"/>
+                        </DataTemplate>
+                    </TabViewItem.HeaderTemplate>
+                </TabViewItem>
+
+                <TabViewItem Header="My Listings" IsClosable="False">
+                    <TabViewItem.HeaderTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" FontSize="14" FontWeight="SemiBold"/>
+                        </DataTemplate>
+                    </TabViewItem.HeaderTemplate>
+                </TabViewItem>
+
+            </TabView>
+
+        </StackPanel>
+    </Grid>
+</Page>

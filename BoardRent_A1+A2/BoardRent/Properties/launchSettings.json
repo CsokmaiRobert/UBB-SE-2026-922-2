@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "BoardRent (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "BoardRent (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
