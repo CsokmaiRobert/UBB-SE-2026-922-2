@@ -1,4 +1,4 @@
-using BoardRentAndProperty.Services;
+using BoardRentAndProperty.Utilities;
 
 namespace BoardRentAndProperty
 {

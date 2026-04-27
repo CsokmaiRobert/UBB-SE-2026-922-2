@@ -1,4 +1,4 @@
-using BoardRentAndProperty.Services;
+using BoardRentAndProperty.Mappers;
 
 namespace BoardRentAndProperty.Models
 {

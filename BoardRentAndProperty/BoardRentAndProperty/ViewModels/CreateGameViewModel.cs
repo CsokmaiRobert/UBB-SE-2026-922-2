@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using BoardRentAndProperty.Constants;
 using BoardRentAndProperty.DataTransferObjects;
 using BoardRentAndProperty.Services;
+using BoardRentAndProperty.Utilities;
 
 namespace BoardRentAndProperty.ViewModels
 {
