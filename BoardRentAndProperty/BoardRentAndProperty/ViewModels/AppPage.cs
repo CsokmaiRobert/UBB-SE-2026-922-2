@@ -7,6 +7,7 @@ namespace BoardRentAndProperty.ViewModels
         RentalsFromOthers,
         RequestsToOthers,
         RentalsToOthers,
-        Notifications
+        Notifications,
+        BoardRent
     }
 }

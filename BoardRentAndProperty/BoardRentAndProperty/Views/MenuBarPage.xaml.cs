@@ -42,10 +42,24 @@ namespace BoardRentAndProperty.Views
             {
                 injectedGameService = gameService;
             }
+
+            // After returning from BoardRent area, reset to My Games to avoid the singleton VM
+            // showing "BoardRent" as selected with no content rendered.
+            if (ViewModel.SelectedPageName == "BoardRent" || string.IsNullOrEmpty(ViewModel.SelectedPageName))
+            {
+                ViewModel.SelectedPageName = "My Games";
+                ContentFrame.Navigate(typeof(ListingsPage), injectedGameService);
+            }
         }
 
         private void OnViewModelRequestedNavigation(AppPage page)
         {
+            if (page == AppPage.BoardRent)
+            {
+                App.NavigateTo(typeof(LoginPage));
+                return;
+            }
+
             if (!PageTypeMap.TryGetValue(page, out var pageType))
             {
                 return;

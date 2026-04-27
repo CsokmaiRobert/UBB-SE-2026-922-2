@@ -22,7 +22,8 @@ namespace BoardRentAndProperty.ViewModels
                 { "Others' Rentals",    () => RequestNavigation?.Invoke(AppPage.RentalsToOthers) },
                 { "My Requests",        () => RequestNavigation?.Invoke(AppPage.RequestsToOthers) },
                 { "My Rentals",         () => RequestNavigation?.Invoke(AppPage.RentalsFromOthers) },
-                { "Notifications",      () => RequestNavigation?.Invoke(AppPage.Notifications) }
+                { "Notifications",      () => RequestNavigation?.Invoke(AppPage.Notifications) },
+                { "BoardRent",          () => RequestNavigation?.Invoke(AppPage.BoardRent) }
             };
         }
 
