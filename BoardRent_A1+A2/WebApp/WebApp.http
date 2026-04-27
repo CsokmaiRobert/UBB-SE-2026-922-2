@@ -1,0 +1,6 @@
+@WebApp_HostAddress = http://localhost:5178
+
+GET {{WebApp_HostAddress}}/api/users
+Accept: application/json
+
+###
