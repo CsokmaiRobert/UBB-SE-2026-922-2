@@ -12,7 +12,7 @@
 *.userosscache
 *.sln.docstates
 *.suo
-
+/superpowers
 # ==========================================
 # Build / run logs (never commit)
 # ==========================================
