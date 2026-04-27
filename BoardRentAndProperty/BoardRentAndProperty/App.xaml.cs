@@ -7,6 +7,8 @@ namespace BoardRentAndProperty
     {
         public static Window? MainWindow { get; private set; }
 
+        public static IServiceProvider Services { get; private set; } = default!;
+
         public App()
         {
             InitializeComponent();
