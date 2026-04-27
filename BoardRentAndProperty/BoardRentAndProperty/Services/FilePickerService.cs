@@ -10,14 +10,14 @@ namespace BoardRentAndProperty.Services
     {
         public async Task<string> PickImageFileAsync()
         {
-            if (App.Window == null)
+            if (App.MainWindow == null)
             {
                 return null;
             }
 
             FileOpenPicker fileOpenPicker = new FileOpenPicker();
 
-            IntPtr windowHandle = WindowNative.GetWindowHandle(App.Window);
+            IntPtr windowHandle = WindowNative.GetWindowHandle(App.MainWindow);
             InitializeWithWindow.Initialize(fileOpenPicker, windowHandle);
 
             fileOpenPicker.FileTypeFilter.Add(".jpg");
