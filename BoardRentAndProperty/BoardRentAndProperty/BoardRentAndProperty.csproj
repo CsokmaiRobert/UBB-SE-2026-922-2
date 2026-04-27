@@ -75,9 +75,22 @@
     <Page Update="Views\RentalsFromOthersPage.xaml"><Generator>MSBuild:Compile</Generator></Page>
     <Page Update="Views\RentalsToOthersPage.xaml"><Generator>MSBuild:Compile</Generator></Page>
     <Page Update="Views\CreateRentalView.xaml"><Generator>MSBuild:Compile</Generator></Page>
+    <Page Update="Views\LoginPage.xaml"><Generator>MSBuild:Compile</Generator></Page>
+    <Page Update="Views\RegisterPage.xaml"><Generator>MSBuild:Compile</Generator></Page>
+    <Page Update="Views\ProfilePage.xaml"><Generator>MSBuild:Compile</Generator></Page>
+    <Page Update="Views\AdminPage.xaml"><Generator>MSBuild:Compile</Generator></Page>
   </ItemGroup>
   <ItemGroup>
     <Content Update="Assets\default-game-placeholder.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
     <Content Update="Assets\tray_icon.ico"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Assets\SplashScreen.scale-200.png" />
+    <Content Include="Assets\LockScreenLogo.scale-200.png" />
+    <Content Include="Assets\Square150x150Logo.scale-200.png" />
+    <Content Include="Assets\Square44x44Logo.scale-200.png" />
+    <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
+    <Content Include="Assets\StoreLogo.png" />
+    <Content Include="Assets\Wide310x150Logo.scale-200.png" />
   </ItemGroup>
 </Project>
