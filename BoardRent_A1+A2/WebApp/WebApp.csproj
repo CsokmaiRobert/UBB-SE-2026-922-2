@@ -11,7 +11,7 @@
     <PackageReference Include="Swashbuckle.AspNetCore.Swagger" Version="10.1.7" />
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="10.1.7" />
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.1.7" />
-	<ProjectReference Include="D:\Programming\College\Sem4\ISS\PROIECT\UBB-SE-2026-TryingOurBest\BoardRent_A1+A2\BoardRent.Core\BoardRent.Core.csproj" />
+	<ProjectReference Include="..\BoardRent.Core\BoardRent.Core.csproj" />
   </ItemGroup>
 
 </Project>
