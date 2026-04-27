@@ -1,6 +1,6 @@
 .claude/
 *.exe
-/bin/
-/obj/
-/.vs/
+bin/
+obj/
+.vs/
 *.log
