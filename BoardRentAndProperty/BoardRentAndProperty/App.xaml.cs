@@ -115,7 +115,7 @@ namespace BoardRentAndProperty
             serviceCollection.AddSingleton<INotificationRepository, NotificationRepository>();
 
             // PaM services
-            serviceCollection.AddSingleton<IUserService, UserService>();
+            serviceCollection.AddSingleton<IDirectoryService, DirectoryService>();
             serviceCollection.AddSingleton<IGameService, GameService>();
             serviceCollection.AddSingleton<IRentalService, RentalService>();
             serviceCollection.AddSingleton<INotificationService, NotificationService>();

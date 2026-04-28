@@ -30,7 +30,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Others' Rentals" Style="{StaticResource SubtitleTextBlockStyle}" Margin="12"/>
+        <TextBlock Grid.Row="0" Text="My Rentals" Style="{StaticResource SubtitleTextBlockStyle}" Margin="12"/>
 
         <ListView x:Name="ItemsListView" Grid.Row="1"
                   ItemsSource="{Binding PagedItems}"

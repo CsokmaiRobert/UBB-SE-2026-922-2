@@ -3,17 +3,16 @@ using System.Linq;
 using BoardRentAndProperty.DataTransferObjects;
 using BoardRentAndProperty.Mappers;
 using BoardRentAndProperty.Repositories;
-using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Models;
 
 namespace BoardRentAndProperty.Services
 {
-    public class UserService : IUserService
+    public class DirectoryService : IDirectoryService
     {
         private readonly IUserRepository userDataRepository;
         private readonly IMapper<User, UserDTO> userDtoMapper;
 
-        public UserService(IUserRepository userRepository, IMapper<User, UserDTO> userMapper)
+        public DirectoryService(IUserRepository userRepository, IMapper<User, UserDTO> userMapper)
         {
             this.userDataRepository = userRepository;
             this.userDtoMapper = userMapper;

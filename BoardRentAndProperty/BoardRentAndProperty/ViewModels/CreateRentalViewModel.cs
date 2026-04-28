@@ -14,7 +14,7 @@ namespace BoardRentAndProperty.ViewModels
 
         private readonly IGameService gameListingService;
         private readonly IRentalService rentalCreationService;
-        private readonly IUserService userLookupService;
+        private readonly IDirectoryService userLookupService;
         private readonly ICurrentUserContext currentUserContext;
 
         public int CurrentUserId => currentUserContext.CurrentUserId;
@@ -67,7 +67,7 @@ namespace BoardRentAndProperty.ViewModels
         }
 
         public CreateRentalViewModel(IGameService gameListingService, IRentalService rentalCreationService,
-                                     IUserService userLookupService, ICurrentUserContext currentUserContext)
+                                     IDirectoryService userLookupService, ICurrentUserContext currentUserContext)
         {
             this.gameListingService = gameListingService;
             this.rentalCreationService = rentalCreationService;
@@ -103,7 +103,12 @@ namespace BoardRentAndProperty.ViewModels
                 return false;
             }
 
-            return StartDate != null && EndDate != null;
+            if (StartDate == null || EndDate == null)
+            {
+                return false;
+            }
+
+            return DateRangeValidationHelper.HasValidFutureDateRange(StartDate.Value.DateTime, EndDate.Value.DateTime);
         }
 
         public ViewOperationResult CreateRental()

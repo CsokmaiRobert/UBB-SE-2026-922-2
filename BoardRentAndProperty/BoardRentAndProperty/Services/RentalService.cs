@@ -15,17 +15,23 @@ namespace BoardRentAndProperty.Services
         private readonly IRentalRepository rentalDataRepository;
         private readonly IGameRepository gameLookupRepository;
         private readonly IMapper<Rental, RentalDTO> rentalDtoMapper;
+        private readonly IRequestRepository requestDataRepository;
+        private readonly INotificationService notificationEventService;
 
         private const int NewRentalId = 0;
 
         public RentalService(
             IRentalRepository rentalRepository,
             IGameRepository gameRepository,
-            IMapper<Rental, RentalDTO> rentalMapper)
+            IMapper<Rental, RentalDTO> rentalMapper,
+            IRequestRepository requestRepository,
+            INotificationService notificationService)
         {
             this.rentalDataRepository = rentalRepository;
             this.gameLookupRepository = gameRepository;
             this.rentalDtoMapper = rentalMapper;
+            this.requestDataRepository = requestRepository;
+            this.notificationEventService = notificationService;
         }
 
         public bool IsSlotAvailable(int gameId, DateTime proposedStartDate, DateTime proposedEndDate)
@@ -34,6 +40,21 @@ namespace BoardRentAndProperty.Services
             {
                 var bufferStart = existingRental.StartDate.AddHours(-DomainConstants.RentalBufferHours);
                 var bufferEnd = existingRental.EndDate.AddHours(DomainConstants.RentalBufferHours);
+                if (proposedStartDate < bufferEnd && proposedEndDate > bufferStart)
+                {
+                    return false;
+                }
+            }
+
+            foreach (var existingRequest in requestDataRepository.GetRequestsByGame(gameId))
+            {
+                if (existingRequest.Status == RequestStatus.Cancelled)
+                {
+                    continue;
+                }
+
+                var bufferStart = existingRequest.StartDate.AddHours(-DomainConstants.RentalBufferHours);
+                var bufferEnd = existingRequest.EndDate.AddHours(DomainConstants.RentalBufferHours);
                 if (proposedStartDate < bufferEnd && proposedEndDate > bufferStart)
                 {
                     return false;
@@ -71,6 +92,23 @@ namespace BoardRentAndProperty.Services
                 endDate: rentalEndDate);
 
             rentalDataRepository.AddConfirmed(confirmedRental);
+
+            var notificationTitle = Constants.NotificationTitles.RentalConfirmed;
+            var notificationBody = $"Your rental for {gameToRent.Name} from {rentalStartDate:MMM dd} to {rentalEndDate:MMM dd} has been confirmed.";
+
+            notificationEventService.SendNotificationToUser(renterUserId, new NotificationDTO
+            {
+                Title = notificationTitle,
+                Body = notificationBody,
+                Type = NotificationType.Informational
+            });
+
+            notificationEventService.SendNotificationToUser(ownerUserId, new NotificationDTO
+            {
+                Title = notificationTitle,
+                Body = notificationBody,
+                Type = NotificationType.Informational
+            });
         }
 
         public ImmutableList<RentalDTO> GetRentalsForRenter(int renterUserId) =>

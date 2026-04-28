@@ -1,9 +1,9 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using BoardRentAndProperty.DataTransferObjects;
 
 namespace BoardRentAndProperty.Services
 {
-    public interface IUserService
+    public interface IDirectoryService
     {
         ImmutableList<UserDTO> GetUsersExcept(int excludeUserId);
     }
