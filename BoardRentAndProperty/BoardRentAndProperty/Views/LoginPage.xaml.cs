@@ -1,10 +1,8 @@
 namespace BoardRentAndProperty.Views
 {
     using System;
-    using BoardRentAndProperty.Services;
     using BoardRentAndProperty.ViewModels;
     using CommunityToolkit.Mvvm.DependencyInjection;
-    using Microsoft.Extensions.DependencyInjection;
     using Microsoft.UI.Xaml;
     using Microsoft.UI.Xaml.Controls;
 
@@ -26,14 +24,7 @@ namespace BoardRentAndProperty.Views
         {
             this.ViewModel.OnLoginSuccess = (roleName) =>
             {
-                if (roleName == "Administrator")
-                {
-                    App.NavigateTo(typeof(AdminPage), true);
-                }
-                else
-                {
-                    App.NavigateTo(typeof(ProfilePage), true);
-                }
+                App.OnUserLoggedIn();
             };
 
             this.ViewModel.OnNavigateToRegister = () =>
@@ -45,12 +36,6 @@ namespace BoardRentAndProperty.Views
         private async void ForgotPassword_Click(object pointerSender, RoutedEventArgs eventArgs)
         {
             await this.ResetPasswordDialog.ShowAsync();
-        }
-
-        private void OnBackToPropertyClicked(object sender, RoutedEventArgs e)
-        {
-            var gameService = App.Services.GetRequiredService<IGameService>();
-            App.NavigateTo(typeof(MenuBarPage), gameService);
         }
     }
 }
