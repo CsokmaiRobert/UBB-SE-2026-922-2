@@ -3,11 +3,13 @@ namespace BoardRentAndProperty.ViewModels
     public enum AppPage
     {
         Listings,
-        RequestsFromOthers,
-        RentalsFromOthers,
         RequestsToOthers,
+        RentalsFromOthers,
+        RequestsFromOthers,
         RentalsToOthers,
         Notifications,
-        BoardRent
+        Profile,
+        Admin,
+        Logout,
     }
 }
