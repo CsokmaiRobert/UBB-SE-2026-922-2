@@ -1,14 +1,14 @@
-using BoardRentAndProperty.Utilities;
-
-namespace BoardRentAndProperty
+namespace BoardRentAndProperty.Utilities
 {
     public sealed class CurrentUserContext : ICurrentUserContext
     {
-        public int CurrentUserId { get; }
+        private readonly ISessionContext sessionContext;
 
-        public CurrentUserContext(int currentUserId)
+        public CurrentUserContext(ISessionContext sessionContext)
         {
-            this.CurrentUserId = currentUserId;
+            this.sessionContext = sessionContext;
         }
+
+        public int CurrentUserId => this.sessionContext.PamUserId;
     }
 }
