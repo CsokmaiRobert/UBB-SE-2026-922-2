@@ -5,6 +5,8 @@ namespace BoardRentAndProperty.Utilities
 
     public class SessionContext : ISessionContext
     {
+        private const int UnauthenticatedPamUserId = 0;
+
         public Guid AccountId { get; private set; }
 
         public string Username { get; private set; }
@@ -12,6 +14,8 @@ namespace BoardRentAndProperty.Utilities
         public string DisplayName { get; private set; }
 
         public string Role { get; private set; }
+
+        public int PamUserId { get; private set; }
 
         public bool IsLoggedIn { get; private set; }
 
@@ -23,6 +27,7 @@ namespace BoardRentAndProperty.Utilities
                 this.Username = account.Username;
                 this.DisplayName = account.DisplayName;
                 this.Role = roleName;
+                this.PamUserId = account.PamUserId ?? UnauthenticatedPamUserId;
                 this.IsLoggedIn = true;
             }
         }
@@ -33,6 +38,7 @@ namespace BoardRentAndProperty.Utilities
             this.Username = string.Empty;
             this.DisplayName = string.Empty;
             this.Role = string.Empty;
+            this.PamUserId = UnauthenticatedPamUserId;
             this.IsLoggedIn = false;
         }
     }

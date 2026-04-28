@@ -1,5 +1,6 @@
 namespace BoardRentAndProperty.Data
 {
+    using BoardRentAndProperty.Utilities;
     using Microsoft.Data.SqlClient;
 
     public class AppDbContext
@@ -11,6 +12,7 @@ namespace BoardRentAndProperty.Data
             "Server=(localdb)\\MSSQLLocalDB;Database=master;Trusted_Connection=True;";
         private const string InitializationLockName = "BoardRentDb.Initialization";
         private const int InitializationLockTimeoutMilliseconds = 15000;
+        private const string SeedDevPassword = "password123";
 
         public SqlConnection CreateConnection()
         {
@@ -84,6 +86,34 @@ namespace BoardRentAndProperty.Data
             using var connection = this.CreateConnection();
             connection.Open();
 
+            this.EnsureCoreTablesCreated(connection);
+            this.EnsurePamUserIdColumnExists(connection);
+            this.SeedRolesIfMissing(connection);
+            this.SeedAccountIfMissing(
+                connection,
+                username: "admin",
+                displayName: "Administrator",
+                email: "admin@boardrent.com",
+                roleName: "Administrator",
+                pamUserId: null);
+            this.SeedAccountIfMissing(
+                connection,
+                username: "darius",
+                displayName: "Darius Turcu",
+                email: "darius@boardrent.com",
+                roleName: "Standard User",
+                pamUserId: 1);
+            this.SeedAccountIfMissing(
+                connection,
+                username: "mihai",
+                displayName: "Mihai Tira",
+                email: "mihai@boardrent.com",
+                roleName: "Standard User",
+                pamUserId: 2);
+        }
+
+        private void EnsureCoreTablesCreated(SqlConnection connection)
+        {
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 IF OBJECT_ID(N'[dbo].[Role]', N'U') IS NULL
@@ -110,7 +140,8 @@ namespace BoardRentAndProperty.Data
                         StreetName NVARCHAR(200) NULL,
                         StreetNumber NVARCHAR(20) NULL,
                         Country NVARCHAR(100) NULL,
-                        City NVARCHAR(100) NULL
+                        City NVARCHAR(100) NULL,
+                        PamUserId INT NULL UNIQUE
                     );
                 END;
 
@@ -133,25 +164,66 @@ namespace BoardRentAndProperty.Data
                         LockedUntil DATETIME2 NULL,
                         FOREIGN KEY (AccountId) REFERENCES [dbo].[Account](Id) ON DELETE CASCADE
                     );
-                END;
+                END;";
+            command.ExecuteNonQuery();
+        }
 
-                IF NOT EXISTS (SELECT * FROM [dbo].[Role] WHERE Name = 'Administrator')
+        private void EnsurePamUserIdColumnExists(SqlConnection connection)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                IF NOT EXISTS (
+                    SELECT 1 FROM sys.columns
+                    WHERE object_id = OBJECT_ID(N'[dbo].[Account]')
+                      AND name = N'PamUserId')
+                BEGIN
+                    ALTER TABLE [dbo].[Account] ADD PamUserId INT NULL;
+                    ALTER TABLE [dbo].[Account] ADD CONSTRAINT UQ_Account_PamUserId UNIQUE (PamUserId);
+                END;";
+            command.ExecuteNonQuery();
+        }
+
+        private void SeedRolesIfMissing(SqlConnection connection)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                IF NOT EXISTS (SELECT 1 FROM [dbo].[Role] WHERE Name = 'Administrator')
                     INSERT INTO [dbo].[Role] (Id, Name) VALUES (NEWID(), 'Administrator');
 
-                IF NOT EXISTS (SELECT * FROM [dbo].[Role] WHERE Name = 'Standard User')
-                    INSERT INTO [dbo].[Role] (Id, Name) VALUES (NEWID(), 'Standard User');
+                IF NOT EXISTS (SELECT 1 FROM [dbo].[Role] WHERE Name = 'Standard User')
+                    INSERT INTO [dbo].[Role] (Id, Name) VALUES (NEWID(), 'Standard User');";
+            command.ExecuteNonQuery();
+        }
 
-                IF NOT EXISTS (SELECT * FROM [dbo].[Account] WHERE Username = 'admin')
+        private void SeedAccountIfMissing(
+            SqlConnection connection,
+            string username,
+            string displayName,
+            string email,
+            string roleName,
+            int? pamUserId)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                IF NOT EXISTS (SELECT 1 FROM [dbo].[Account] WHERE Username = @Username)
                 BEGIN
-                    DECLARE @adminId UNIQUEIDENTIFIER = NEWID();
-                    DECLARE @adminRoleId UNIQUEIDENTIFIER = (SELECT Id FROM [dbo].[Role] WHERE Name = 'Administrator');
+                    DECLARE @newAccountId UNIQUEIDENTIFIER = NEWID();
+                    DECLARE @roleId UNIQUEIDENTIFIER = (SELECT Id FROM [dbo].[Role] WHERE Name = @RoleName);
 
-                    INSERT INTO [dbo].[Account] (Id, Username, DisplayName, Email, PasswordHash, IsSuspended, CreatedAt, UpdatedAt)
-                    VALUES (@adminId, 'admin', 'Administrator', 'admin@boardrent.com', '0Or88pPVbOSyUxu9djhSTw==:+uoeZ/oHtxEVK8bHfS5Eh/5chC0LoKdNvZjAVQhu7aw=', 0, GETUTCDATE(), GETUTCDATE());
+                    INSERT INTO [dbo].[Account]
+                        (Id, Username, DisplayName, Email, PasswordHash, IsSuspended, CreatedAt, UpdatedAt, PamUserId)
+                    VALUES
+                        (@newAccountId, @Username, @DisplayName, @Email, @PasswordHash, 0, GETUTCDATE(), GETUTCDATE(), @PamUserId);
 
-                    INSERT INTO [dbo].[AccountRoles] (AccountId, RoleId) VALUES (@adminId, @adminRoleId);
+                    IF @roleId IS NOT NULL
+                        INSERT INTO [dbo].[AccountRoles] (AccountId, RoleId) VALUES (@newAccountId, @roleId);
                 END;";
-
+            command.Parameters.AddWithValue("@Username", username);
+            command.Parameters.AddWithValue("@DisplayName", displayName);
+            command.Parameters.AddWithValue("@Email", email);
+            command.Parameters.AddWithValue("@PasswordHash", PasswordHasher.HashPassword(SeedDevPassword));
+            command.Parameters.AddWithValue("@RoleName", roleName);
+            command.Parameters.AddWithValue("@PamUserId", (object?)pamUserId ?? System.DBNull.Value);
             command.ExecuteNonQuery();
         }
     }
