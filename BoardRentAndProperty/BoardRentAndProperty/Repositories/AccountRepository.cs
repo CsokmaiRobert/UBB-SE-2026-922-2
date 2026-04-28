@@ -137,8 +137,8 @@ namespace BoardRentAndProperty.Repositories
             using (var sqlCommand = this.DatabaseConnection.CreateCommand())
             {
                 sqlCommand.CommandText = @"
-                    INSERT INTO [Account] (Id, Username, DisplayName, Email, PasswordHash, PhoneNumber, AvatarUrl, IsSuspended, CreatedAt, UpdatedAt, StreetName, StreetNumber, Country, City)
-                    VALUES (@Identifier, @Username, @DisplayName, @EmailAddress, @PasswordHash, @PhoneNumber, @AvatarUrl, @IsSuspended, @CreatedAt, @UpdatedAt, @StreetName, @StreetNumber, @Country, @City)";
+                    INSERT INTO [Account] (Id, Username, DisplayName, Email, PasswordHash, PhoneNumber, AvatarUrl, IsSuspended, CreatedAt, UpdatedAt, StreetName, StreetNumber, Country, City, PamUserId)
+                    VALUES (@Identifier, @Username, @DisplayName, @EmailAddress, @PasswordHash, @PhoneNumber, @AvatarUrl, @IsSuspended, @CreatedAt, @UpdatedAt, @StreetName, @StreetNumber, @Country, @City, @PamUserId)";
 
                 sqlCommand.Parameters.AddWithValue("@Identifier", accountEntity.Id);
                 sqlCommand.Parameters.AddWithValue("@Username", accountEntity.Username);
@@ -154,6 +154,7 @@ namespace BoardRentAndProperty.Repositories
                 sqlCommand.Parameters.AddWithValue("@StreetNumber", accountEntity.StreetNumber ?? (object)DBNull.Value);
                 sqlCommand.Parameters.AddWithValue("@Country", accountEntity.Country ?? (object)DBNull.Value);
                 sqlCommand.Parameters.AddWithValue("@City", accountEntity.City ?? (object)DBNull.Value);
+                sqlCommand.Parameters.AddWithValue("@PamUserId", (object?)accountEntity.PamUserId ?? DBNull.Value);
 
                 await sqlCommand.ExecuteNonQueryAsync();
             }
@@ -175,7 +176,8 @@ namespace BoardRentAndProperty.Repositories
                         StreetName = @StreetName,
                         StreetNumber = @StreetNumber,
                         Country = @Country,
-                        City = @City
+                        City = @City,
+                        PamUserId = @PamUserId
                     WHERE Id = @Identifier";
 
                 sqlCommand.Parameters.AddWithValue("@Identifier", accountEntity.Id);
@@ -190,6 +192,19 @@ namespace BoardRentAndProperty.Repositories
                 sqlCommand.Parameters.AddWithValue("@StreetNumber", accountEntity.StreetNumber ?? (object)DBNull.Value);
                 sqlCommand.Parameters.AddWithValue("@Country", accountEntity.Country ?? (object)DBNull.Value);
                 sqlCommand.Parameters.AddWithValue("@City", accountEntity.City ?? (object)DBNull.Value);
+                sqlCommand.Parameters.AddWithValue("@PamUserId", (object?)accountEntity.PamUserId ?? DBNull.Value);
+
+                await sqlCommand.ExecuteNonQueryAsync();
+            }
+        }
+
+        public async Task SetPamUserIdAsync(Guid accountId, int pamUserId)
+        {
+            using (var sqlCommand = this.DatabaseConnection.CreateCommand())
+            {
+                sqlCommand.CommandText = "UPDATE [Account] SET PamUserId = @PamUserId WHERE Id = @AccountIdentifier";
+                sqlCommand.Parameters.AddWithValue("@PamUserId", pamUserId);
+                sqlCommand.Parameters.AddWithValue("@AccountIdentifier", accountId);
 
                 await sqlCommand.ExecuteNonQueryAsync();
             }
