@@ -2,6 +2,8 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using BoardRentAndProperty.Data;
 using BoardRentAndProperty.DataTransferObjects;
 using BoardRentAndProperty.Mappers;
@@ -39,6 +41,7 @@ namespace BoardRentAndProperty
         private const string TwoWindowsEnvironmentKey = "TWO_WINDOWS";
         private const string EnabledEnvironmentValue = "true";
         private const string NotificationNavigationArgumentKey = "navigate";
+        private const string TrayIconIdentityPrefix = "BoardRentAndProperty.TrayIcon";
 
         public static IServiceProvider Services { get; private set; } = default!;
         public static Window? MainWindow { get; set; }
@@ -53,6 +56,7 @@ namespace BoardRentAndProperty
         private static Process? secondClientProcess;
 
         private Window? mainWindow;
+        private readonly bool shouldLaunchSecondClient;
         private INotificationRepository? notificationRepository;
         private INotificationService? notificationService;
         private IGameRepository? gameRepository;
@@ -62,13 +66,13 @@ namespace BoardRentAndProperty
         public App()
         {
             CurrentUserId = GetUserIdFromArgs();
+            shouldLaunchSecondClient = CurrentUserId == DevModePrimaryUserIdentifier && IsTwoWindowsEnabled();
 
             DatabaseInitializer.EnsureDatabaseInitialized();
 
-            if (CurrentUserId == DevModePrimaryUserIdentifier && IsTwoWindowsEnabled())
+            if (shouldLaunchSecondClient)
             {
                 StartNotificationServer();
-                LaunchSecondClient();
             }
 
             AppUserModelId = $"BoardRentAndProperty -- user-{CurrentUserId}";
@@ -448,6 +452,11 @@ namespace BoardRentAndProperty
             RootFrame!.Navigate(typeof(MenuBarPage), gameService);
 
             CreateTrayIcon();
+
+            if (shouldLaunchSecondClient)
+            {
+                LaunchSecondClient();
+            }
         }
 
         private void CreateAndShowMainWindow()
@@ -474,6 +483,8 @@ namespace BoardRentAndProperty
         {
             trayIcon = new TaskbarIcon
             {
+                Id = CreateTrayIconId(CurrentUserId),
+                CustomName = $"{TrayIconIdentityPrefix}.User{CurrentUserId}",
                 ToolTipText = AppUserModelId,
                 IconSource = new BitmapImage(new Uri(global::BoardRentAndProperty.Constants.App.AppTrayIconUri)),
             };
@@ -496,6 +507,13 @@ namespace BoardRentAndProperty
             {
                 rootGrid.Children.Add(trayIcon);
             }
+        }
+
+        private static Guid CreateTrayIconId(int userIdentifier)
+        {
+            byte[] seedBytes = Encoding.UTF8.GetBytes($"{TrayIconIdentityPrefix}.User{userIdentifier}");
+            byte[] hashBytes = MD5.HashData(seedBytes);
+            return new Guid(hashBytes);
         }
     }
 }
