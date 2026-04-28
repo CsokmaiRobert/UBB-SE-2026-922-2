@@ -13,6 +13,8 @@ namespace BoardRentAndProperty.Utilities
 
         string Role { get; }
 
+        int PamUserId { get; }
+
         bool IsLoggedIn { get; }
 
         void Populate(Account account, string roleName);
