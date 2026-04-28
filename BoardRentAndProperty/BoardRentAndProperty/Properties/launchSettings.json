@@ -1,0 +1,15 @@
+{
+    "profiles": {
+        "BoardRentAndProperty (Unpackaged)": {
+            "commandName": "Project"
+        },
+        "BoardRentAndProperty (Unpackaged) -- UserID: 1": {
+            "commandName": "Project",
+            "commandLineArgs": "1"
+        },
+        "BoardRentAndProperty (Unpackaged) -- UserID: 2": {
+            "commandName": "Project",
+            "commandLineArgs": "2"
+        }
+    }
+}
