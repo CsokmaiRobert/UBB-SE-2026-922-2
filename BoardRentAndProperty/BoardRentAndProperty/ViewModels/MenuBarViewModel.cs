@@ -1,59 +1,97 @@
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-
 namespace BoardRentAndProperty.ViewModels
 {
+    using System;
+    using System.Collections.Generic;
+    using System.ComponentModel;
+    using System.Runtime.CompilerServices;
+    using BoardRentAndProperty.Utilities;
+
     public class MenuBarViewModel : INotifyPropertyChanged
     {
-        public event Action<AppPage> RequestNavigation;
+        private const string AdministratorRoleName = "Administrator";
+        private const string DefaultSelectedMenuLabel = "My Games";
 
-        public Dictionary<string, Action> NavigationActionsByMenuLabel { get; }
+        private readonly ISessionContext sessionContext;
 
+        private Dictionary<string, Action> navigationActionsByMenuLabel;
         private string selectedMenuPageName;
 
-        public MenuBarViewModel()
+        public MenuBarViewModel(ISessionContext sessionContext)
         {
-            NavigationActionsByMenuLabel = new Dictionary<string, Action>
+            this.sessionContext = sessionContext;
+            this.navigationActionsByMenuLabel = this.BuildNavigationActions();
+        }
+
+        public event Action<AppPage> RequestNavigation;
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        public Dictionary<string, Action> NavigationActionsByMenuLabel
+        {
+            get => this.navigationActionsByMenuLabel;
+            private set
             {
-                { "My Games",           () => RequestNavigation?.Invoke(AppPage.Listings) },
-                { "Others' Requests",   () => RequestNavigation?.Invoke(AppPage.RequestsFromOthers) },
-                { "Others' Rentals",    () => RequestNavigation?.Invoke(AppPage.RentalsToOthers) },
-                { "My Requests",        () => RequestNavigation?.Invoke(AppPage.RequestsToOthers) },
-                { "My Rentals",         () => RequestNavigation?.Invoke(AppPage.RentalsFromOthers) },
-                { "Notifications",      () => RequestNavigation?.Invoke(AppPage.Notifications) },
-                { "BoardRent",          () => RequestNavigation?.Invoke(AppPage.BoardRent) }
-            };
+                this.navigationActionsByMenuLabel = value;
+                this.OnPropertyChanged();
+            }
         }
 
         public string SelectedPageName
         {
-            get => selectedMenuPageName;
+            get => this.selectedMenuPageName;
             set
             {
-                if (selectedMenuPageName != value)
+                if (this.selectedMenuPageName != value)
                 {
-                    selectedMenuPageName = value;
-                    OnPropertyChanged();
-                    HandleMenuNavigation(value);
+                    this.selectedMenuPageName = value;
+                    this.OnPropertyChanged();
+                    this.HandleMenuNavigation(value);
                 }
             }
         }
 
+        public void Rebuild()
+        {
+            this.NavigationActionsByMenuLabel = this.BuildNavigationActions();
+            this.selectedMenuPageName = DefaultSelectedMenuLabel;
+            this.OnPropertyChanged(nameof(this.SelectedPageName));
+        }
+
+        protected void OnPropertyChanged([CallerMemberName] string name = null)
+        {
+            this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+
+        private Dictionary<string, Action> BuildNavigationActions()
+        {
+            var actions = new Dictionary<string, Action>
+            {
+                { "My Games",         () => this.RequestNavigation?.Invoke(AppPage.Listings) },
+                { "My Requests",      () => this.RequestNavigation?.Invoke(AppPage.RequestsToOthers) },
+                { "My Rentals",       () => this.RequestNavigation?.Invoke(AppPage.RentalsFromOthers) },
+                { "Others' Requests", () => this.RequestNavigation?.Invoke(AppPage.RequestsFromOthers) },
+                { "Others' Rentals",  () => this.RequestNavigation?.Invoke(AppPage.RentalsToOthers) },
+                { "Notifications",    () => this.RequestNavigation?.Invoke(AppPage.Notifications) },
+                { "Profile",          () => this.RequestNavigation?.Invoke(AppPage.Profile) },
+            };
+
+            if (this.sessionContext.Role == AdministratorRoleName)
+            {
+                actions.Add("Admin", () => this.RequestNavigation?.Invoke(AppPage.Admin));
+            }
+
+            actions.Add("Logout", () => this.RequestNavigation?.Invoke(AppPage.Logout));
+
+            return actions;
+        }
+
         private void HandleMenuNavigation(string selectedMenuLabel)
         {
-            OnPropertyChanged();
-            if (!string.IsNullOrEmpty(selectedMenuLabel) && NavigationActionsByMenuLabel.TryGetValue(selectedMenuLabel, out var navigationAction))
+            if (!string.IsNullOrEmpty(selectedMenuLabel)
+                && this.navigationActionsByMenuLabel.TryGetValue(selectedMenuLabel, out var navigationAction))
             {
                 navigationAction.Invoke();
             }
-        }
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string? name = null)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
     }
 }
