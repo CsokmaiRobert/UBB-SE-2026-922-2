@@ -17,7 +17,7 @@ namespace BoardRentAndProperty.Views
 
             this.ViewModel.OnSignOutSuccess = () =>
             {
-                App.NavigateTo(typeof(LoginPage), true);
+                App.OnUserLoggedOut();
             };
 
             this.Loaded += async (object sender, RoutedEventArgs eventArgs) =>
