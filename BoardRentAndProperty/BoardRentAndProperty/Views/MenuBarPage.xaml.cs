@@ -1,26 +1,26 @@
-using System;
-using System.Collections.Generic;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Navigation;
-using BoardRentAndProperty.Services;
-using BoardRentAndProperty.ViewModels;
-
 namespace BoardRentAndProperty.Views
 {
+    using System;
+    using System.Collections.Generic;
+    using BoardRentAndProperty.Services;
+    using BoardRentAndProperty.ViewModels;
+    using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.UI.Xaml;
+    using Microsoft.UI.Xaml.Controls;
+    using Microsoft.UI.Xaml.Navigation;
+
     public sealed partial class MenuBarPage : Page
     {
-        public MenuBarViewModel ViewModel { get; }
-
-        private static readonly Dictionary<AppPage, Type> PageTypeMap = new()
+        private static readonly Dictionary<AppPage, Type> PageTypeMap = new ()
         {
             { AppPage.Listings,            typeof(ListingsPage) },
             { AppPage.RequestsFromOthers,  typeof(RequestsFromOthersPage) },
             { AppPage.RentalsFromOthers,   typeof(RentalsFromOthersPage) },
             { AppPage.RequestsToOthers,    typeof(RequestsToOthersPage) },
             { AppPage.RentalsToOthers,     typeof(RentalsToOthersPage) },
-            { AppPage.Notifications,       typeof(NotificationsPage) }
+            { AppPage.Notifications,       typeof(NotificationsPage) },
+            { AppPage.Profile,             typeof(ProfilePage) },
+            { AppPage.Admin,               typeof(AdminPage) },
         };
 
         private IGameService injectedGameService;
@@ -28,10 +28,19 @@ namespace BoardRentAndProperty.Views
         public MenuBarPage()
         {
             this.InitializeComponent();
-            ViewModel = App.Services.GetRequiredService<MenuBarViewModel>();
-            this.DataContext = ViewModel;
-            ViewModel.RequestNavigation += OnViewModelRequestedNavigation;
-            this.Unloaded += OnMenuBarPageUnloaded;
+            this.ViewModel = App.Services.GetRequiredService<MenuBarViewModel>();
+            this.DataContext = this.ViewModel;
+            this.ViewModel.RequestNavigation += this.OnViewModelRequestedNavigation;
+            this.Unloaded += this.OnMenuBarPageUnloaded;
+        }
+
+        public MenuBarViewModel ViewModel { get; }
+
+        public void NavigateToNotifications()
+        {
+            var resolvedNotificationsViewModel = App.Services.GetRequiredService<NotificationsViewModel>();
+            this.ContentFrame.Navigate(typeof(NotificationsPage), resolvedNotificationsViewModel);
+            this.ViewModel.SelectedPageName = "Notifications";
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs navigationEventArgs)
@@ -40,23 +49,20 @@ namespace BoardRentAndProperty.Views
 
             if (navigationEventArgs.Parameter is IGameService gameService)
             {
-                injectedGameService = gameService;
+                this.injectedGameService = gameService;
             }
 
-            // After returning from BoardRent area, reset to My Games to avoid the singleton VM
-            // showing "BoardRent" as selected with no content rendered.
-            if (ViewModel.SelectedPageName == "BoardRent" || string.IsNullOrEmpty(ViewModel.SelectedPageName))
+            if (this.ContentFrame.Content == null)
             {
-                ViewModel.SelectedPageName = "My Games";
-                ContentFrame.Navigate(typeof(ListingsPage), injectedGameService);
+                this.ContentFrame.Navigate(typeof(ListingsPage), this.injectedGameService);
             }
         }
 
         private void OnViewModelRequestedNavigation(AppPage page)
         {
-            if (page == AppPage.BoardRent)
+            if (page == AppPage.Logout)
             {
-                App.NavigateTo(typeof(LoginPage));
+                App.OnUserLoggedOut();
                 return;
             }
 
@@ -65,19 +71,12 @@ namespace BoardRentAndProperty.Views
                 return;
             }
 
-            ContentFrame.Navigate(pageType, injectedGameService);
+            this.ContentFrame.Navigate(pageType, this.injectedGameService);
         }
 
         private void OnMenuBarPageUnloaded(object pageSender, RoutedEventArgs unloadedEventArgs)
         {
-            ViewModel.RequestNavigation -= OnViewModelRequestedNavigation;
-        }
-
-        public void NavigateToNotifications()
-        {
-            var resolvedNotificationsViewModel = App.Services.GetRequiredService<NotificationsViewModel>();
-            ContentFrame.Navigate(typeof(NotificationsPage), resolvedNotificationsViewModel);
-            ViewModel.SelectedPageName = "Notifications";
+            this.ViewModel.RequestNavigation -= this.OnViewModelRequestedNavigation;
         }
     }
 }
