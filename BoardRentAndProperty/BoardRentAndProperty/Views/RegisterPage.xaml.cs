@@ -24,7 +24,7 @@ namespace BoardRentAndProperty.Views
         {
             this.ViewModel.OnRegistrationSuccess = () =>
             {
-                App.NavigateTo(typeof(ProfilePage), true);
+                App.OnUserLoggedIn();
             };
 
             this.ViewModel.OnNavigateBackRequest = () =>
