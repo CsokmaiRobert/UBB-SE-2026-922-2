@@ -33,6 +33,8 @@ namespace BoardRentAndProperty.Models
 
         public string StreetNumber { get; set; }
 
+        public int? PamUserId { get; set; }
+
         public List<Role> Roles { get; set; } = new List<Role>();
     }
 }

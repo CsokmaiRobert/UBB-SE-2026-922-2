@@ -23,5 +23,7 @@ namespace BoardRentAndProperty.Repositories
         Task UpdateAsync(Account account);
 
         Task AddRoleAsync(Guid accountId, string roleName);
+
+        Task SetPamUserIdAsync(Guid accountId, int pamUserId);
     }
 }

@@ -42,8 +42,7 @@ namespace BoardRentAndProperty.Views
 
         private void OnSignOutClicked(object sender, RoutedEventArgs eventArgs)
         {
-            this.sessionContext.Clear();
-            App.NavigateTo(typeof(LoginPage), true);
+            App.OnUserLoggedOut();
         }
 
         private async void OnResetPasswordClicked(object sender, RoutedEventArgs eventArgs)

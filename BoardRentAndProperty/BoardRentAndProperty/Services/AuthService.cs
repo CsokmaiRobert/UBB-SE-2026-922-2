@@ -1,9 +1,7 @@
 namespace BoardRentAndProperty.Services
 {
     using System;
-    using System.Collections.Generic;
     using System.Linq;
-    using System.Text.RegularExpressions;
     using System.Threading.Tasks;
     using BoardRentAndProperty.Data;
     using BoardRentAndProperty.DataTransferObjects;
@@ -13,25 +11,32 @@ namespace BoardRentAndProperty.Services
 
     public class AuthService : IAuthService
     {
+        private const string StandardUserRoleName = "Standard User";
+
         private readonly IAccountRepository accountRepository;
         private readonly IFailedLoginRepository failedLoginRepository;
         private readonly IUnitOfWorkFactory unitOfWorkFactory;
         private readonly ISessionContext sessionContext;
+        private readonly IUserRepository pamUserRepository;
 
         public AuthService(
             IAccountRepository accountRepository,
             IFailedLoginRepository failedLoginRepository,
             IUnitOfWorkFactory unitOfWorkFactory,
-            ISessionContext sessionContext)
+            ISessionContext sessionContext,
+            IUserRepository pamUserRepository)
         {
             this.accountRepository = accountRepository;
             this.failedLoginRepository = failedLoginRepository;
             this.unitOfWorkFactory = unitOfWorkFactory;
             this.sessionContext = sessionContext;
+            this.pamUserRepository = pamUserRepository;
         }
 
         public async Task<ServiceResult<bool>> RegisterAsync(RegisterDataTransferObject registrationRequest)
         {
+            Account newAccount;
+
             using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
             {
                 await unitOfWork.OpenAsync();
@@ -43,7 +48,7 @@ namespace BoardRentAndProperty.Services
                     return ServiceResult<bool>.Fail("Username|Username is already taken.");
                 }
 
-                Account newAccount = new Account
+                newAccount = new Account
                 {
                     Id = Guid.NewGuid(),
                     DisplayName = registrationRequest.DisplayName,
@@ -52,15 +57,27 @@ namespace BoardRentAndProperty.Services
                     PasswordHash = PasswordHasher.HashPassword(registrationRequest.Password),
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
-                    IsSuspended = false
+                    IsSuspended = false,
+                    PamUserId = null,
                 };
 
                 await this.accountRepository.AddAsync(newAccount);
-                await this.accountRepository.AddRoleAsync(newAccount.Id, "Standard User");
-
-                this.sessionContext.Populate(newAccount, "Standard User");
-                return ServiceResult<bool>.Ok(true);
+                await this.accountRepository.AddRoleAsync(newAccount.Id, StandardUserRoleName);
             }
+
+            int linkedPamUserId = this.CreatePamUserForDisplayName(registrationRequest.DisplayName);
+
+            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
+            {
+                await unitOfWork.OpenAsync();
+                this.accountRepository.SetUnitOfWork(unitOfWork);
+                await this.accountRepository.SetPamUserIdAsync(newAccount.Id, linkedPamUserId);
+            }
+
+            newAccount.PamUserId = linkedPamUserId;
+            this.sessionContext.Populate(newAccount, StandardUserRoleName);
+
+            return ServiceResult<bool>.Ok(true);
         }
 
         public async Task<ServiceResult<AccountProfileDataTransferObject>> LoginAsync(LoginDataTransferObject loginRequest)
@@ -95,7 +112,14 @@ namespace BoardRentAndProperty.Services
 
                 await this.failedLoginRepository.ResetAsync(accountEntity.Id);
 
-                string primaryRole = accountEntity.Roles?.FirstOrDefault()?.Name ?? "Standard User";
+                if (accountEntity.PamUserId == null)
+                {
+                    int lazilyCreatedPamUserId = this.CreatePamUserForDisplayName(accountEntity.DisplayName);
+                    await this.accountRepository.SetPamUserIdAsync(accountEntity.Id, lazilyCreatedPamUserId);
+                    accountEntity.PamUserId = lazilyCreatedPamUserId;
+                }
+
+                string primaryRole = accountEntity.Roles?.FirstOrDefault()?.Name ?? StandardUserRoleName;
                 this.sessionContext.Populate(accountEntity, primaryRole);
 
                 AccountProfileDataTransferObject profileDto = new AccountProfileDataTransferObject
@@ -104,22 +128,33 @@ namespace BoardRentAndProperty.Services
                     Username = accountEntity.Username,
                     DisplayName = accountEntity.DisplayName,
                     Email = accountEntity.Email,
-                    Role = new RoleDataTransferObject { Name = primaryRole }
+                    Role = new RoleDataTransferObject { Name = primaryRole },
                 };
 
                 return ServiceResult<AccountProfileDataTransferObject>.Ok(profileDto);
             }
         }
 
-        public async Task<ServiceResult<bool>> LogoutAsync()
+        public Task<ServiceResult<bool>> LogoutAsync()
         {
             this.sessionContext.Clear();
-            return ServiceResult<bool>.Ok(true);
+            return Task.FromResult(ServiceResult<bool>.Ok(true));
         }
 
-        public async Task<ServiceResult<string>> ForgotPasswordAsync()
+        public Task<ServiceResult<string>> ForgotPasswordAsync()
         {
-            return ServiceResult<string>.Ok("Please contact the Administrator at admin@boardrent.com.");
+            return Task.FromResult(ServiceResult<string>.Ok("Please contact the Administrator at admin@boardrent.com."));
+        }
+
+        private int CreatePamUserForDisplayName(string displayName)
+        {
+            User pamUserToInsert = new User
+            {
+                DisplayName = displayName,
+            };
+
+            this.pamUserRepository.Add(pamUserToInsert);
+            return pamUserToInsert.Id;
         }
     }
 }

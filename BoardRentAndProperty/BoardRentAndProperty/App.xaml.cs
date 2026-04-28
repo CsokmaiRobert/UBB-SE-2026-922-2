@@ -28,13 +28,13 @@ namespace BoardRentAndProperty
 {
     public partial class App : Application
     {
-        private const int DefaultUserId = 1;
-        private const int UserIdentifierArgumentIndex = 1;
+        private const int DefaultProcessSlot = 1;
+        private const int ProcessSlotArgumentIndex = 1;
         private const int KeyPartIndex = 0;
         private const int ValuePartIndex = 1;
         private const int SplitKeyValuePartsCount = 2;
-        private const int DevModePrimaryUserIdentifier = 1;
-        private const int DevModeSecondaryUserIdentifier = 2;
+        private const int DevModePrimaryProcessSlot = 1;
+        private const int DevModeSecondaryProcessSlot = 2;
         private const int NoRunningProcessCount = 0;
         private const int SuccessExitCode = 0;
 
@@ -48,7 +48,7 @@ namespace BoardRentAndProperty
         public Frame? RootFrame { get; set; }
 
         public string AppUserModelId { get; }
-        public int CurrentUserId { get; }
+        public int CurrentProcessSlot { get; }
         public NotificationsViewModel? NotificationsViewModel { get; private set; }
 
         private TaskbarIcon? trayIcon;
@@ -65,8 +65,8 @@ namespace BoardRentAndProperty
 
         public App()
         {
-            CurrentUserId = GetUserIdFromArgs();
-            shouldLaunchSecondClient = CurrentUserId == DevModePrimaryUserIdentifier && IsTwoWindowsEnabled();
+            CurrentProcessSlot = GetProcessSlotFromArgs();
+            shouldLaunchSecondClient = CurrentProcessSlot == DevModePrimaryProcessSlot && IsTwoWindowsEnabled();
 
             DatabaseInitializer.EnsureDatabaseInitialized();
 
@@ -75,7 +75,7 @@ namespace BoardRentAndProperty
                 StartNotificationServer();
             }
 
-            AppUserModelId = $"BoardRentAndProperty -- user-{CurrentUserId}";
+            AppUserModelId = $"BoardRentAndProperty -- slot-{CurrentProcessSlot}";
 
             notificationManager = new NotificationManager();
             SetupNotificationManager();
@@ -86,7 +86,7 @@ namespace BoardRentAndProperty
             // BoardRent DB init runs after DI is built (AppDbContext is resolved from the container).
             Services.GetRequiredService<AppDbContext>().EnsureCreated();
 
-            InitializeServices(CurrentUserId);
+            InitializeServices();
 
             InitializeComponent();
         }
@@ -103,7 +103,7 @@ namespace BoardRentAndProperty
             serviceCollection.AddSingleton<IMapper<Request, RequestDTO>, RequestMapper>();
 
             // PaM cross-cutting
-            serviceCollection.AddSingleton<ICurrentUserContext>(new CurrentUserContext(CurrentUserId));
+            serviceCollection.AddSingleton<ICurrentUserContext, CurrentUserContext>();
             serviceCollection.AddSingleton<IToastNotificationService, ToastNotificationService>();
             serviceCollection.AddSingleton<IServerClient, NotificationClient>();
 
@@ -198,16 +198,16 @@ namespace BoardRentAndProperty
             }
         }
 
-        private int GetUserIdFromArgs()
+        private int GetProcessSlotFromArgs()
         {
             var commandLineArgs = Environment.GetCommandLineArgs();
-            if (commandLineArgs.Length > UserIdentifierArgumentIndex
-                && int.TryParse(commandLineArgs[UserIdentifierArgumentIndex], out var parsedUserIdentifier))
+            if (commandLineArgs.Length > ProcessSlotArgumentIndex
+                && int.TryParse(commandLineArgs[ProcessSlotArgumentIndex], out var parsedProcessSlot))
             {
-                return parsedUserIdentifier;
+                return parsedProcessSlot;
             }
 
-            return DefaultUserId;
+            return DefaultProcessSlot;
         }
 
         #region Two-window dev mode
@@ -327,7 +327,7 @@ namespace BoardRentAndProperty
                 secondClientProcess = Process.Start(new ProcessStartInfo
                 {
                     FileName = currentExe,
-                    Arguments = DevModeSecondaryUserIdentifier.ToString(),
+                    Arguments = DevModeSecondaryProcessSlot.ToString(),
                     UseShellExecute = true,
                     WorkingDirectory = Path.GetDirectoryName(currentExe),
                 });
@@ -424,7 +424,7 @@ namespace BoardRentAndProperty
             appInstance.Activated += (sender, args) => ActivateWindow();
         }
 
-        private void InitializeServices(int startupUserId)
+        private void InitializeServices()
         {
             RootFrame = new Frame();
 
@@ -437,8 +437,9 @@ namespace BoardRentAndProperty
             _ = notificationRepository;
             _ = gameRepository;
 
+            // Listen continuously from app start; subscribing to a specific user is
+            // deferred to OnUserLoggedIn so the server gets the right PamUserId.
             notificationService.StartListening();
-            notificationService.SubscribeToServer(startupUserId);
         }
 
         protected override void OnLaunched(LaunchActivatedEventArgs args)
@@ -449,7 +450,7 @@ namespace BoardRentAndProperty
             rootGrid.Children.Add(RootFrame);
             MainWindow!.Content = rootGrid;
 
-            RootFrame!.Navigate(typeof(MenuBarPage), gameService);
+            RootFrame!.Navigate(typeof(LoginPage));
 
             CreateTrayIcon();
 
@@ -457,6 +458,49 @@ namespace BoardRentAndProperty
             {
                 LaunchSecondClient();
             }
+        }
+
+        public static void OnUserLoggedIn()
+        {
+            if (Application.Current is not App appInstance)
+            {
+                return;
+            }
+
+            if (appInstance.RootFrame == null)
+            {
+                return;
+            }
+
+            var resolvedSessionContext = Services.GetRequiredService<ISessionContext>();
+            var resolvedNotificationService = Services.GetRequiredService<INotificationService>();
+            var resolvedMenuBarViewModel = Services.GetRequiredService<MenuBarViewModel>();
+            var resolvedNotificationsViewModel = Services.GetRequiredService<NotificationsViewModel>();
+            var resolvedGameService = Services.GetRequiredService<IGameService>();
+
+            resolvedNotificationService.SubscribeToServer(resolvedSessionContext.PamUserId);
+            resolvedMenuBarViewModel.Rebuild();
+            resolvedNotificationsViewModel.LoadNotificationsForUser(resolvedSessionContext.PamUserId);
+
+            NavigateTo(typeof(MenuBarPage), resolvedGameService, clearBackStack: true);
+        }
+
+        public static void OnUserLoggedOut()
+        {
+            if (Application.Current is not App appInstance)
+            {
+                return;
+            }
+
+            if (appInstance.RootFrame == null)
+            {
+                return;
+            }
+
+            var resolvedSessionContext = Services.GetRequiredService<ISessionContext>();
+            resolvedSessionContext.Clear();
+
+            NavigateTo(typeof(LoginPage), parameter: null, clearBackStack: true);
         }
 
         private void CreateAndShowMainWindow()
@@ -483,8 +527,8 @@ namespace BoardRentAndProperty
         {
             trayIcon = new TaskbarIcon
             {
-                Id = CreateTrayIconId(CurrentUserId),
-                CustomName = $"{TrayIconIdentityPrefix}.User{CurrentUserId}",
+                Id = CreateTrayIconId(CurrentProcessSlot),
+                CustomName = $"{TrayIconIdentityPrefix}.Slot{CurrentProcessSlot}",
                 ToolTipText = AppUserModelId,
                 IconSource = new BitmapImage(new Uri(global::BoardRentAndProperty.Constants.App.AppTrayIconUri)),
             };
@@ -509,9 +553,9 @@ namespace BoardRentAndProperty
             }
         }
 
-        private static Guid CreateTrayIconId(int userIdentifier)
+        private static Guid CreateTrayIconId(int processSlot)
         {
-            byte[] seedBytes = Encoding.UTF8.GetBytes($"{TrayIconIdentityPrefix}.User{userIdentifier}");
+            byte[] seedBytes = Encoding.UTF8.GetBytes($"{TrayIconIdentityPrefix}.Slot{processSlot}");
             byte[] hashBytes = MD5.HashData(seedBytes);
             return new Guid(hashBytes);
         }
