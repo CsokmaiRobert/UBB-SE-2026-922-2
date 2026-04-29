@@ -32,6 +32,10 @@ namespace BoardRentAndProperty.Services
         private readonly Dictionary<int, ScheduledReminder> scheduledRemindersByRentalId = new();
         private readonly object scheduledRemindersLock = new();
 
+        public event EventHandler<NotificationConnectionStatusChangedEventArgs>? ConnectionStatusChanged;
+
+        public NotificationConnectionStatus ConnectionStatus => serverNotificationClient.ConnectionStatus;
+
         public NotificationService(
             INotificationRepository notificationRepository,
             IMapper<Notification, NotificationDTO> notificationMapper,
@@ -45,6 +49,7 @@ namespace BoardRentAndProperty.Services
             this.currentUserContext = currentUserContext;
             this.toastAlertService = toastNotificationService;
             serverNotificationClient.Subscribe(this);
+            serverNotificationClient.ConnectionStatusChanged += OnServerConnectionStatusChanged;
         }
 
         public NotificationDTO DeleteNotificationByIdentifier(int notificationId) =>
@@ -130,11 +135,6 @@ namespace BoardRentAndProperty.Services
             }
         }
 
-        public void DeleteNotificationsLinkedToRequest(int linkedRequestId)
-        {
-            notificationDataRepository.DeleteNotificationsLinkedToRequest(linkedRequestId);
-        }
-
         public void UpdateNotificationByIdentifier(int notificationId, NotificationDTO updatedNotificationData)
         {
             notificationDataRepository.Update(notificationId, notificationDtoMapper.ToModel(updatedNotificationData));
@@ -142,23 +142,28 @@ namespace BoardRentAndProperty.Services
 
         public void StartListening()
         {
-            if (serverListeningTask is { IsCompleted: false })
+            if (isDisposed)
             {
                 return;
             }
 
-            serverListeningTask = Task.Run(async () =>
+            if (serverListeningTask is { IsCompleted: false }
+                && serverNotificationClient.ConnectionStatus == NotificationConnectionStatus.Connected)
             {
-                try
+                return;
+            }
+
+            serverListeningTask = serverNotificationClient.ListenAsync();
+            _ = serverListeningTask.ContinueWith(
+                completedTask =>
                 {
-                    await serverNotificationClient.ListenAsync();
-                }
-                catch (Exception listenException)
-                {
-                    System.Diagnostics.Debug.WriteLine(
-                        $"NotificationService: listen loop terminated - {listenException}");
-                }
-            });
+                    if (completedTask.Exception != null)
+                    {
+                        System.Diagnostics.Debug.WriteLine(
+                            $"NotificationService: listen loop terminated - {completedTask.Exception}");
+                    }
+                },
+                TaskScheduler.Default);
         }
 
         public void StopListening() => serverNotificationClient.StopListening();
@@ -235,6 +240,11 @@ namespace BoardRentAndProperty.Services
 
         public void SubscribeToServer(int userId) => serverNotificationClient.SubscribeToServer(userId);
 
+        private void OnServerConnectionStatusChanged(object? sender, NotificationConnectionStatusChangedEventArgs eventArgs)
+        {
+            ConnectionStatusChanged?.Invoke(this, eventArgs);
+        }
+
         public void Dispose()
         {
             if (isDisposed)
@@ -245,6 +255,7 @@ namespace BoardRentAndProperty.Services
             isDisposed = true;
 
             CancelAllScheduledReminders();
+            serverNotificationClient.ConnectionStatusChanged -= OnServerConnectionStatusChanged;
             StopListening();
             (serverNotificationClient as IDisposable)?.Dispose();
         }

@@ -21,8 +21,36 @@ namespace BoardRentAndProperty.ViewModels
         private readonly IDisposable notificationSubscription;
 
         private readonly DispatcherQueue? uiDispatcherQueue;
+        private bool hasConnectionWarning;
+        private string connectionWarningMessage = string.Empty;
 
         public int CurrentUserId { get; private set; }
+
+        public bool HasConnectionWarning
+        {
+            get => hasConnectionWarning;
+            private set
+            {
+                if (hasConnectionWarning != value)
+                {
+                    hasConnectionWarning = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public string ConnectionWarningMessage
+        {
+            get => connectionWarningMessage;
+            private set
+            {
+                if (connectionWarningMessage != value)
+                {
+                    connectionWarningMessage = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
 
         public NotificationsViewModel(
             INotificationService notificationLookupService,
@@ -43,6 +71,8 @@ namespace BoardRentAndProperty.ViewModels
             LoadCurrentUserNotifications();
 
             notificationSubscription = notificationLookupService.Subscribe(this);
+            notificationLookupService.ConnectionStatusChanged += OnConnectionStatusChanged;
+            ApplyConnectionStatus(notificationLookupService.ConnectionStatus);
         }
 
         public void LoadCurrentUserNotifications()
@@ -119,6 +149,40 @@ namespace BoardRentAndProperty.ViewModels
             LoadNotificationsForUser(resolvedCurrentUserId);
         }
 
-        public void Dispose() => notificationSubscription?.Dispose();
+        private void OnConnectionStatusChanged(object? sender, NotificationConnectionStatusChangedEventArgs eventArgs)
+        {
+            if (uiDispatcherQueue != null && !uiDispatcherQueue.HasThreadAccess)
+            {
+                uiDispatcherQueue.TryEnqueue(() => ApplyConnectionStatus(eventArgs.ConnectionStatus));
+                return;
+            }
+
+            ApplyConnectionStatus(eventArgs.ConnectionStatus);
+        }
+
+        private void ApplyConnectionStatus(NotificationConnectionStatus connectionStatus)
+        {
+            switch (connectionStatus)
+            {
+                case NotificationConnectionStatus.Reconnecting:
+                    ConnectionWarningMessage = "Notifications are reconnecting.";
+                    HasConnectionWarning = true;
+                    break;
+                case NotificationConnectionStatus.Offline:
+                    ConnectionWarningMessage = "Notifications are offline. New alerts will appear after reconnecting.";
+                    HasConnectionWarning = true;
+                    break;
+                default:
+                    ConnectionWarningMessage = string.Empty;
+                    HasConnectionWarning = false;
+                    break;
+            }
+        }
+
+        public void Dispose()
+        {
+            notificationLookupService.ConnectionStatusChanged -= OnConnectionStatusChanged;
+            notificationSubscription?.Dispose();
+        }
     }
 }

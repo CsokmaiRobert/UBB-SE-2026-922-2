@@ -160,18 +160,5 @@ namespace BoardRentAndProperty.Repositories
             return userNotifications.ToImmutableList();
         }
 
-        public void DeleteNotificationsLinkedToRequest(int linkedRequestId)
-        {
-            using (var connection = new SqlConnection(boardRentConnectionString))
-            {
-                connection.Open();
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText = "DELETE FROM Notifications WHERE related_request_id = @request_id";
-                    command.Parameters.AddWithValue("@request_id", linkedRequestId);
-                    command.ExecuteNonQuery();
-                }
-            }
-        }
     }
 }
