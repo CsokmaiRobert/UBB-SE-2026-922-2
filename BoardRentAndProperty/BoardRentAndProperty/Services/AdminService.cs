@@ -16,17 +16,20 @@ namespace BoardRentAndProperty.Services
         private readonly IFailedLoginRepository failedLoginRepository;
         private readonly IUnitOfWorkFactory unitOfWorkFactory;
         private readonly ISessionContext sessionContext;
+        private readonly INotificationService notificationService;
 
         public AdminService(
             IAccountRepository accountRepository,
             IFailedLoginRepository failedLoginRepository,
             IUnitOfWorkFactory unitOfWorkFactory,
-            ISessionContext sessionContext)
+            ISessionContext sessionContext,
+            INotificationService notificationService)
         {
             this.accountRepository = accountRepository;
             this.failedLoginRepository = failedLoginRepository;
             this.unitOfWorkFactory = unitOfWorkFactory;
             this.sessionContext = sessionContext;
+            this.notificationService = notificationService;
         }
 
         private bool IsAuthorized()
@@ -47,10 +50,9 @@ namespace BoardRentAndProperty.Services
                 this.accountRepository.SetUnitOfWork(unitOfWork);
                 this.failedLoginRepository.SetUnitOfWork(unitOfWork);
 
-                List<Account> accountEntities = await this.accountRepository.GetAllAsync(pageNumber, pageSize);
+                List<Account> accountEntities = await this.accountRepository.GetAllAsync(1, int.MaxValue);
 
                 List<AccountProfileDataTransferObject> accountProfileDtos = new List<AccountProfileDataTransferObject>();
-
                 foreach (Account accountEntity in accountEntities)
                 {
                     Role firstRole = accountEntity.Roles?.FirstOrDefault();
@@ -107,6 +109,8 @@ namespace BoardRentAndProperty.Services
                 accountEntity.IsSuspended = true;
                 await this.accountRepository.UpdateAsync(accountEntity);
 
+                this.NotifyUser(accountEntity, "Your account has been suspended by an administrator.");
+
                 return ServiceResult<bool>.Ok(true);
             }
         }
@@ -132,6 +136,8 @@ namespace BoardRentAndProperty.Services
                 accountEntity.IsSuspended = false;
                 await this.accountRepository.UpdateAsync(accountEntity);
 
+                this.NotifyUser(accountEntity, "Your account has been unsuspended by an administrator.");
+
                 return ServiceResult<bool>.Ok(true);
             }
         }
@@ -143,10 +149,10 @@ namespace BoardRentAndProperty.Services
                 return ServiceResult<bool>.Fail("Unauthorized access.");
             }
 
-            const int MinimumPasswordLength = 6;
-            if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < MinimumPasswordLength)
+            var validationResult = PasswordValidator.Validate(newPassword);
+            if (!validationResult.IsValid)
             {
-                return ServiceResult<bool>.Fail("Password must be at least 6 characters long.");
+                return ServiceResult<bool>.Fail(validationResult.Error);
             }
 
             using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
@@ -163,6 +169,8 @@ namespace BoardRentAndProperty.Services
                 accountEntity.PasswordHash = PasswordHasher.HashPassword(newPassword);
                 await this.accountRepository.UpdateAsync(accountEntity);
 
+                this.NotifyUser(accountEntity, "Your password has been reset by an administrator.");
+
                 return ServiceResult<bool>.Ok(true);
             }
         }
@@ -177,11 +185,36 @@ namespace BoardRentAndProperty.Services
             using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
             {
                 await unitOfWork.OpenAsync();
+                this.accountRepository.SetUnitOfWork(unitOfWork);
                 this.failedLoginRepository.SetUnitOfWork(unitOfWork);
+
+                Account accountEntity = await this.accountRepository.GetByIdAsync(accountId);
+                if (accountEntity == null)
+                {
+                    return ServiceResult<bool>.Fail("Account not found.");
+                }
 
                 await this.failedLoginRepository.ResetAsync(accountId);
 
+                this.NotifyUser(accountEntity, "Your account has been unlocked by an administrator.");
+
                 return ServiceResult<bool>.Ok(true);
+            }
+        }
+
+        private void NotifyUser(Account account, string message)
+        {
+            if (account.PamUserId.HasValue)
+            {
+                var notification = new NotificationDTO
+                {
+                    Title = "System Notification",
+                    Body = message,
+                    Timestamp = DateTime.UtcNow,
+                    Type = NotificationType.Informational
+                };
+
+                this.notificationService.SendNotificationToUser(account.PamUserId.Value, notification);
             }
         }
     }
