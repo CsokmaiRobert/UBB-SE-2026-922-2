@@ -499,6 +499,7 @@ namespace BoardRentAndProperty
 
             var resolvedSessionContext = Services.GetRequiredService<ISessionContext>();
             resolvedSessionContext.Clear();
+            Services.GetRequiredService<NotificationsViewModel>().LoadNotificationsForUser(0);
 
             NavigateTo(typeof(LoginPage), parameter: null, clearBackStack: true);
         }

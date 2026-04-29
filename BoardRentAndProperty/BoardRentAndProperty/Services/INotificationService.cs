@@ -22,7 +22,9 @@ namespace BoardRentAndProperty.Services
 
         void StopListening();
 
-        void ScheduleUpcomingRentalReminder(int renterUserId, int ownerUserId, string gameName, DateTime rentalStartDate);
+        void ScheduleUpcomingRentalReminder(int rentalId, int renterUserId, int ownerUserId, string gameName, DateTime rentalStartDate);
+
+        void CancelUpcomingRentalReminder(int rentalId);
 
         void DeleteNotificationsLinkedToRequest(int relatedRequestId);
     }

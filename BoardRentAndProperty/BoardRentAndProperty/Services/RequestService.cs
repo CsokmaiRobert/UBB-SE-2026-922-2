@@ -400,6 +400,7 @@ namespace BoardRentAndProperty.Services
                 $"Your request for {approvedGameName} {FormatRequestPeriod(openRequestToApprove.StartDate, openRequestToApprove.EndDate)} was approved.");
 
             requestNotificationService.ScheduleUpcomingRentalReminder(
+                createdRentalId,
                 openRequestToApprove.Renter?.Id ?? MissingUserId,
                 openRequestToApprove.Owner?.Id ?? MissingUserId,
                 openRequestToApprove.Game?.Name ?? "your game",

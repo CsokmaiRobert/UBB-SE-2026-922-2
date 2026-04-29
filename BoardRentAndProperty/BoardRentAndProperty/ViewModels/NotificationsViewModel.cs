@@ -15,9 +15,9 @@ namespace BoardRentAndProperty.ViewModels
                                            IDisposable
     {
         private const int InvalidOrUnknownUserId = 0;
-        private const int FallbackDefaultUserId = 1;
 
         private readonly INotificationService notificationLookupService;
+        private readonly ICurrentUserContext currentUserContext;
         private readonly IDisposable notificationSubscription;
 
         private readonly DispatcherQueue? uiDispatcherQueue;
@@ -29,6 +29,7 @@ namespace BoardRentAndProperty.ViewModels
             ICurrentUserContext currentUserContext)
         {
             this.notificationLookupService = notificationLookupService;
+            this.currentUserContext = currentUserContext;
 
             try
             {
@@ -39,9 +40,14 @@ namespace BoardRentAndProperty.ViewModels
                 uiDispatcherQueue = null;
             }
 
-            LoadNotificationsForUser(currentUserContext.CurrentUserId);
+            LoadCurrentUserNotifications();
 
             notificationSubscription = notificationLookupService.Subscribe(this);
+        }
+
+        public void LoadCurrentUserNotifications()
+        {
+            LoadNotificationsForUser(currentUserContext.CurrentUserId);
         }
 
         public void LoadNotificationsForUser(int targetUserId)
@@ -52,9 +58,16 @@ namespace BoardRentAndProperty.ViewModels
 
         protected override void Reload()
         {
+            if (CurrentUserId == InvalidOrUnknownUserId)
+            {
+                SetAllItems(ImmutableList<NotificationDTO>.Empty);
+                return;
+            }
+
             var userNotificationsSortedByNewest = notificationLookupService
                 .GetNotificationsForUser(CurrentUserId)
-                .OrderByDescending(notification => notification.Id)
+                .OrderByDescending(notification => notification.Timestamp)
+                .ThenByDescending(notification => notification.Id)
                 .ToImmutableList();
 
             SetAllItems(userNotificationsSortedByNewest);
@@ -84,17 +97,26 @@ namespace BoardRentAndProperty.ViewModels
 
         public void OnNext(NotificationDTO incomingNotification)
         {
-            var resolvedUserIdForReload = CurrentUserId == InvalidOrUnknownUserId
-                ? FallbackDefaultUserId
-                : CurrentUserId;
-
-            if (uiDispatcherQueue != null && !uiDispatcherQueue.HasThreadAccess)
+            var resolvedCurrentUserId = currentUserContext.CurrentUserId;
+            if (resolvedCurrentUserId == InvalidOrUnknownUserId)
             {
-                uiDispatcherQueue.TryEnqueue(() => LoadNotificationsForUser(resolvedUserIdForReload));
+                LoadNotificationsForUser(InvalidOrUnknownUserId);
                 return;
             }
 
-            LoadNotificationsForUser(resolvedUserIdForReload);
+            if (incomingNotification?.User?.Id != InvalidOrUnknownUserId
+                && incomingNotification?.User?.Id != resolvedCurrentUserId)
+            {
+                return;
+            }
+
+            if (uiDispatcherQueue != null && !uiDispatcherQueue.HasThreadAccess)
+            {
+                uiDispatcherQueue.TryEnqueue(() => LoadNotificationsForUser(resolvedCurrentUserId));
+                return;
+            }
+
+            LoadNotificationsForUser(resolvedCurrentUserId);
         }
 
         public void Dispose() => notificationSubscription?.Dispose();
