@@ -35,51 +35,66 @@ namespace BoardRentAndProperty.Services
 
         public async Task<ServiceResult<bool>> RegisterAsync(RegisterDataTransferObject registrationRequest)
         {
-            Account newAccount;
-
-            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
+            if (string.IsNullOrWhiteSpace(registrationRequest.Username) ||
+                string.IsNullOrWhiteSpace(registrationRequest.Email) ||
+                string.IsNullOrWhiteSpace(registrationRequest.DisplayName) ||
+                string.IsNullOrWhiteSpace(registrationRequest.Password))
             {
-                await unitOfWork.OpenAsync();
-                this.accountRepository.SetUnitOfWork(unitOfWork);
+                return ServiceResult<bool>.Fail("Form|All fields are required.");
+            }
 
-                Account existingAccountByUsername = await this.accountRepository.GetByUsernameAsync(registrationRequest.Username);
-                if (existingAccountByUsername != null)
+            if (registrationRequest.Password != registrationRequest.ConfirmPassword)
+            {
+                return ServiceResult<bool>.Fail("Password|Passwords do not match.");
+            }
+
+            try
+            {
+                int linkedPamUserId = this.CreatePamUserForDisplayName(registrationRequest.DisplayName);
+
+                Account newAccount;
+
+                using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
                 {
-                    return ServiceResult<bool>.Fail("Username|Username is already taken.");
+                    await unitOfWork.OpenAsync();
+                    this.accountRepository.SetUnitOfWork(unitOfWork);
+
+                    if (await this.accountRepository.GetByUsernameAsync(registrationRequest.Username) != null)
+                    {
+                        return ServiceResult<bool>.Fail("Username|Username is already taken.");
+                    }
+
+                    if (await this.accountRepository.GetByEmailAsync(registrationRequest.Email) != null)
+                    {
+                        return ServiceResult<bool>.Fail("Email|Email is already registered.");
+                    }
+
+                    newAccount = new Account
+                    {
+                        Id = Guid.NewGuid(),
+                        DisplayName = registrationRequest.DisplayName,
+                        Username = registrationRequest.Username,
+                        Email = registrationRequest.Email,
+                        PasswordHash = PasswordHasher.HashPassword(registrationRequest.Password),
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                        IsSuspended = false,
+                        PamUserId = linkedPamUserId
+                    };
+
+                    await this.accountRepository.AddAsync(newAccount);
+                    await this.accountRepository.AddRoleAsync(newAccount.Id, StandardUserRoleName);
                 }
 
-                newAccount = new Account
-                {
-                    Id = Guid.NewGuid(),
-                    DisplayName = registrationRequest.DisplayName,
-                    Username = registrationRequest.Username,
-                    Email = registrationRequest.Email,
-                    PasswordHash = PasswordHasher.HashPassword(registrationRequest.Password),
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
-                    IsSuspended = false,
-                    PamUserId = null,
-                };
+                this.sessionContext.Populate(newAccount, StandardUserRoleName);
 
-                await this.accountRepository.AddAsync(newAccount);
-                await this.accountRepository.AddRoleAsync(newAccount.Id, StandardUserRoleName);
+                return ServiceResult<bool>.Ok(true);
             }
-
-            int linkedPamUserId = this.CreatePamUserForDisplayName(registrationRequest.DisplayName);
-
-            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
+            catch (Exception ex)
             {
-                await unitOfWork.OpenAsync();
-                this.accountRepository.SetUnitOfWork(unitOfWork);
-                await this.accountRepository.SetPamUserIdAsync(newAccount.Id, linkedPamUserId);
+                return ServiceResult<bool>.Fail($"Database Error|{ex.Message}");
             }
-
-            newAccount.PamUserId = linkedPamUserId;
-            this.sessionContext.Populate(newAccount, StandardUserRoleName);
-
-            return ServiceResult<bool>.Ok(true);
         }
-
         public async Task<ServiceResult<AccountProfileDataTransferObject>> LoginAsync(LoginDataTransferObject loginRequest)
         {
             using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
@@ -128,6 +143,14 @@ namespace BoardRentAndProperty.Services
                     Username = accountEntity.Username,
                     DisplayName = accountEntity.DisplayName,
                     Email = accountEntity.Email,
+
+                    PhoneNumber = accountEntity.PhoneNumber,
+                    Country = accountEntity.Country,
+                    City = accountEntity.City,
+                    StreetName = accountEntity.StreetName,
+                    StreetNumber = accountEntity.StreetNumber,
+                    AvatarUrl = accountEntity.AvatarUrl,
+
                     Role = new RoleDataTransferObject { Name = primaryRole },
                 };
 

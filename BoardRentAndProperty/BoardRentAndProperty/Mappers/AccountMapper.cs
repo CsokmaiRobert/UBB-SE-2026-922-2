@@ -1,10 +1,12 @@
 namespace BoardRentAndProperty.Mappers
 {
+    using System;
     using System.Collections.Generic;
     using BoardRentAndProperty.Models;
+    using BoardRentAndProperty.DataTransferObjects;
     using Microsoft.Data.SqlClient;
 
-    public class AccountMapper
+    public class AccountMapper : IMapper<Account, RegisterDataTransferObject>
     {
         public Account FromReader(SqlDataReader dataReader)
         {
@@ -25,7 +27,40 @@ namespace BoardRentAndProperty.Mappers
                 Country = dataReader.IsDBNull(dataReader.GetOrdinal("Country")) ? null : dataReader.GetString(dataReader.GetOrdinal("Country")),
                 City = dataReader.IsDBNull(dataReader.GetOrdinal("City")) ? null : dataReader.GetString(dataReader.GetOrdinal("City")),
                 PamUserId = dataReader.IsDBNull(dataReader.GetOrdinal("PamUserId")) ? (int?)null : dataReader.GetInt32(dataReader.GetOrdinal("PamUserId")),
-                Roles = new List<Role>(),
+                Roles = new List<Role>()
+            };
+        }
+
+        public Account ToModel(RegisterDataTransferObject sourceDataTransferObject)
+        {
+            return new Account
+            {
+                Id = Guid.NewGuid(),
+                Username = sourceDataTransferObject.Username,
+                Email = sourceDataTransferObject.Email,
+                DisplayName = sourceDataTransferObject.DisplayName,
+                PasswordHash = sourceDataTransferObject.Password,
+
+                PhoneNumber = sourceDataTransferObject.PhoneNumber,
+                StreetName = sourceDataTransferObject.StreetName,
+                StreetNumber = sourceDataTransferObject.StreetNumber,
+                City = sourceDataTransferObject.City,
+                Country = sourceDataTransferObject.Country,
+
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                IsSuspended = false,
+                Roles = new List<Role>()
+            };
+        }
+
+        public RegisterDataTransferObject ToDTO(Account sourceModel)
+        {
+            return new RegisterDataTransferObject
+            {
+                Username = sourceModel.Username,
+                Email = sourceModel.Email,
+                DisplayName = sourceModel.DisplayName
             };
         }
     }

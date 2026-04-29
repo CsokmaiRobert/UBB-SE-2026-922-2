@@ -29,6 +29,20 @@ namespace BoardRentAndProperty.ViewModels
         private string newPassword = string.Empty;
         private string confirmPassword = string.Empty;
         private string confirmPasswordError = string.Empty;
+        private bool isAdmin;
+
+        private string emailError = string.Empty;
+        private string displayNameError = string.Empty;
+        private string phoneError = string.Empty;
+        private string streetNumberError = string.Empty;
+
+        public string EmailError { get => this.emailError; set => this.SetProperty(ref this.emailError, value); }
+        public string DisplayNameError { get => this.displayNameError; set => this.SetProperty(ref this.displayNameError, value); }
+        public string PhoneError { get => this.phoneError; set => this.SetProperty(ref this.phoneError, value); }
+        public string StreetNumberError { get => this.streetNumberError; set => this.SetProperty(ref this.streetNumberError, value); }
+
+        public Microsoft.UI.Xaml.Visibility AdminButtonVisibility =>
+        this.isAdmin ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 
         public ProfileViewModel(
             IAccountService accountService,
@@ -41,6 +55,10 @@ namespace BoardRentAndProperty.ViewModels
             this.filePickerService = filePickerService;
             this.sessionContext = sessionContext;
 
+            this.AvailableCountries.Add("Romania");
+            this.AvailableCountries.Add("Germany");
+            this.AvailableCountries.Add("France");
+
             this.SaveProfileCommand = new AsyncRelayCommand(this.SaveProfileAsync);
             this.RemoveAvatarCommand = new AsyncRelayCommand(this.RemoveAvatarAsync);
             this.SelectAvatarCommand = new AsyncRelayCommand(this.SelectAvatarAsync);
@@ -49,6 +67,8 @@ namespace BoardRentAndProperty.ViewModels
         }
 
         public Action OnSignOutSuccess { get; set; }
+
+        public System.Collections.ObjectModel.ObservableCollection<string> AvailableCountries { get; } = new();
 
         public string Username { get => this.username; set => this.SetProperty(ref this.username, value); }
         public string DisplayName { get => this.displayName; set => this.SetProperty(ref this.displayName, value); }
@@ -73,8 +93,25 @@ namespace BoardRentAndProperty.ViewModels
         public async Task LoadProfileAsync()
         {
             this.IsLoading = true;
-            Guid currentAccountId = this.sessionContext.AccountId;
 
+            this.PhoneNumber = this.sessionContext.PhoneNumber;
+            this.City = this.sessionContext.City;
+            this.Country = this.sessionContext.Country;
+            this.StreetName = this.sessionContext.StreetName;
+            this.StreetNumber = this.sessionContext.StreetNumber;
+
+            this.Username = this.sessionContext.Username;
+            this.DisplayName = this.sessionContext.DisplayName;
+            this.Email = this.sessionContext.Email;
+            this.PhoneNumber = this.sessionContext.PhoneNumber;
+            this.Country = this.sessionContext.Country;
+            this.City = this.sessionContext.City;
+            this.StreetName = this.sessionContext.StreetName;
+            this.StreetNumber = this.sessionContext.StreetNumber;
+
+            this.OnPropertyChanged(nameof(ProfileImage));
+
+            Guid currentAccountId = this.sessionContext.AccountId;
             ServiceResult<AccountProfileDataTransferObject> profileResult = await this.accountService.GetProfileAsync(currentAccountId);
 
             if (profileResult.Success && profileResult.Data != null)
@@ -92,7 +129,6 @@ namespace BoardRentAndProperty.ViewModels
 
             this.IsLoading = false;
         }
-
         private async Task SaveProfileAsync()
         {
             this.IsLoading = true;
@@ -176,6 +212,25 @@ namespace BoardRentAndProperty.ViewModels
         {
             await this.authService.LogoutAsync();
             this.OnSignOutSuccess?.Invoke();
+        }
+
+        public Microsoft.UI.Xaml.Media.ImageSource ProfileImage
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(this.AvatarUrl))
+                {
+                    return null;
+                }
+                try
+                {
+                    return new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(this.AvatarUrl));
+                }
+                catch
+                {
+                    return null;
+                }
+            }
         }
     }
 }
