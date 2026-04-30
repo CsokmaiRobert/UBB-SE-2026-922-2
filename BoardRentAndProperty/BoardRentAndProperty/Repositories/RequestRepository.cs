@@ -18,7 +18,7 @@ namespace BoardRentAndProperty.Repositories
         private readonly string boardRentConnectionString =
             System.Configuration.ConfigurationManager.ConnectionStrings[ConnectionStringName]?.ConnectionString ?? string.Empty;
 
-        private const string BaseRequestSelectSql =
+        private const string BaseRequestSelectQuery =
             "SELECT r.*, renterUser.display_name AS renter_display_name, ownerUser.display_name AS owner_display_name, " +
             "g.name AS game_name, g.image AS game_image, " +
             "offeringUser.display_name AS offering_user_display_name " +
@@ -57,7 +57,7 @@ namespace BoardRentAndProperty.Repositories
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = BaseRequestSelectSql;
+                    command.CommandText = BaseRequestSelectQuery;
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -101,7 +101,7 @@ namespace BoardRentAndProperty.Repositories
             requestToInsert.Id = Convert.ToInt32(command.ExecuteScalar());
         }
 
-        private const string DeleteRequestWithOutputSql =
+        private static readonly string DeleteRequestWithOutputQuery =
             "DELETE r OUTPUT deleted.request_id, deleted.game_id, deleted.renter_id, deleted.owner_id, " +
             "deleted.start_date, deleted.end_date, deleted.status, deleted.offering_user_id, " +
             "renterUser.display_name AS renter_display_name, ownerUser.display_name AS owner_display_name, " +
@@ -119,17 +119,24 @@ namespace BoardRentAndProperty.Repositories
             using (var connection = new SqlConnection(boardRentConnectionString))
             {
                 connection.Open();
-                using (var command = connection.CreateCommand())
+                using (var transaction = connection.BeginTransaction())
                 {
-                    command.CommandText = DeleteRequestWithOutputSql;
+                    UnlinkNotificationsFromRequestWithinTransaction(requestIdToRemove, connection, transaction);
+                    using var command = connection.CreateCommand();
+                    command.Transaction = transaction;
+                    command.CommandText = DeleteRequestWithOutputQuery;
                     command.Parameters.AddWithValue("@id", requestIdToRemove);
                     using (var reader = command.ExecuteReader())
                     {
                         if (reader.Read())
                         {
-                            return ReadRequestFromDeleteOutputReader(reader);
+                            var deletedRequest = ReadRequestFromDeleteOutputReader(reader);
+                            transaction.Commit();
+                            return deletedRequest;
                         }
                     }
+
+                    transaction.Rollback();
                 }
             }
             throw new KeyNotFoundException();
@@ -205,7 +212,7 @@ namespace BoardRentAndProperty.Repositories
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = BaseRequestSelectSql + " WHERE r.request_id = @id";
+                    command.CommandText = BaseRequestSelectQuery + " WHERE r.request_id = @id";
                     command.Parameters.AddWithValue("@id", requestIdToFind);
                     using (var reader = command.ExecuteReader())
                     {
@@ -227,7 +234,7 @@ namespace BoardRentAndProperty.Repositories
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = BaseRequestSelectSql + " WHERE r.owner_id = @owner_id";
+                    command.CommandText = BaseRequestSelectQuery + " WHERE r.owner_id = @owner_id";
                     command.Parameters.AddWithValue("@owner_id", ownerUserId);
                     using (var reader = command.ExecuteReader())
                     {
@@ -249,7 +256,7 @@ namespace BoardRentAndProperty.Repositories
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = BaseRequestSelectSql + " WHERE r.renter_id = @renter_id";
+                    command.CommandText = BaseRequestSelectQuery + " WHERE r.renter_id = @renter_id";
                     command.Parameters.AddWithValue("@renter_id", renterUserId);
                     using (var reader = command.ExecuteReader())
                     {
@@ -271,7 +278,7 @@ namespace BoardRentAndProperty.Repositories
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = BaseRequestSelectSql + " WHERE r.game_id = @game_id";
+                    command.CommandText = BaseRequestSelectQuery + " WHERE r.game_id = @game_id";
                     command.Parameters.AddWithValue("@game_id", requestedGameId);
                     using (var reader = command.ExecuteReader())
                     {
@@ -311,13 +318,6 @@ namespace BoardRentAndProperty.Repositories
             using var transaction = connection.BeginTransaction(IsolationLevel.Serializable);
             try
             {
-                foreach (var conflictingRequest in conflictingRequests)
-                {
-                    DeleteNotificationsLinkedToRequestWithinTransaction(conflictingRequest.Id, connection, transaction);
-                }
-
-                DeleteNotificationsLinkedToRequestWithinTransaction(requestToApprove.Id, connection, transaction);
-
                 var newRentalIdentifier = InsertRentalFromApprovedRequest(requestToApprove, connection, transaction);
 
                 foreach (var conflictingRequest in conflictingRequests)
@@ -384,36 +384,31 @@ namespace BoardRentAndProperty.Repositories
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
-                overlappingRequests.Add(ReadOverlappingRequestFromReader(reader));
+                var overlappingGame = new Game
+                {
+                    Id = (int)reader["game_id"],
+                    Name = reader["game_name"] as string ?? string.Empty,
+                    Image = reader["game_image"] as byte[] ?? Array.Empty<byte>()
+                };
+                var overlappingRenterUser = new User((int)reader["renter_id"], reader["renter_display_name"] as string ?? string.Empty);
+                var overlappingOwnerUser = new User((int)reader["owner_id"], reader["owner_display_name"] as string ?? string.Empty);
+                overlappingRequests.Add(new Request(
+                    (int)reader["request_id"],
+                    overlappingGame,
+                    overlappingRenterUser,
+                    overlappingOwnerUser,
+                    (DateTime)reader["start_date"],
+                    (DateTime)reader["end_date"]));
             }
 
             return overlappingRequests;
         }
 
-        private static Request ReadOverlappingRequestFromReader(SqlDataReader overlapReader)
-        {
-            var overlappingGame = new Game
-            {
-                Id = (int)overlapReader["game_id"],
-                Name = overlapReader["game_name"] as string ?? string.Empty,
-                Image = overlapReader["game_image"] as byte[] ?? Array.Empty<byte>()
-            };
-            var overlappingRenterUser = new User((int)overlapReader["renter_id"], overlapReader["renter_display_name"] as string ?? string.Empty);
-            var overlappingOwnerUser = new User((int)overlapReader["owner_id"], overlapReader["owner_display_name"] as string ?? string.Empty);
-            return new Request(
-                (int)overlapReader["request_id"],
-                overlappingGame,
-                overlappingRenterUser,
-                overlappingOwnerUser,
-                (DateTime)overlapReader["start_date"],
-                (DateTime)overlapReader["end_date"]);
-        }
-
-        private static void DeleteNotificationsLinkedToRequestWithinTransaction(int linkedRequestId, SqlConnection connection, SqlTransaction transaction)
+        private static void UnlinkNotificationsFromRequestWithinTransaction(int linkedRequestId, SqlConnection connection, SqlTransaction transaction)
         {
             using var command = connection.CreateCommand();
             command.Transaction = transaction;
-            command.CommandText = "DELETE FROM Notifications WHERE related_request_id = @id";
+            command.CommandText = "UPDATE Notifications SET related_request_id = NULL WHERE related_request_id = @id";
             command.Parameters.AddWithValue("@id", linkedRequestId);
             command.ExecuteNonQuery();
         }
@@ -422,6 +417,7 @@ namespace BoardRentAndProperty.Repositories
         {
             using var command = connection.CreateCommand();
             command.Transaction = transaction;
+            UnlinkNotificationsFromRequestWithinTransaction(requestIdToDelete, connection, transaction);
             command.CommandText = "DELETE FROM Requests WHERE request_id = @id";
             command.Parameters.AddWithValue("@id", requestIdToDelete);
             command.ExecuteNonQuery();
