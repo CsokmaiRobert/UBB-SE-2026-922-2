@@ -2,12 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using BoardRentAndProperty;
 using BoardRentAndProperty.Constants;
 using BoardRentAndProperty.DataTransferObjects;
 using BoardRentAndProperty.Mappers;
 using BoardRentAndProperty.Repositories;
-using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Utilities;
 using BoardRentAndProperty.Models;
 
@@ -103,7 +101,7 @@ namespace BoardRentAndProperty.Services
             return Result<int, CreateRequestError>.Success(newRentalRequest.Id);
         }
 
-        public Result<int, ApproveRequestError> ApproveRequest(int requestId, int approverOwnerId)
+        public Result<int, ApproveRequestError> ApproveRequest(int requestId, int ownerUserId)
         {
             Request requestToApprove;
             try
@@ -115,7 +113,7 @@ namespace BoardRentAndProperty.Services
                 return Result<int, ApproveRequestError>.Failure(ApproveRequestError.NotFound);
             }
 
-            if (requestToApprove.Owner?.Id != approverOwnerId)
+            if (requestToApprove.Owner?.Id != ownerUserId)
             {
                 return Result<int, ApproveRequestError>.Failure(ApproveRequestError.Unauthorized);
             }
@@ -133,7 +131,7 @@ namespace BoardRentAndProperty.Services
             return Result<int, ApproveRequestError>.Success(createdRentalId);
         }
 
-        public Result<int, DenyRequestError> DenyRequest(int requestId, int denyingOwnerId, string denialReason)
+        public Result<int, DenyRequestError> DenyRequest(int requestId, int ownerUserId, string declineReason)
         {
             Request requestToDeny;
             try
@@ -145,12 +143,12 @@ namespace BoardRentAndProperty.Services
                 return Result<int, DenyRequestError>.Failure(DenyRequestError.NotFound);
             }
 
-            if (requestToDeny.Owner?.Id != denyingOwnerId)
+            if (requestToDeny.Owner?.Id != ownerUserId)
             {
                 return Result<int, DenyRequestError>.Failure(DenyRequestError.Unauthorized);
             }
 
-            var normalizedDenialReason = NormalizeDenialReason(denialReason);
+            var normalizedDenialReason = NormalizeDenialReason(declineReason);
 
             requestNotificationService.DeleteNotificationsLinkedToRequest(requestId);
             requestDataRepository.Delete(requestId);
@@ -195,10 +193,10 @@ namespace BoardRentAndProperty.Services
             return Result<int, CancelRequestError>.Success(requestId);
         }
 
-        public void OnGameDeactivated(int deactivatedGameId)
+        public void OnGameDeactivated(int gameId)
         {
             var pendingRequestsForGame = requestDataRepository
-                .GetRequestsByGame(deactivatedGameId)
+                .GetRequestsByGame(gameId)
                 .Where(IsPendingForGameDeactivation)
                 .ToImmutableList();
 
@@ -297,7 +295,7 @@ namespace BoardRentAndProperty.Services
             return !hasRequestConflict;
         }
 
-        public Result<int, OfferError> OfferGame(int requestId, int offeringGameOwnerId)
+        public Result<int, OfferError> OfferGame(int requestId, int offeringOwnerUserId)
         {
             Request requestToOffer;
             try
@@ -309,7 +307,7 @@ namespace BoardRentAndProperty.Services
                 return Result<int, OfferError>.Failure(OfferError.NotFound);
             }
 
-            if (requestToOffer.Owner?.Id != offeringGameOwnerId)
+            if (requestToOffer.Owner?.Id != offeringOwnerUserId)
             {
                 return Result<int, OfferError>.Failure(OfferError.NotOwner);
             }

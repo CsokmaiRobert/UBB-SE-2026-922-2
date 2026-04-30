@@ -18,7 +18,7 @@ namespace BoardRentAndProperty.Repositories
         private readonly string boardRentConnectionString =
             System.Configuration.ConfigurationManager.ConnectionStrings[ConnectionStringName]?.ConnectionString ?? string.Empty;
 
-        private const string BaseRequestSelectQuery =
+        private const string BaseRequestSelectSql =
             "SELECT r.*, renterUser.display_name AS renter_display_name, ownerUser.display_name AS owner_display_name, " +
             "g.name AS game_name, g.image AS game_image, " +
             "offeringUser.display_name AS offering_user_display_name " +
@@ -57,7 +57,7 @@ namespace BoardRentAndProperty.Repositories
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = BaseRequestSelectQuery;
+                    command.CommandText = BaseRequestSelectSql;
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -101,7 +101,7 @@ namespace BoardRentAndProperty.Repositories
             requestToInsert.Id = Convert.ToInt32(command.ExecuteScalar());
         }
 
-        private static readonly string DeleteRequestWithOutputQuery =
+        private const string DeleteRequestWithOutputSql =
             "DELETE r OUTPUT deleted.request_id, deleted.game_id, deleted.renter_id, deleted.owner_id, " +
             "deleted.start_date, deleted.end_date, deleted.status, deleted.offering_user_id, " +
             "renterUser.display_name AS renter_display_name, ownerUser.display_name AS owner_display_name, " +
@@ -121,7 +121,7 @@ namespace BoardRentAndProperty.Repositories
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = DeleteRequestWithOutputQuery;
+                    command.CommandText = DeleteRequestWithOutputSql;
                     command.Parameters.AddWithValue("@id", requestIdToRemove);
                     using (var reader = command.ExecuteReader())
                     {
@@ -205,7 +205,7 @@ namespace BoardRentAndProperty.Repositories
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = BaseRequestSelectQuery + " WHERE r.request_id = @id";
+                    command.CommandText = BaseRequestSelectSql + " WHERE r.request_id = @id";
                     command.Parameters.AddWithValue("@id", requestIdToFind);
                     using (var reader = command.ExecuteReader())
                     {
@@ -227,7 +227,7 @@ namespace BoardRentAndProperty.Repositories
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = BaseRequestSelectQuery + " WHERE r.owner_id = @owner_id";
+                    command.CommandText = BaseRequestSelectSql + " WHERE r.owner_id = @owner_id";
                     command.Parameters.AddWithValue("@owner_id", ownerUserId);
                     using (var reader = command.ExecuteReader())
                     {
@@ -249,7 +249,7 @@ namespace BoardRentAndProperty.Repositories
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = BaseRequestSelectQuery + " WHERE r.renter_id = @renter_id";
+                    command.CommandText = BaseRequestSelectSql + " WHERE r.renter_id = @renter_id";
                     command.Parameters.AddWithValue("@renter_id", renterUserId);
                     using (var reader = command.ExecuteReader())
                     {
@@ -271,7 +271,7 @@ namespace BoardRentAndProperty.Repositories
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = BaseRequestSelectQuery + " WHERE r.game_id = @game_id";
+                    command.CommandText = BaseRequestSelectSql + " WHERE r.game_id = @game_id";
                     command.Parameters.AddWithValue("@game_id", requestedGameId);
                     using (var reader = command.ExecuteReader())
                     {
@@ -384,24 +384,29 @@ namespace BoardRentAndProperty.Repositories
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
-                var overlappingGame = new Game
-                {
-                    Id = (int)reader["game_id"],
-                    Name = reader["game_name"] as string ?? string.Empty,
-                    Image = reader["game_image"] as byte[] ?? Array.Empty<byte>()
-                };
-                var overlappingRenterUser = new User((int)reader["renter_id"], reader["renter_display_name"] as string ?? string.Empty);
-                var overlappingOwnerUser = new User((int)reader["owner_id"], reader["owner_display_name"] as string ?? string.Empty);
-                overlappingRequests.Add(new Request(
-                    (int)reader["request_id"],
-                    overlappingGame,
-                    overlappingRenterUser,
-                    overlappingOwnerUser,
-                    (DateTime)reader["start_date"],
-                    (DateTime)reader["end_date"]));
+                overlappingRequests.Add(ReadOverlappingRequestFromReader(reader));
             }
 
             return overlappingRequests;
+        }
+
+        private static Request ReadOverlappingRequestFromReader(SqlDataReader overlapReader)
+        {
+            var overlappingGame = new Game
+            {
+                Id = (int)overlapReader["game_id"],
+                Name = overlapReader["game_name"] as string ?? string.Empty,
+                Image = overlapReader["game_image"] as byte[] ?? Array.Empty<byte>()
+            };
+            var overlappingRenterUser = new User((int)overlapReader["renter_id"], overlapReader["renter_display_name"] as string ?? string.Empty);
+            var overlappingOwnerUser = new User((int)overlapReader["owner_id"], overlapReader["owner_display_name"] as string ?? string.Empty);
+            return new Request(
+                (int)overlapReader["request_id"],
+                overlappingGame,
+                overlappingRenterUser,
+                overlappingOwnerUser,
+                (DateTime)overlapReader["start_date"],
+                (DateTime)overlapReader["end_date"]);
         }
 
         private static void DeleteNotificationsLinkedToRequestWithinTransaction(int linkedRequestId, SqlConnection connection, SqlTransaction transaction)

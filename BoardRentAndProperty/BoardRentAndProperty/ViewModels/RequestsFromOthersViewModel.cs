@@ -8,14 +8,14 @@ namespace BoardRentAndProperty.ViewModels
 {
     public class RequestsFromOthersViewModel : PagedViewModel<RequestDTO>
     {
-        private readonly IRequestService rentalRequestService;
+        private readonly IRequestService requestService;
         private readonly ICurrentUserContext currentUserContext;
 
         public int CurrentGameOwnerUserId { get; private set; }
 
-        public RequestsFromOthersViewModel(IRequestService rentalRequestService, ICurrentUserContext currentUserContext)
+        public RequestsFromOthersViewModel(IRequestService requestService, ICurrentUserContext currentUserContext)
         {
-            this.rentalRequestService = rentalRequestService;
+            this.requestService = requestService;
             this.currentUserContext = currentUserContext;
             Reload();
         }
@@ -28,7 +28,7 @@ namespace BoardRentAndProperty.ViewModels
         {
             CurrentGameOwnerUserId = currentUserContext.CurrentUserId;
 
-            var openRequestsForOwnerSortedByNewest = rentalRequestService
+            var openRequestsForOwnerSortedByNewest = requestService
                 .GetOpenRequestsForOwner(CurrentGameOwnerUserId)
                 .OrderByDescending(request => request.StartDate)
                 .ToImmutableList();
@@ -37,7 +37,7 @@ namespace BoardRentAndProperty.ViewModels
 
         public string? TryApproveRequest(int requestIdToApprove)
         {
-            var approvalResult = rentalRequestService.ApproveRequest(requestIdToApprove, CurrentGameOwnerUserId);
+            var approvalResult = requestService.ApproveRequest(requestIdToApprove, CurrentGameOwnerUserId);
             if (approvalResult.IsSuccess)
             {
                 Reload();
@@ -55,7 +55,7 @@ namespace BoardRentAndProperty.ViewModels
 
         public string? TryDenyRequest(int requestIdToDeny, string? rawDenialReason)
         {
-            var denialResult = rentalRequestService.DenyRequest(requestIdToDeny, CurrentGameOwnerUserId, rawDenialReason ?? string.Empty);
+            var denialResult = requestService.DenyRequest(requestIdToDeny, CurrentGameOwnerUserId, rawDenialReason ?? string.Empty);
             if (denialResult.IsSuccess)
             {
                 Reload();
@@ -72,7 +72,7 @@ namespace BoardRentAndProperty.ViewModels
 
         public string? TryOfferGame(int requestIdForGameOffer)
         {
-            var gameOfferResult = rentalRequestService.OfferGame(requestIdForGameOffer, CurrentGameOwnerUserId);
+            var gameOfferResult = requestService.OfferGame(requestIdForGameOffer, CurrentGameOwnerUserId);
             if (gameOfferResult.IsSuccess)
             {
                 Reload();
