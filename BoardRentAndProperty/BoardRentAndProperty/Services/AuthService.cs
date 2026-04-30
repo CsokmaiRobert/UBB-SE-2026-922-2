@@ -48,6 +48,26 @@ namespace BoardRentAndProperty.Services
                 return ServiceResult<bool>.Fail("Password|Passwords do not match.");
             }
 
+            string emailPattern = @"^[^@\s]+@[^@\s]+\.[^@\s]+$";
+            if (!System.Text.RegularExpressions.Regex.IsMatch(registrationRequest.Email, emailPattern))
+            {
+                return ServiceResult<bool>.Fail("Email|Please enter a valid email address.");
+            }
+
+            var passwordValidation = PasswordValidator.Validate(registrationRequest.Password);
+            if (!passwordValidation.IsValid)
+            {
+                return ServiceResult<bool>.Fail(passwordValidation.Error);
+            }
+
+            if (!string.IsNullOrWhiteSpace(registrationRequest.PhoneNumber))
+            {
+                if (!System.Text.RegularExpressions.Regex.IsMatch(registrationRequest.PhoneNumber, @"^\+?\d{7,15}$"))
+                {
+                    return ServiceResult<bool>.Fail("PhoneNumber|Phone number format is invalid.");
+                }
+            }
+
             try
             {
                 int linkedPamUserId = this.CreatePamUserForDisplayName(registrationRequest.DisplayName);
@@ -82,7 +102,6 @@ namespace BoardRentAndProperty.Services
                         City = registrationRequest.City,
                         StreetName = registrationRequest.StreetName,
                         StreetNumber = registrationRequest.StreetNumber,
-
 
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow,

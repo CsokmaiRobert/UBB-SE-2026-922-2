@@ -182,6 +182,12 @@ namespace BoardRentAndProperty.Services
                 errors.Add("DisplayName|Display name must be between 2 and 50 characters long.");
             }
 
+            string emailPattern = @"^[^@\s]+@[^@\s]+\.[^@\s]+$";
+            if (string.IsNullOrWhiteSpace(profileData.Email) || !System.Text.RegularExpressions.Regex.IsMatch(profileData.Email, emailPattern))
+            {
+                errors.Add("Email|Please enter a valid email address.");
+            }
+
             if (!string.IsNullOrWhiteSpace(profileData.PhoneNumber))
             {
                 if (!System.Text.RegularExpressions.Regex.IsMatch(profileData.PhoneNumber, @"^\+?\d{7,15}$"))
@@ -197,6 +203,5 @@ namespace BoardRentAndProperty.Services
 
             return errors;
         }
-
     }
 }
