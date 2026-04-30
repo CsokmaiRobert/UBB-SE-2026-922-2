@@ -383,24 +383,29 @@ namespace Property_and_Management.Src.Repository
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
-                var overlappingGame = new Game
-                {
-                    Id = (int)reader["game_id"],
-                    Name = reader["game_name"] as string ?? string.Empty,
-                    Image = reader["game_image"] as byte[] ?? Array.Empty<byte>()
-                };
-                var overlappingRenterUser = new User((int)reader["renter_id"], reader["renter_display_name"] as string ?? string.Empty);
-                var overlappingOwnerUser = new User((int)reader["owner_id"], reader["owner_display_name"] as string ?? string.Empty);
-                overlappingRequests.Add(new Request(
-                    (int)reader["request_id"],
-                    overlappingGame,
-                    overlappingRenterUser,
-                    overlappingOwnerUser,
-                    (DateTime)reader["start_date"],
-                    (DateTime)reader["end_date"]));
+                overlappingRequests.Add(ReadOverlappingRequestFromReader(reader));
             }
 
             return overlappingRequests;
+        }
+
+        private static Request ReadOverlappingRequestFromReader(SqlDataReader overlapReader)
+        {
+            var overlappingGame = new Game
+            {
+                Id = (int)overlapReader["game_id"],
+                Name = overlapReader["game_name"] as string ?? string.Empty,
+                Image = overlapReader["game_image"] as byte[] ?? Array.Empty<byte>()
+            };
+            var overlappingRenterUser = new User((int)overlapReader["renter_id"], overlapReader["renter_display_name"] as string ?? string.Empty);
+            var overlappingOwnerUser = new User((int)overlapReader["owner_id"], overlapReader["owner_display_name"] as string ?? string.Empty);
+            return new Request(
+                (int)overlapReader["request_id"],
+                overlappingGame,
+                overlappingRenterUser,
+                overlappingOwnerUser,
+                (DateTime)overlapReader["start_date"],
+                (DateTime)overlapReader["end_date"]);
         }
 
         private static void DeleteNotificationsLinkedToRequestWithinTransaction(int linkedRequestId, SqlConnection connection, SqlTransaction transaction)
