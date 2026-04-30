@@ -74,6 +74,7 @@ namespace BoardRentAndProperty.Repositories
             ExecuteBatch(connection, AddRequestsOfferingUserColumnSql);
             ExecuteBatch(connection, AddNotificationsTypeColumnSql);
             ExecuteBatch(connection, AddNotificationsRelatedRequestColumnSql);
+            ExecuteBatch(connection, UpdateGamesPriceColumnSql);
         }
 
         private static void SeedTestDataIfEmpty(SqlConnection connection)
@@ -133,7 +134,7 @@ BEGIN
         game_id INT IDENTITY(1,1) NOT NULL,
         owner_id INT NOT NULL,
         name VARCHAR(30) NOT NULL,
-        price DECIMAL(5,2) NOT NULL,
+        price DECIMAL(10,2) NOT NULL,
         minimum_player_number INT NOT NULL,
         maximum_player_number INT NOT NULL,
         description VARCHAR(500) NOT NULL,
@@ -229,6 +230,12 @@ BEGIN
     ALTER TABLE Notifications ADD related_request_id INT NULL;
     ALTER TABLE Notifications ADD CONSTRAINT FK_Notification_Request
         FOREIGN KEY (related_request_id) REFERENCES Requests(request_id);
+END;";
+
+        private const string UpdateGamesPriceColumnSql = @"
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Games') AND name = 'price' AND precision = 5 AND scale = 2)
+BEGIN
+    ALTER TABLE Games ALTER COLUMN price DECIMAL(10,2) NOT NULL;
 END;";
 
         private const string SeedUsersSql = @"

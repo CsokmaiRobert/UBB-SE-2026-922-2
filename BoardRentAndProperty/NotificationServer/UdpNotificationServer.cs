@@ -19,26 +19,21 @@ namespace NotificationServer
 
         private static async Task SendMessageToSubscribedUser(int destinationUserIdentifier, MessageBase notificationMessagePayload)
         {
-            if (!UserEndpointByIdentifierMap.TryGetValue(destinationUserIdentifier, out var destinationUserEndpoint))
-            {
-                throw new InvalidDataException("Target user id was not present in the endpoint map.");
-            }
-
-            await SendMessageToEndpoint(destinationUserEndpoint, notificationMessagePayload);
-        }
-
-        private static async Task SendMessageToEndpoint(IPEndPoint destinationEndpoint, MessageBase messagePayload)
-        {
             if (notificationServerUdpClient == null)
             {
                 throw new NullReferenceException(nameof(notificationServerUdpClient));
             }
 
-            byte[] serializedMessageBytes = CommunicationHelper.SerializeMessage(messagePayload);
-            await notificationServerUdpClient.SendAsync(serializedMessageBytes, serializedMessageBytes.Length, destinationEndpoint);
+            if (!UserEndpointByIdentifierMap.TryGetValue(destinationUserIdentifier, out var destinationUserEndpoint))
+            {
+                throw new InvalidDataException("Target user id was not present in the endpoint map.");
+            }
+
+            byte[] serializedMessageBytes = CommunicationHelper.SerializeMessage(notificationMessagePayload);
+            await notificationServerUdpClient.SendAsync(serializedMessageBytes, serializedMessageBytes.Length, destinationUserEndpoint);
         }
 
-        private static async Task HandleSubscribeToServerMessagePacket(IPEndPoint receivedRemoteEndpoint, MessageWrapper receivedMessageWrapper)
+        private static void HandleSubscribeToServerMessagePacket(IPEndPoint receivedRemoteEndpoint, MessageWrapper receivedMessageWrapper)
         {
             SubscribeToServerMessage? userSubscriptionMessagePayload = receivedMessageWrapper.Deserialize<SubscribeToServerMessage>();
 
@@ -49,7 +44,6 @@ namespace NotificationServer
 
             UserEndpointByIdentifierMap[userSubscriptionMessagePayload.UserId] = receivedRemoteEndpoint;
             Console.WriteLine($"{userSubscriptionMessagePayload.UserId} -> {receivedRemoteEndpoint.Address}:{receivedRemoteEndpoint.Port}");
-            await SendMessageToEndpoint(receivedRemoteEndpoint, new ServerStatusMessage { IsAvailable = true });
         }
 
         private static async Task HandleSendNotificationMessagePacket(MessageWrapper receivedMessageWrapper)
@@ -80,7 +74,7 @@ namespace NotificationServer
                 switch (receivedMessageWrapper.Type)
                 {
                     case nameof(SubscribeToServerMessage):
-                        await HandleSubscribeToServerMessagePacket(receivedRemoteEndpoint, receivedMessageWrapper);
+                        HandleSubscribeToServerMessagePacket(receivedRemoteEndpoint, receivedMessageWrapper);
                         break;
                     case nameof(SendNotificationMessage):
                         await HandleSendNotificationMessagePacket(receivedMessageWrapper);

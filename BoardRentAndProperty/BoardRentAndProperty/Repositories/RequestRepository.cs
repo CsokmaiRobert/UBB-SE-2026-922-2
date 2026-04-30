@@ -119,24 +119,17 @@ namespace BoardRentAndProperty.Repositories
             using (var connection = new SqlConnection(boardRentConnectionString))
             {
                 connection.Open();
-                using (var transaction = connection.BeginTransaction())
+                using (var command = connection.CreateCommand())
                 {
-                    UnlinkNotificationsFromRequestWithinTransaction(requestIdToRemove, connection, transaction);
-                    using var command = connection.CreateCommand();
-                    command.Transaction = transaction;
                     command.CommandText = DeleteRequestWithOutputQuery;
                     command.Parameters.AddWithValue("@id", requestIdToRemove);
                     using (var reader = command.ExecuteReader())
                     {
                         if (reader.Read())
                         {
-                            var deletedRequest = ReadRequestFromDeleteOutputReader(reader);
-                            transaction.Commit();
-                            return deletedRequest;
+                            return ReadRequestFromDeleteOutputReader(reader);
                         }
                     }
-
-                    transaction.Rollback();
                 }
             }
             throw new KeyNotFoundException();
@@ -318,6 +311,13 @@ namespace BoardRentAndProperty.Repositories
             using var transaction = connection.BeginTransaction(IsolationLevel.Serializable);
             try
             {
+                foreach (var conflictingRequest in conflictingRequests)
+                {
+                    DeleteNotificationsLinkedToRequestWithinTransaction(conflictingRequest.Id, connection, transaction);
+                }
+
+                DeleteNotificationsLinkedToRequestWithinTransaction(requestToApprove.Id, connection, transaction);
+
                 var newRentalIdentifier = InsertRentalFromApprovedRequest(requestToApprove, connection, transaction);
 
                 foreach (var conflictingRequest in conflictingRequests)
@@ -404,11 +404,11 @@ namespace BoardRentAndProperty.Repositories
             return overlappingRequests;
         }
 
-        private static void UnlinkNotificationsFromRequestWithinTransaction(int linkedRequestId, SqlConnection connection, SqlTransaction transaction)
+        private static void DeleteNotificationsLinkedToRequestWithinTransaction(int linkedRequestId, SqlConnection connection, SqlTransaction transaction)
         {
             using var command = connection.CreateCommand();
             command.Transaction = transaction;
-            command.CommandText = "UPDATE Notifications SET related_request_id = NULL WHERE related_request_id = @id";
+            command.CommandText = "DELETE FROM Notifications WHERE related_request_id = @id";
             command.Parameters.AddWithValue("@id", linkedRequestId);
             command.ExecuteNonQuery();
         }
@@ -417,7 +417,6 @@ namespace BoardRentAndProperty.Repositories
         {
             using var command = connection.CreateCommand();
             command.Transaction = transaction;
-            UnlinkNotificationsFromRequestWithinTransaction(requestIdToDelete, connection, transaction);
             command.CommandText = "DELETE FROM Requests WHERE request_id = @id";
             command.Parameters.AddWithValue("@id", requestIdToDelete);
             command.ExecuteNonQuery();

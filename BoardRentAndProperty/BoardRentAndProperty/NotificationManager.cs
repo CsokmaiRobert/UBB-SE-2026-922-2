@@ -1,11 +1,15 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using Microsoft.Windows.AppNotifications;
 
 namespace BoardRentAndProperty
 {
     internal class NotificationManager
     {
-        public event EventHandler<AppNotificationActivatedEventArgs>? NotificationClicked;
+        public event EventHandler<AppNotificationActivatedEventArgs> NotificationClicked;
 
         private bool isRegistered;
 

@@ -6,10 +6,6 @@ namespace BoardRentAndProperty.Services
 {
     public interface INotificationService : IObservable<NotificationDTO>
     {
-        event EventHandler<NotificationConnectionStatusChangedEventArgs>? ConnectionStatusChanged;
-
-        NotificationConnectionStatus ConnectionStatus { get; }
-
         NotificationDTO GetNotificationByIdentifier(int notificationId);
 
         NotificationDTO DeleteNotificationByIdentifier(int notificationId);
@@ -26,8 +22,8 @@ namespace BoardRentAndProperty.Services
 
         void StopListening();
 
-        void ScheduleUpcomingRentalReminder(int rentalId, int renterUserId, int ownerUserId, string gameName, DateTime rentalStartDate);
+        void ScheduleUpcomingRentalReminder(int renterUserId, int ownerUserId, string gameName, DateTime rentalStartDate);
 
-        void CancelUpcomingRentalReminder(int rentalId);
+        void DeleteNotificationsLinkedToRequest(int relatedRequestId);
     }
 }

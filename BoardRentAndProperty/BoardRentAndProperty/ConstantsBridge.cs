@@ -1,3 +1,13 @@
+// ConstantsBridge — re-exports top-level static-class members from
+// `BoardRentAndProperty.Resources.Constants` (the merged-from-PaM root constants class)
+// into the `BoardRentAndProperty.Constants` namespace, so PaM's existing call sites of
+// the form `Constants.DialogTitles.X` keep working without modification.
+//
+// Why: the original PaM `Constants.cs` lived in the root namespace `Property_and_Management`.
+// The bulk merge would have put it into `BoardRentAndProperty.Constants`, which collides
+// with the `BoardRentAndProperty.Constants.DomainConstants` from the PaM `src/Constants/`
+// subfolder. Resolution: place the merged-from-root file in `BoardRentAndProperty.Resources`
+// and bridge its members back here.
 namespace BoardRentAndProperty.Constants
 {
     internal static class App
@@ -49,7 +59,6 @@ namespace BoardRentAndProperty.Constants
         public const string RentalRequestDeclined = global::BoardRentAndProperty.Resources.Constants.NotificationTitles.RentalRequestDeclined;
         public const string RentalRequestCancelled = global::BoardRentAndProperty.Resources.Constants.NotificationTitles.RentalRequestCancelled;
         public const string RentalRequestApproved = global::BoardRentAndProperty.Resources.Constants.NotificationTitles.RentalRequestApproved;
-        public const string RentalRequestReceived = global::BoardRentAndProperty.Resources.Constants.NotificationTitles.RentalRequestReceived;
         public const string OfferReceived = global::BoardRentAndProperty.Resources.Constants.NotificationTitles.OfferReceived;
         public const string OfferAccepted = global::BoardRentAndProperty.Resources.Constants.NotificationTitles.OfferAccepted;
         public const string RentalConfirmed = global::BoardRentAndProperty.Resources.Constants.NotificationTitles.RentalConfirmed;

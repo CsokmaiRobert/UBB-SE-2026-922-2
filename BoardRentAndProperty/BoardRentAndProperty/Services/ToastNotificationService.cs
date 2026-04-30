@@ -1,5 +1,6 @@
 using Microsoft.Windows.AppNotifications;
 using Microsoft.Windows.AppNotifications.Builder;
+using BoardRentAndProperty.Services;
 
 namespace BoardRentAndProperty.Services
 {
