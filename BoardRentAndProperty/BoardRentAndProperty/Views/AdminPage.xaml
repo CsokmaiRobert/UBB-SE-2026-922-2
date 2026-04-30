@@ -18,7 +18,6 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Header -->
         <Grid Grid.Row="0" Margin="0,0,0,20">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -28,7 +27,6 @@
             <Button Grid.Column="1" Content="Sign Out" VerticalAlignment="Center" Click="OnSignOutClicked" />
         </Grid>
 
-        <!-- Permission Guard -->
         <InfoBar Grid.Row="1"
                  IsOpen="{x:Bind IsUnauthorized, Mode=OneWay}"
                  Severity="Error"
@@ -36,17 +34,15 @@
                  Message="UM-043: You do not have permission to access the Account Administration page. Administrator role is required."
                  Margin="0,0,0,20"/>
 
-        <!-- Error Message -->
         <InfoBar Grid.Row="1"
                  IsOpen="{x:Bind IsErrorVisible, Mode=OneWay}"
                  Severity="Error"
                  Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
                  Margin="0,0,0,20"/>
 
-        <!-- Data Grid -->
         <controls:DataGrid
             Grid.Row="2"
-            ItemsSource="{x:Bind ViewModel.Accounts, Mode=OneWay}"
+            ItemsSource="{x:Bind ViewModel.PagedItems, Mode=OneWay}"
             SelectedItem="{x:Bind ViewModel.SelectedAccount, Mode=TwoWay}"
             AutoGenerateColumns="False"
             Visibility="{x:Bind IsAuthorizedVisibility, Mode=OneWay}"
@@ -56,7 +52,6 @@
                 <controls:DataGridTextColumn Header="Username" Binding="{Binding Username}" />
                 <controls:DataGridTextColumn Header="Email" Binding="{Binding Email}" />
 
-                <!-- Status Column -->
                 <controls:DataGridTemplateColumn Header="Status">
                     <controls:DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
@@ -65,7 +60,6 @@
                     </controls:DataGridTemplateColumn.CellTemplate>
                 </controls:DataGridTemplateColumn>
 
-                <!-- Locked Column -->
                 <controls:DataGridTemplateColumn Header="Locked">
                     <controls:DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
@@ -77,7 +71,6 @@
             </controls:DataGrid.Columns>
         </controls:DataGrid>
 
-        <!-- Actions Panel below grid for selected account since commands inside WinUI DataGridTemplateColumn are often challenging -->
         <StackPanel Grid.Row="2" VerticalAlignment="Bottom" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="10" Margin="0,10,20,10"
                     Visibility="{x:Bind IsAuthorizedVisibility, Mode=OneWay}">
             <Button Content="Suspend Account" Command="{x:Bind ViewModel.SuspendAccountCommand}" />
@@ -86,19 +79,18 @@
             <Button Content="Unlock" Command="{x:Bind ViewModel.UnlockAccountCommand}" />
         </StackPanel>
 
-        <!-- Pagination Footer -->
         <Grid Grid.Row="3" Margin="0,20,0,0" Visibility="{x:Bind IsAuthorizedVisibility, Mode=OneWay}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="Showing accounts" VerticalAlignment="Center" />
+            <TextBlock Text="{x:Bind ViewModel.ShowingText, Mode=OneWay}" VerticalAlignment="Center" />
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
                 <Button Content="Prev" Command="{x:Bind ViewModel.PreviousPageCommand}" />
                 <TextBlock Text="Page" VerticalAlignment="Center" />
                 <TextBlock Text="{x:Bind ViewModel.CurrentPage, Mode=OneWay}" VerticalAlignment="Center" FontWeight="Bold"/>
                 <TextBlock Text="of" VerticalAlignment="Center" />
-                <TextBlock Text="{x:Bind ViewModel.TotalPages, Mode=OneWay}" VerticalAlignment="Center" />
+                <TextBlock Text="{x:Bind ViewModel.PageCount, Mode=OneWay}" VerticalAlignment="Center" />
                 <Button Content="Next" Command="{x:Bind ViewModel.NextPageCommand}" />
             </StackPanel>
         </Grid>
