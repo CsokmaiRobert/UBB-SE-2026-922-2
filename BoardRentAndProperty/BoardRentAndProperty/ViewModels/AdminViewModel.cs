@@ -1,42 +1,81 @@
 namespace BoardRentAndProperty.ViewModels
 {
     using System;
-    using System.Collections.ObjectModel;
+    using System.Collections.Immutable;
     using System.Threading.Tasks;
     using BoardRentAndProperty.DataTransferObjects;
     using BoardRentAndProperty.Services;
-    using BoardRentAndProperty.Utilities;
-    using CommunityToolkit.Mvvm.ComponentModel;
     using CommunityToolkit.Mvvm.Input;
 
-    public partial class AdminViewModel : BaseViewModel
+    public class AdminViewModel : PagedViewModel<AccountProfileDataTransferObject>
     {
-        private const int DefaultPageSize = 10;
         private readonly IAdminService adminService;
-
-        [ObservableProperty]
-        private ObservableCollection<AccountProfileDataTransferObject> accounts = new ObservableCollection<AccountProfileDataTransferObject>();
-
-        [ObservableProperty]
-        [NotifyCanExecuteChangedFor(nameof(SuspendAccountCommand))]
-        [NotifyCanExecuteChangedFor(nameof(UnsuspendAccountCommand))]
-        [NotifyCanExecuteChangedFor(nameof(ResetPasswordCommand))]
-        [NotifyCanExecuteChangedFor(nameof(UnlockAccountCommand))]
         private AccountProfileDataTransferObject selectedAccount;
-
-        [ObservableProperty]
-        [NotifyCanExecuteChangedFor(nameof(PreviousPageCommand))]
-        private int currentPage = 1;
-
-        [ObservableProperty]
-        [NotifyCanExecuteChangedFor(nameof(NextPageCommand))]
-        private int totalPages = 1;
+        private string errorMessage;
+        private bool isLoading;
 
         public AdminViewModel(IAdminService adminService)
         {
             this.adminService = adminService;
 
-            TaskUtilities.FireAndForgetSafeAsync(this.LoadAccountsAsync());
+            this.SuspendAccountCommand = new AsyncRelayCommand(this.SuspendAccountAsync, this.CanModifySelectedAccount);
+            this.UnsuspendAccountCommand = new AsyncRelayCommand(this.UnsuspendAccountAsync, this.CanModifySelectedAccount);
+            this.UnlockAccountCommand = new AsyncRelayCommand(this.UnlockAccountAsync, this.CanModifySelectedAccount);
+            this.NextPageCommand = new RelayCommand(this.ExecuteNextPage);
+            this.PreviousPageCommand = new RelayCommand(this.ExecutePreviousPage);
+        }
+
+        public IAsyncRelayCommand SuspendAccountCommand { get; }
+        public IAsyncRelayCommand UnsuspendAccountCommand { get; }
+        public IAsyncRelayCommand UnlockAccountCommand { get; }
+        public IRelayCommand NextPageCommand { get; }
+        public IRelayCommand PreviousPageCommand { get; }
+
+        public AccountProfileDataTransferObject SelectedAccount
+        {
+            get => this.selectedAccount;
+            set
+            {
+                if (this.selectedAccount != value)
+                {
+                    this.selectedAccount = value;
+                    this.OnPropertyChanged(nameof(this.SelectedAccount));
+                    this.SuspendAccountCommand.NotifyCanExecuteChanged();
+                    this.UnsuspendAccountCommand.NotifyCanExecuteChanged();
+                    this.UnlockAccountCommand.NotifyCanExecuteChanged();
+                }
+            }
+        }
+
+        public string ErrorMessage
+        {
+            get => this.errorMessage;
+            set
+            {
+                if (this.errorMessage != value)
+                {
+                    this.errorMessage = value;
+                    this.OnPropertyChanged(nameof(this.ErrorMessage));
+                }
+            }
+        }
+
+        public bool IsLoading
+        {
+            get => this.isLoading;
+            set
+            {
+                if (this.isLoading != value)
+                {
+                    this.isLoading = value;
+                    this.OnPropertyChanged(nameof(this.IsLoading));
+                }
+            }
+        }
+
+        protected override void Reload()
+        {
+            _ = this.LoadAccountsAsync();
         }
 
         public async Task LoadAccountsAsync()
@@ -44,15 +83,11 @@ namespace BoardRentAndProperty.ViewModels
             this.IsLoading = true;
             this.ErrorMessage = string.Empty;
 
-            var serviceResult = await this.adminService.GetAllAccountsAsync(this.CurrentPage, DefaultPageSize);
+            var serviceResult = await this.adminService.GetAllAccountsAsync(this.CurrentPage, PageSize);
 
             if (serviceResult.Success && serviceResult.Data != null)
             {
-                this.Accounts = new ObservableCollection<AccountProfileDataTransferObject>(serviceResult.Data);
-
-                this.TotalPages = serviceResult.Data.Count == DefaultPageSize
-                    ? this.CurrentPage + 1
-                    : this.CurrentPage;
+                this.SetAllItems(serviceResult.Data.ToImmutableList());
             }
             else
             {
@@ -70,118 +105,45 @@ namespace BoardRentAndProperty.ViewModels
             }
 
             var serviceResult = await this.adminService.ResetPasswordAsync(this.SelectedAccount.Id, newPassword);
-
-            if (serviceResult.Success)
-            {
-                this.ErrorMessage = "Password has been reset successfully.";
-            }
-            else
-            {
-                this.ErrorMessage = serviceResult.Error;
-            }
+            this.ErrorMessage = serviceResult.Success ? "Password reset successful." : serviceResult.Error;
         }
 
-        [RelayCommand(CanExecute = nameof(CanModifySelectedAccount))]
         private async Task SuspendAccountAsync()
         {
-            if (this.SelectedAccount == null)
+            var result = await this.adminService.SuspendAccountAsync(this.SelectedAccount.Id);
+            if (result.Success)
             {
-                return;
-            }
-
-            var serviceResult = await this.adminService.SuspendAccountAsync(this.SelectedAccount.Id);
-
-            if (serviceResult.Success)
-            {
-                this.SelectedAccount.IsSuspended = true;
                 await this.LoadAccountsAsync();
             }
             else
             {
-                this.ErrorMessage = serviceResult.Error;
+                this.ErrorMessage = result.Error;
             }
         }
 
-        [RelayCommand(CanExecute = nameof(CanModifySelectedAccount))]
         private async Task UnsuspendAccountAsync()
         {
-            if (this.SelectedAccount == null)
+            var result = await this.adminService.UnsuspendAccountAsync(this.SelectedAccount.Id);
+            if (result.Success)
             {
-                return;
-            }
-
-            var serviceResult = await this.adminService.UnsuspendAccountAsync(this.SelectedAccount.Id);
-
-            if (serviceResult.Success)
-            {
-                this.SelectedAccount.IsSuspended = false;
                 await this.LoadAccountsAsync();
             }
             else
             {
-                this.ErrorMessage = serviceResult.Error;
+                this.ErrorMessage = result.Error;
             }
         }
 
-        [RelayCommand(CanExecute = nameof(CanModifySelectedAccount))]
-        private async Task ResetPasswordAsync()
-        {
-            await Task.CompletedTask;
-        }
-
-        [RelayCommand(CanExecute = nameof(CanModifySelectedAccount))]
         private async Task UnlockAccountAsync()
         {
-            if (this.SelectedAccount == null)
-            {
-                return;
-            }
-
-            var serviceResult = await this.adminService.UnlockAccountAsync(this.SelectedAccount.Id);
-
-            if (serviceResult.Success)
-            {
-                this.ErrorMessage = "Account unlocked successfully.";
-            }
-            else
-            {
-                this.ErrorMessage = serviceResult.Error;
-            }
+            var result = await this.adminService.UnlockAccountAsync(this.SelectedAccount.Id);
+            this.ErrorMessage = result.Success ? "Account unlocked." : result.Error;
         }
 
-        [RelayCommand(CanExecute = nameof(CanGoToPreviousPage))]
-        private async Task PreviousPageAsync()
-        {
-            if (this.CurrentPage > 1)
-            {
-                this.CurrentPage--;
-                await this.LoadAccountsAsync();
-            }
-        }
+        private void ExecuteNextPage() => this.NextPage();
 
-        [RelayCommand(CanExecute = nameof(CanGoToNextPage))]
-        private async Task NextPageAsync()
-        {
-            if (this.CurrentPage < this.TotalPages)
-            {
-                this.CurrentPage++;
-                await this.LoadAccountsAsync();
-            }
-        }
+        private void ExecutePreviousPage() => this.PrevPage();
 
-        private bool CanModifySelectedAccount()
-        {
-            return this.SelectedAccount != null;
-        }
-
-        private bool CanGoToPreviousPage()
-        {
-            return this.CurrentPage > 1;
-        }
-
-        private bool CanGoToNextPage()
-        {
-            return this.CurrentPage < this.TotalPages;
-        }
+        private bool CanModifySelectedAccount() => this.SelectedAccount != null;
     }
 }
