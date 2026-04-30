@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using Microsoft.Data.SqlClient;
 using BoardRentAndProperty.Mappers;
-using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Models;
+using Microsoft.Data.SqlClient;
 
 namespace BoardRentAndProperty.Repositories
 {
@@ -17,6 +16,8 @@ namespace BoardRentAndProperty.Repositories
 
         private const string BaseNotificationSelectQuery =
             "SELECT n.*, u.display_name AS user_display_name FROM Notifications n LEFT JOIN Users u ON u.id = n.user_id";
+        private const string NewestFirstOrderByClause =
+            " ORDER BY n.[timestamp] DESC, n.notification_id DESC";
 
         private static Notification ReadNotificationFromReader(SqlDataReader databaseReader)
         {
@@ -37,7 +38,7 @@ namespace BoardRentAndProperty.Repositories
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = BaseNotificationSelectQuery;
+                    command.CommandText = BaseNotificationSelectQuery + NewestFirstOrderByClause;
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -145,7 +146,7 @@ namespace BoardRentAndProperty.Repositories
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = BaseNotificationSelectQuery + " WHERE n.user_id = @user_id";
+                    command.CommandText = BaseNotificationSelectQuery + " WHERE n.user_id = @user_id" + NewestFirstOrderByClause;
                     command.Parameters.AddWithValue("@user_id", targetUserId);
                     using (var reader = command.ExecuteReader())
                     {
@@ -159,18 +160,5 @@ namespace BoardRentAndProperty.Repositories
             return userNotifications.ToImmutableList();
         }
 
-        public void DeleteNotificationsLinkedToRequest(int linkedRequestId)
-        {
-            using (var connection = new SqlConnection(boardRentConnectionString))
-            {
-                connection.Open();
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText = "DELETE FROM Notifications WHERE related_request_id = @request_id";
-                    command.Parameters.AddWithValue("@request_id", linkedRequestId);
-                    command.ExecuteNonQuery();
-                }
-            }
-        }
     }
 }
