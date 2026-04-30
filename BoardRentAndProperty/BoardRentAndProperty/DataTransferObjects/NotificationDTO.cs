@@ -4,7 +4,7 @@ using BoardRentAndProperty.Models;
 
 namespace BoardRentAndProperty.DataTransferObjects
 {
-    public class NotificationDTO : IDTO<Notification>
+    public class NotificationDTO : IDTO<Notification, int>
     {
         private const string TimeDisplayFormat = "hh:mm tt";
 

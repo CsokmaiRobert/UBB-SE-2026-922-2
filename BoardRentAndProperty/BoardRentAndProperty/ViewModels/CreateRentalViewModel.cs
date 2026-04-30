@@ -17,7 +17,7 @@ namespace BoardRentAndProperty.ViewModels
         private readonly IUserService userLookupService;
         private readonly ICurrentUserContext currentUserContext;
 
-        public int CurrentUserId => currentUserContext.CurrentUserId;
+        public Guid CurrentUserId => currentUserContext.CurrentUserId;
 
         public ObservableCollection<GameDTO> OwnedActiveGames { get; set; } = new();
         public ObservableCollection<UserDTO> AvailableRenters { get; set; } = new();

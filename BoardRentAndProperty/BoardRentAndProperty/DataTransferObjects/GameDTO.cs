@@ -3,7 +3,7 @@ using BoardRentAndProperty.Models;
 
 namespace BoardRentAndProperty.DataTransferObjects
 {
-    public class GameDTO : IDTO<Game>
+    public class GameDTO : IDTO<Game, int>
     {
         public int Id { get; set; }
         public UserDTO Owner { get; set; }

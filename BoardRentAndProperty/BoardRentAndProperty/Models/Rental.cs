@@ -3,12 +3,12 @@ using BoardRentAndProperty.Mappers;
 
 namespace BoardRentAndProperty.Models
 {
-    public class Rental : IEntity
+    public class Rental : IEntity<int>
     {
         public int Id { get; set; }
         public Game Game { get; set; }
-        public User Renter { get; set; }
-        public User Owner { get; set; }
+        public Account Renter { get; set; }
+        public Account Owner { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
 
@@ -16,12 +16,12 @@ namespace BoardRentAndProperty.Models
         {
         }
 
-        public Rental(int id, Game rentedGame, User renterUser, User ownerUser, DateTime startDate, DateTime endDate)
+        public Rental(int id, Game rentedGame, Account renterAccount, Account ownerAccount, DateTime startDate, DateTime endDate)
         {
             this.Id = id;
             Game = rentedGame;
-            Renter = renterUser;
-            Owner = ownerUser;
+            Renter = renterAccount;
+            Owner = ownerAccount;
             StartDate = startDate;
             EndDate = endDate;
         }

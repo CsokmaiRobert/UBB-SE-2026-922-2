@@ -14,15 +14,14 @@ namespace BoardRentAndProperty.ViewModels
                                            IObserver<NotificationDTO>,
                                            IDisposable
     {
-        private const int InvalidOrUnknownUserId = 0;
-        private const int FallbackDefaultUserId = 1;
+        private static readonly Guid InvalidOrUnknownUserId = Guid.Empty;
 
         private readonly INotificationService notificationLookupService;
         private readonly IDisposable notificationSubscription;
 
         private readonly DispatcherQueue? uiDispatcherQueue;
 
-        public int CurrentUserId { get; private set; }
+        public Guid CurrentUserId { get; private set; }
 
         public NotificationsViewModel(
             INotificationService notificationLookupService,
@@ -44,7 +43,7 @@ namespace BoardRentAndProperty.ViewModels
             notificationSubscription = notificationLookupService.Subscribe(this);
         }
 
-        public void LoadNotificationsForUser(int targetUserId)
+        public void LoadNotificationsForUser(Guid targetUserId)
         {
             CurrentUserId = targetUserId;
             Reload();
@@ -84,17 +83,15 @@ namespace BoardRentAndProperty.ViewModels
 
         public void OnNext(NotificationDTO incomingNotification)
         {
-            var resolvedUserIdForReload = CurrentUserId == InvalidOrUnknownUserId
-                ? FallbackDefaultUserId
-                : CurrentUserId;
+            if (CurrentUserId == InvalidOrUnknownUserId) return;
 
             if (uiDispatcherQueue != null && !uiDispatcherQueue.HasThreadAccess)
             {
-                uiDispatcherQueue.TryEnqueue(() => LoadNotificationsForUser(resolvedUserIdForReload));
+                uiDispatcherQueue.TryEnqueue(() => LoadNotificationsForUser(CurrentUserId));
                 return;
             }
 
-            LoadNotificationsForUser(resolvedUserIdForReload);
+            LoadNotificationsForUser(CurrentUserId);
         }
 
         public void Dispose() => notificationSubscription?.Dispose();

@@ -1,37 +1,29 @@
+using System;
 using BoardRentAndProperty.DataTransferObjects;
-using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Models;
-
 namespace BoardRentAndProperty.Mappers
 {
-    public class UserMapper : IMapper<User, UserDTO>
+    public class UserMapper : IMapper<Account, UserDTO, Guid>
     {
-        public UserDTO ToDTO(User userModel)
+        public UserDTO ToDTO(Account account)
         {
-            if (userModel == null)
+            if (account == null)
             {
                 return null;
             }
-
             return new UserDTO
             {
-                Id = userModel.Id,
-                DisplayName = userModel.DisplayName
+                Id = account.Id,
+                DisplayName = account.DisplayName
             };
         }
-
-        public User ToModel(UserDTO userDto)
+        public Account ToModel(UserDTO dto)
         {
-            if (userDto == null)
+            if (dto == null)
             {
                 return null;
             }
-
-            return new User
-            {
-                Id = userDto.Id,
-                DisplayName = userDto.DisplayName
-            };
+            return new Account { Id = dto.Id, DisplayName = dto.DisplayName };
         }
     }
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -13,7 +14,7 @@ namespace BoardRentAndProperty.ViewModels
         private readonly IRequestService rentalRequestService;
         private readonly ICurrentUserContext currentUserContext;
 
-        public int CurrentUserId => currentUserContext.CurrentUserId;
+        public Guid CurrentUserId => currentUserContext.CurrentUserId;
 
         public ObservableCollection<GameDTO> AvailableGamesToRequest { get; set; } = new();
 
@@ -90,7 +91,7 @@ namespace BoardRentAndProperty.ViewModels
             var requestCreationResult = rentalRequestService.CreateRequest(
                 SelectedGame.Id,
                 CurrentUserId,
-                SelectedGame.Owner?.Id ?? 0,
+                SelectedGame.Owner?.Id ?? Guid.Empty,
                 StartDate.Value.DateTime,
                 EndDate.Value.DateTime);
 

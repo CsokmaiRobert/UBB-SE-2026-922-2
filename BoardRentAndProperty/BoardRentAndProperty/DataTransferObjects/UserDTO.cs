@@ -1,13 +1,12 @@
+using System;
 using BoardRentAndProperty.Mappers;
 using BoardRentAndProperty.Models;
-
 namespace BoardRentAndProperty.DataTransferObjects
 {
-    public class UserDTO : IDTO<User>
+    public class UserDTO : IDTO<Account, Guid>
     {
-        public int Id { get; set; }
+        public Guid Id { get; set; }
         public string DisplayName { get; set; }
-
         public UserDTO()
         {
         }

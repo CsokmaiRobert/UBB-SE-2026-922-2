@@ -68,8 +68,6 @@ namespace BoardRentAndProperty
             CurrentProcessSlot = GetProcessSlotFromArgs();
             shouldLaunchSecondClient = CurrentProcessSlot == DevModePrimaryProcessSlot && IsTwoWindowsEnabled();
 
-            DatabaseInitializer.EnsureDatabaseInitialized();
-
             if (shouldLaunchSecondClient)
             {
                 StartNotificationServer();
@@ -83,8 +81,7 @@ namespace BoardRentAndProperty
 
             ConfigureServices();
 
-            // BoardRent DB init runs after DI is built (AppDbContext is resolved from the container).
-            Services.GetRequiredService<AppDbContext>().EnsureCreated();
+            Services.GetRequiredService<AppDbContext>().Database.EnsureCreated();
 
             InitializeServices();
 
@@ -95,20 +92,19 @@ namespace BoardRentAndProperty
         {
             var serviceCollection = new ServiceCollection();
 
-            // PaM mappers
-            serviceCollection.AddSingleton<IMapper<User, UserDTO>, UserMapper>();
-            serviceCollection.AddSingleton<IMapper<Game, GameDTO>, GameMapper>();
-            serviceCollection.AddSingleton<IMapper<Notification, NotificationDTO>, NotificationMapper>();
-            serviceCollection.AddSingleton<IMapper<Rental, RentalDTO>, RentalMapper>();
-            serviceCollection.AddSingleton<IMapper<Request, RequestDTO>, RequestMapper>();
+            // mappers
+            serviceCollection.AddSingleton<IMapper<Account, UserDTO, Guid>, UserMapper>();
+            serviceCollection.AddSingleton<IMapper<Game, GameDTO, int>, GameMapper>();
+            serviceCollection.AddSingleton<IMapper<Notification, NotificationDTO, int>, NotificationMapper>();
+            serviceCollection.AddSingleton<IMapper<Rental, RentalDTO, int>, RentalMapper>();
+            serviceCollection.AddSingleton<IMapper<Request, RequestDTO, int>, RequestMapper>();
 
             // PaM cross-cutting
             serviceCollection.AddSingleton<ICurrentUserContext, CurrentUserContext>();
             serviceCollection.AddSingleton<IToastNotificationService, ToastNotificationService>();
             serviceCollection.AddSingleton<IServerClient, NotificationClient>();
 
-            // PaM repositories
-            serviceCollection.AddSingleton<IUserRepository, UserRepository>();
+            // repositories
             serviceCollection.AddSingleton<IGameRepository, GameRepository>();
             serviceCollection.AddSingleton<IRequestRepository, RequestRepository>();
             serviceCollection.AddSingleton<IRentalRepository, RentalRepository>();
@@ -136,11 +132,10 @@ namespace BoardRentAndProperty
             serviceCollection.AddTransient<RentalsFromOthersViewModel>();
             serviceCollection.AddTransient<RentalsToOthersViewModel>();
 
-            // BoardRent data layer
+            // data layer
             serviceCollection.AddSingleton<AppDbContext>();
-            serviceCollection.AddSingleton<IUnitOfWorkFactory, UnitOfWorkFactory>();
 
-            // BoardRent repositories (account domain)
+            // account domain repositories
             serviceCollection.AddSingleton<IAccountRepository, AccountRepository>();
             serviceCollection.AddSingleton<IFailedLoginRepository, FailedLoginRepository>();
 
@@ -438,7 +433,7 @@ namespace BoardRentAndProperty
             _ = gameRepository;
 
             // Listen continuously from app start; subscribing to a specific user is
-            // deferred to OnUserLoggedIn so the server gets the right PamUserId.
+            // deferred to OnUserLoggedIn so the server gets the right AccountId.
             notificationService.StartListening();
         }
 
@@ -478,9 +473,9 @@ namespace BoardRentAndProperty
             var resolvedNotificationsViewModel = Services.GetRequiredService<NotificationsViewModel>();
             var resolvedGameService = Services.GetRequiredService<IGameService>();
 
-            resolvedNotificationService.SubscribeToServer(resolvedSessionContext.PamUserId);
+            resolvedNotificationService.SubscribeToServer(resolvedSessionContext.AccountId);
             resolvedMenuBarViewModel.Rebuild();
-            resolvedNotificationsViewModel.LoadNotificationsForUser(resolvedSessionContext.PamUserId);
+            resolvedNotificationsViewModel.LoadNotificationsForUser(resolvedSessionContext.AccountId);
 
             NavigateTo(typeof(MenuBarPage), resolvedGameService, clearBackStack: true);
         }

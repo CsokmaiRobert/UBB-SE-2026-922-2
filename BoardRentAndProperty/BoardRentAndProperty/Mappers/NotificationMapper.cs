@@ -1,53 +1,52 @@
+using System;
 using BoardRentAndProperty.DataTransferObjects;
-using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Models;
 
 namespace BoardRentAndProperty.Mappers
 {
-    public class NotificationMapper : IMapper<Notification, NotificationDTO>
+    public class NotificationMapper : IMapper<Notification, NotificationDTO, int>
     {
-        private readonly IMapper<User, UserDTO> notificationRecipientUserMapper;
+        private readonly IMapper<Account, UserDTO, Guid> recipientMapper;
 
-        public NotificationMapper(IMapper<User, UserDTO> notificationRecipientUserMapper)
+        public NotificationMapper(IMapper<Account, UserDTO, Guid> recipientMapper)
         {
-            this.notificationRecipientUserMapper = notificationRecipientUserMapper;
+            this.recipientMapper = recipientMapper;
         }
 
-        public NotificationDTO ToDTO(Notification notificationModel)
+        public NotificationDTO ToDTO(Notification model)
         {
-            if (notificationModel == null)
+            if (model == null)
             {
                 return null;
             }
-
             return new NotificationDTO
             {
-                Id = notificationModel.Id,
-                User = notificationRecipientUserMapper.ToDTO(notificationModel.User),
-                Timestamp = notificationModel.Timestamp,
-                Title = notificationModel.Title,
-                Body = notificationModel.Body,
-                Type = notificationModel.Type,
-                RelatedRequestId = notificationModel.RelatedRequestId
+                Id = model.Id,
+                User = recipientMapper.ToDTO(model.Recipient),
+                Timestamp = model.Timestamp,
+                Title = model.Title,
+                Body = model.Body,
+                Type = model.Type,
+                RelatedRequestId = model.RelatedRequest?.Id
             };
         }
 
-        public Notification ToModel(NotificationDTO notificationDto)
+        public Notification ToModel(NotificationDTO dto)
         {
-            if (notificationDto == null)
+            if (dto == null)
             {
                 return null;
             }
-
+            var recipient = recipientMapper.ToModel(dto.User);
             return new Notification
             {
-                Id = notificationDto.Id,
-                User = notificationRecipientUserMapper.ToModel(notificationDto.User),
-                Timestamp = notificationDto.Timestamp,
-                Title = notificationDto.Title,
-                Body = notificationDto.Body,
-                Type = notificationDto.Type,
-                RelatedRequestId = notificationDto.RelatedRequestId
+                Id = dto.Id,
+                Recipient = recipient,
+                Timestamp = dto.Timestamp,
+                Title = dto.Title,
+                Body = dto.Body,
+                Type = dto.Type,
+                RelatedRequest = dto.RelatedRequestId.HasValue ? new Request { Id = dto.RelatedRequestId.Value } : null
             };
         }
     }

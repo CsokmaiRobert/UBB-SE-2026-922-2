@@ -1,28 +1,28 @@
+using System;
 using System.Collections.Immutable;
 using System.Linq;
 using BoardRentAndProperty.DataTransferObjects;
 using BoardRentAndProperty.Mappers;
 using BoardRentAndProperty.Repositories;
-using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Models;
-
 namespace BoardRentAndProperty.Services
 {
     public class UserService : IUserService
     {
-        private readonly IUserRepository userDataRepository;
-        private readonly IMapper<User, UserDTO> userDtoMapper;
-
-        public UserService(IUserRepository userRepository, IMapper<User, UserDTO> userMapper)
+        private readonly IAccountRepository accountRepository;
+        private readonly IMapper<Account, UserDTO, Guid> accountMapper;
+        public UserService(IAccountRepository accountRepository, IMapper<Account, UserDTO, Guid> accountMapper)
         {
-            this.userDataRepository = userRepository;
-            this.userDtoMapper = userMapper;
+            this.accountRepository = accountRepository;
+            this.accountMapper = accountMapper;
         }
-
-        public ImmutableList<UserDTO> GetUsersExcept(int excludedUserId) =>
-            userDataRepository.GetAll()
-                .Where(user => user.Id != excludedUserId)
-                .Select(user => userDtoMapper.ToDTO(user))
+        public ImmutableList<UserDTO> GetUsersExcept(Guid excludeAccountId)
+        {
+            var allAccounts = accountRepository.GetAllAsync(1, int.MaxValue).GetAwaiter().GetResult();
+            return allAccounts
+                .Where(accounts => accounts.Id != excludeAccountId)
+                .Select(accounts => accountMapper.ToDTO(accounts))
                 .ToImmutableList();
+        }
     }
 }

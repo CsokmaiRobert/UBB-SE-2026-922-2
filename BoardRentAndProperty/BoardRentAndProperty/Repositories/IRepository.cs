@@ -5,7 +5,7 @@ using BoardRentAndProperty.Mappers;
 namespace BoardRentAndProperty.Repositories
 {
     public interface IRepository<TRepositoryItem>
-        where TRepositoryItem : notnull, IEntity
+        where TRepositoryItem : notnull, IEntity<int>
     {
         ImmutableList<TRepositoryItem> GetAll();
 

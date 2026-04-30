@@ -4,7 +4,7 @@ using BoardRentAndProperty.Models;
 
 namespace BoardRentAndProperty.DataTransferObjects
 {
-    public class RequestDTO : IDTO<Request>
+    public class RequestDTO : IDTO<Request, int>
     {
         private const string ShortDateDisplayFormat = "dd/MM";
         private const string LongDateDisplayFormat = "dd/MM/yyyy";

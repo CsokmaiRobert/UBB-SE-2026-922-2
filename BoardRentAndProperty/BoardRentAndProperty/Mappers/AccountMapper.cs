@@ -24,7 +24,6 @@ namespace BoardRentAndProperty.Mappers
                 StreetNumber = dataReader.IsDBNull(dataReader.GetOrdinal("StreetNumber")) ? null : dataReader.GetString(dataReader.GetOrdinal("StreetNumber")),
                 Country = dataReader.IsDBNull(dataReader.GetOrdinal("Country")) ? null : dataReader.GetString(dataReader.GetOrdinal("Country")),
                 City = dataReader.IsDBNull(dataReader.GetOrdinal("City")) ? null : dataReader.GetString(dataReader.GetOrdinal("City")),
-                PamUserId = dataReader.IsDBNull(dataReader.GetOrdinal("PamUserId")) ? (int?)null : dataReader.GetInt32(dataReader.GetOrdinal("PamUserId")),
                 Roles = new List<Role>(),
             };
         }
