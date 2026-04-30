@@ -76,6 +76,14 @@ namespace BoardRentAndProperty.Services
                         Username = registrationRequest.Username,
                         Email = registrationRequest.Email,
                         PasswordHash = PasswordHasher.HashPassword(registrationRequest.Password),
+
+                        PhoneNumber = registrationRequest.PhoneNumber,
+                        Country = registrationRequest.Country,
+                        City = registrationRequest.City,
+                        StreetName = registrationRequest.StreetName,
+                        StreetNumber = registrationRequest.StreetNumber,
+
+
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow,
                         IsSuspended = false,
