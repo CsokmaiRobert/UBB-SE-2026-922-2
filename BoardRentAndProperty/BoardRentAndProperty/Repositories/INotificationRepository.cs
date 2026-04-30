@@ -7,7 +7,5 @@ namespace BoardRentAndProperty.Repositories
     public interface INotificationRepository : IRepository<Notification>
     {
         ImmutableList<Notification> GetNotificationsByUser(int userId);
-
-        void DeleteNotificationsLinkedToRequest(int relatedRequestId);
     }
 }

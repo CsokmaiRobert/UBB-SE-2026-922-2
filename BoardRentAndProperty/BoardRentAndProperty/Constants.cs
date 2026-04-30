@@ -1,14 +1,3 @@
-// This file lives in `BoardRentAndProperty.Resources` (rather than the natural
-// `BoardRentAndProperty.Constants`) to avoid a name collision with the
-// `BoardRentAndProperty.Constants.DomainConstants` static class. Consumer code
-// continues to access these constants via the `BoardRentAndProperty.Constants`
-// namespace through `ConstantsBridge.cs`.
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace BoardRentAndProperty.Resources
 {
     internal static class Constants
@@ -22,6 +11,7 @@ namespace BoardRentAndProperty.Resources
             public const string RentalRequestDeclined = "Rental request declined";
             public const string RentalRequestCancelled = "Rental request cancelled";
             public const string RentalRequestApproved = "Rental request approved";
+            public const string RentalRequestReceived = "Rental request received";
             public const string OfferReceived = "Game Offer Received";
             public const string OfferAccepted = "Offer Accepted";
             public const string RentalConfirmed = "Rental Confirmed";

@@ -100,6 +100,12 @@ namespace BoardRentAndProperty.Services
                 endDate: proposedEndDate);
 
             requestDataRepository.Add(newRentalRequest);
+            SendNotificationToUser(
+                requestedGameOwnerId,
+                Constants.NotificationTitles.RentalRequestReceived,
+                $"A renter requested {requestedGame.Name} {FormatRequestPeriod(proposedStartDate, proposedEndDate)}.",
+                relatedRequestId: newRentalRequest.Id);
+
             return Result<int, CreateRequestError>.Success(newRentalRequest.Id);
         }
 
@@ -152,7 +158,6 @@ namespace BoardRentAndProperty.Services
 
             var normalizedDenialReason = NormalizeDenialReason(denialReason);
 
-            requestNotificationService.DeleteNotificationsLinkedToRequest(requestId);
             requestDataRepository.Delete(requestId);
 
             var deniedRenterId = requestToDeny.Renter?.Id ?? MissingUserId;
@@ -182,7 +187,6 @@ namespace BoardRentAndProperty.Services
                 return Result<int, CancelRequestError>.Failure(CancelRequestError.Unauthorized);
             }
 
-            requestNotificationService.DeleteNotificationsLinkedToRequest(requestId);
             try
             {
                 requestDataRepository.Delete(requestId);
@@ -204,7 +208,6 @@ namespace BoardRentAndProperty.Services
 
             foreach (var pendingRequest in pendingRequestsForGame)
             {
-                requestNotificationService.DeleteNotificationsLinkedToRequest(pendingRequest.Id);
                 requestDataRepository.Delete(pendingRequest.Id);
 
                 var affectedRenterId = pendingRequest.Renter?.Id ?? MissingUserId;
@@ -400,6 +403,7 @@ namespace BoardRentAndProperty.Services
                 $"Your request for {approvedGameName} {FormatRequestPeriod(openRequestToApprove.StartDate, openRequestToApprove.EndDate)} was approved.");
 
             requestNotificationService.ScheduleUpcomingRentalReminder(
+                createdRentalId,
                 openRequestToApprove.Renter?.Id ?? MissingUserId,
                 openRequestToApprove.Owner?.Id ?? MissingUserId,
                 openRequestToApprove.Game?.Name ?? "your game",

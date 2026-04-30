@@ -9,14 +9,14 @@ namespace BoardRentAndProperty.Mappers
     {
         private const string StandardAccountRoleName = "Standard User";
 
-        public AccountProfileDataTransferObject ToDto(Account account)
+        public AccountProfileDataTransferObject ToDataTransferObject(Account account)
         {
             if (account == null)
             {
                 return null;
             }
 
-            var primaryRole = account.Roles?.FirstOrDefault();
+            Role primaryRole = account.Roles?.FirstOrDefault();
 
             return new AccountProfileDataTransferObject
             {
@@ -39,15 +39,21 @@ namespace BoardRentAndProperty.Mappers
             };
         }
 
-        public void ApplyTo(Account account, AccountProfileDataTransferObject dto)
+        public void ApplyToEntity(Account account, AccountProfileDataTransferObject dataTransferObject)
         {
-            account.DisplayName = dto.DisplayName;
-            account.Email = dto.Email;
-            account.PhoneNumber = dto.PhoneNumber;
-            account.Country = dto.Country;
-            account.City = dto.City;
-            account.StreetName = dto.StreetName;
-            account.StreetNumber = dto.StreetNumber;
+            account.DisplayName = dataTransferObject.DisplayName;
+            account.Email = dataTransferObject.Email;
+            account.PhoneNumber = dataTransferObject.PhoneNumber;
+            account.Country = dataTransferObject.Country;
+            account.City = dataTransferObject.City;
+            account.StreetName = dataTransferObject.StreetName;
+            account.StreetNumber = dataTransferObject.StreetNumber;
+
+            if (!string.IsNullOrWhiteSpace(dataTransferObject.AvatarUrl))
+            {
+                account.AvatarUrl = dataTransferObject.AvatarUrl;
+            }
+
             account.UpdatedAt = DateTime.UtcNow;
         }
     }

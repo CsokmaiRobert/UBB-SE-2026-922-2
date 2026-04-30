@@ -25,7 +25,6 @@
                 <Button Content="Sign out" Background="Red" Foreground="White" HorizontalAlignment="Right" Margin="0,5,10,5" Command="{Binding SignOutCommand}"/>
             </Grid>
 
-
             <TabView IsAddTabButtonVisible="False" Padding="0,0,0,20" MinHeight="400" >
 
                 <TabViewItem Header="Personal Info" IsSelected="True" IsClosable="False" MinHeight="50"  >
@@ -171,22 +170,6 @@
 
                         </StackPanel>
                     </ScrollViewer>
-                </TabViewItem>
-
-                <TabViewItem Header="Booking History" IsClosable="False">
-                    <TabViewItem.HeaderTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}" FontSize="14" FontWeight="SemiBold"/>
-                        </DataTemplate>
-                    </TabViewItem.HeaderTemplate>
-                </TabViewItem>
-
-                <TabViewItem Header="My Listings" IsClosable="False">
-                    <TabViewItem.HeaderTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}" FontSize="14" FontWeight="SemiBold"/>
-                        </DataTemplate>
-                    </TabViewItem.HeaderTemplate>
                 </TabViewItem>
 
             </TabView>

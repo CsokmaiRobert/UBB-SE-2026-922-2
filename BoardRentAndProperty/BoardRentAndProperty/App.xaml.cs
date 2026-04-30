@@ -23,6 +23,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Navigation;
 using Microsoft.Windows.AppLifecycle;
+using Microsoft.Windows.AppNotifications;
 
 namespace BoardRentAndProperty
 {
@@ -35,7 +36,6 @@ namespace BoardRentAndProperty
         private const int SplitKeyValuePartsCount = 2;
         private const int DevModePrimaryProcessSlot = 1;
         private const int DevModeSecondaryProcessSlot = 2;
-        private const int NoRunningProcessCount = 0;
         private const int SuccessExitCode = 0;
 
         private const string TwoWindowsEnvironmentKey = "TWO_WINDOWS";
@@ -70,7 +70,7 @@ namespace BoardRentAndProperty
 
             DatabaseInitializer.EnsureDatabaseInitialized();
 
-            if (shouldLaunchSecondClient)
+            if (CurrentProcessSlot == DevModePrimaryProcessSlot)
             {
                 StartNotificationServer();
             }
@@ -83,7 +83,6 @@ namespace BoardRentAndProperty
 
             ConfigureServices();
 
-            // BoardRent DB init runs after DI is built (AppDbContext is resolved from the container).
             Services.GetRequiredService<AppDbContext>().EnsureCreated();
 
             InitializeServices();
@@ -95,33 +94,28 @@ namespace BoardRentAndProperty
         {
             var serviceCollection = new ServiceCollection();
 
-            // PaM mappers
             serviceCollection.AddSingleton<IMapper<User, UserDTO>, UserMapper>();
             serviceCollection.AddSingleton<IMapper<Game, GameDTO>, GameMapper>();
             serviceCollection.AddSingleton<IMapper<Notification, NotificationDTO>, NotificationMapper>();
             serviceCollection.AddSingleton<IMapper<Rental, RentalDTO>, RentalMapper>();
             serviceCollection.AddSingleton<IMapper<Request, RequestDTO>, RequestMapper>();
 
-            // PaM cross-cutting
             serviceCollection.AddSingleton<ICurrentUserContext, CurrentUserContext>();
             serviceCollection.AddSingleton<IToastNotificationService, ToastNotificationService>();
             serviceCollection.AddSingleton<IServerClient, NotificationClient>();
 
-            // PaM repositories
             serviceCollection.AddSingleton<IUserRepository, UserRepository>();
             serviceCollection.AddSingleton<IGameRepository, GameRepository>();
             serviceCollection.AddSingleton<IRequestRepository, RequestRepository>();
             serviceCollection.AddSingleton<IRentalRepository, RentalRepository>();
             serviceCollection.AddSingleton<INotificationRepository, NotificationRepository>();
 
-            // PaM services
             serviceCollection.AddSingleton<IUserService, UserService>();
             serviceCollection.AddSingleton<IGameService, GameService>();
             serviceCollection.AddSingleton<IRentalService, RentalService>();
             serviceCollection.AddSingleton<INotificationService, NotificationService>();
             serviceCollection.AddSingleton<IRequestService, RequestService>();
 
-            // PaM view models
             serviceCollection.AddSingleton<NotificationsViewModel>();
             serviceCollection.AddSingleton<MenuBarViewModel>();
             serviceCollection.AddTransient(serviceProvider => new ListingsViewModel(
@@ -136,26 +130,21 @@ namespace BoardRentAndProperty
             serviceCollection.AddTransient<RentalsFromOthersViewModel>();
             serviceCollection.AddTransient<RentalsToOthersViewModel>();
 
-            // BoardRent data layer
             serviceCollection.AddSingleton<AppDbContext>();
             serviceCollection.AddSingleton<IUnitOfWorkFactory, UnitOfWorkFactory>();
 
-            // BoardRent repositories (account domain)
             serviceCollection.AddSingleton<IAccountRepository, AccountRepository>();
             serviceCollection.AddSingleton<IFailedLoginRepository, FailedLoginRepository>();
 
-            // BoardRent services
             serviceCollection.AddSingleton<IAuthService, AuthService>();
             serviceCollection.AddSingleton<IAccountService, AccountService>();
             serviceCollection.AddSingleton<IAdminService, AdminService>();
             serviceCollection.AddSingleton<IFilePickerService, FilePickerService>();
             serviceCollection.AddSingleton<ISessionContext, SessionContext>();
 
-            // BoardRent mappers (uniformity rule)
             serviceCollection.AddSingleton<AccountMapper>();
             serviceCollection.AddSingleton<AccountProfileMapper>();
 
-            // BoardRent view models
             serviceCollection.AddTransient<LoginViewModel>();
             serviceCollection.AddTransient<RegisterViewModel>();
             serviceCollection.AddTransient<ProfileViewModel>();
@@ -165,7 +154,6 @@ namespace BoardRentAndProperty
             Ioc.Default.ConfigureServices(Services);
         }
 
-        // Static helpers used by BoardRent view models that call App.NavigateTo / App.NavigateBack.
         public static void NavigateTo(Type pageType, object? parameter = null, bool clearBackStack = false)
         {
             if (Application.Current is not App appInstance)
@@ -209,8 +197,6 @@ namespace BoardRentAndProperty
 
             return DefaultProcessSlot;
         }
-
-        #region Two-window dev mode
 
         private static string? FindRepoRoot()
         {
@@ -284,10 +270,7 @@ namespace BoardRentAndProperty
         {
             try
             {
-                if (Process.GetProcessesByName("NotificationServer").Length > NoRunningProcessCount)
-                {
-                    return;
-                }
+                StopRunningNotificationServers();
 
                 var serverBinDir = FindNotificationServerBinDir();
                 if (serverBinDir == null)
@@ -296,7 +279,10 @@ namespace BoardRentAndProperty
                 }
 
                 var serverExe = Directory.GetFiles(serverBinDir, "NotificationServer.exe", SearchOption.AllDirectories)
-                    .FirstOrDefault();
+                    .Select(serverExecutablePath => new FileInfo(serverExecutablePath))
+                    .OrderByDescending(serverExecutableFile => serverExecutableFile.LastWriteTimeUtc)
+                    .FirstOrDefault()
+                    ?.FullName;
                 if (serverExe == null)
                 {
                     return;
@@ -311,6 +297,25 @@ namespace BoardRentAndProperty
             }
             catch
             {
+            }
+        }
+
+        private static void StopRunningNotificationServers()
+        {
+            foreach (var runningNotificationServer in Process.GetProcessesByName("NotificationServer"))
+            {
+                try
+                {
+                    runningNotificationServer.Kill(entireProcessTree: true);
+                    runningNotificationServer.WaitForExit();
+                }
+                catch
+                {
+                }
+                finally
+                {
+                    runningNotificationServer.Dispose();
+                }
             }
         }
 
@@ -361,8 +366,6 @@ namespace BoardRentAndProperty
             {
             }
         }
-
-        #endregion
 
         private void SetupNotificationManager()
         {
@@ -421,7 +424,7 @@ namespace BoardRentAndProperty
                 Environment.Exit(SuccessExitCode);
             }
 
-            appInstance.Activated += (sender, args) => ActivateWindow();
+            appInstance.Activated += (sender, args) => HandleActivationArguments(args);
         }
 
         private void InitializeServices()
@@ -437,8 +440,6 @@ namespace BoardRentAndProperty
             _ = notificationRepository;
             _ = gameRepository;
 
-            // Listen continuously from app start; subscribing to a specific user is
-            // deferred to OnUserLoggedIn so the server gets the right PamUserId.
             notificationService.StartListening();
         }
 
@@ -458,6 +459,8 @@ namespace BoardRentAndProperty
             {
                 LaunchSecondClient();
             }
+
+            HandleActivationArguments(AppInstance.GetCurrent().GetActivatedEventArgs());
         }
 
         public static void OnUserLoggedIn()
@@ -478,6 +481,7 @@ namespace BoardRentAndProperty
             var resolvedNotificationsViewModel = Services.GetRequiredService<NotificationsViewModel>();
             var resolvedGameService = Services.GetRequiredService<IGameService>();
 
+            resolvedNotificationService.StartListening();
             resolvedNotificationService.SubscribeToServer(resolvedSessionContext.PamUserId);
             resolvedMenuBarViewModel.Rebuild();
             resolvedNotificationsViewModel.LoadNotificationsForUser(resolvedSessionContext.PamUserId);
@@ -499,6 +503,8 @@ namespace BoardRentAndProperty
 
             var resolvedSessionContext = Services.GetRequiredService<ISessionContext>();
             resolvedSessionContext.Clear();
+            Services.GetRequiredService<INotificationService>().StopListening();
+            Services.GetRequiredService<NotificationsViewModel>().LoadNotificationsForUser(0);
 
             NavigateTo(typeof(LoginPage), parameter: null, clearBackStack: true);
         }
@@ -509,6 +515,18 @@ namespace BoardRentAndProperty
             mainWindow.Content = RootFrame;
             mainWindow.Activate();
             mainWindow.Title = AppUserModelId;
+        }
+
+        private void HandleActivationArguments(AppActivationArguments activationArguments)
+        {
+            if (activationArguments.Kind == ExtendedActivationKind.AppNotification
+                && activationArguments.Data is AppNotificationActivatedEventArgs notificationActivationArgs)
+            {
+                notificationManager.ProcessLaunchActivationArgs(notificationActivationArgs);
+                return;
+            }
+
+            ActivateWindow();
         }
 
         private void ActivateWindow()
