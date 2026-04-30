@@ -20,7 +20,7 @@ namespace BoardRentAndProperty.Views
                 App.OnUserLoggedOut();
             };
 
-            this.Loaded += async (object sender, RoutedEventArgs eventArgs) =>
+            this.Loaded += async (object sender, RoutedEventArgs eventArguments) =>
             {
                 await this.ViewModel.LoadProfileAsync();
             };

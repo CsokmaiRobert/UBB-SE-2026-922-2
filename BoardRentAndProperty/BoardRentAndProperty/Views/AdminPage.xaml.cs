@@ -7,6 +7,7 @@ namespace BoardRentAndProperty.Views
     using CommunityToolkit.Mvvm.DependencyInjection;
     using Microsoft.UI.Xaml;
     using Microsoft.UI.Xaml.Controls;
+    using Microsoft.UI.Xaml.Navigation;
 
     public sealed partial class AdminPage : Page, INotifyPropertyChanged
     {
@@ -15,11 +16,8 @@ namespace BoardRentAndProperty.Views
         public AdminPage()
         {
             this.InitializeComponent();
-
             this.sessionContext = Ioc.Default.GetService<ISessionContext>();
             this.ViewModel = Ioc.Default.GetService<AdminViewModel>();
-
-            this.ViewModel.PropertyChanged += this.ViewModel_PropertyChanged;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -32,7 +30,24 @@ namespace BoardRentAndProperty.Views
 
         public bool IsErrorVisible => this.ViewModel != null && !string.IsNullOrEmpty(this.ViewModel.ErrorMessage);
 
-        private void ViewModel_PropertyChanged(object sender, PropertyChangedEventArgs eventArgs)
+        protected override async void OnNavigatedTo(NavigationEventArgs e)
+        {
+            base.OnNavigatedTo(e);
+
+            if (!this.IsUnauthorized)
+            {
+                this.ViewModel.PropertyChanged += this.OnViewModelPropertyChanged;
+                await this.ViewModel.LoadAccountsAsync();
+            }
+        }
+
+        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        {
+            base.OnNavigatedFrom(e);
+            this.ViewModel.PropertyChanged -= this.OnViewModelPropertyChanged;
+        }
+
+        private void OnViewModelPropertyChanged(object sender, PropertyChangedEventArgs eventArgs)
         {
             if (eventArgs.PropertyName == nameof(AdminViewModel.ErrorMessage))
             {

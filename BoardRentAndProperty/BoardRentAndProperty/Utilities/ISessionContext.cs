@@ -17,6 +17,13 @@ namespace BoardRentAndProperty.Utilities
 
         bool IsLoggedIn { get; }
 
+        string PhoneNumber { get; }
+        string Email { get; }
+        string Country { get; }
+        string City { get; }
+        string StreetName { get; }
+        string StreetNumber { get; }
+
         void Populate(Account account, string roleName);
 
         void Clear();
