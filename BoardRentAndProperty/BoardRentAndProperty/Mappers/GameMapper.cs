@@ -6,13 +6,6 @@ namespace BoardRentAndProperty.Mappers
 {
     public class GameMapper : IMapper<Game, GameDTO>
     {
-        private readonly IMapper<User, UserDTO> gameOwnerUserMapper;
-
-        public GameMapper(IMapper<User, UserDTO> gameOwnerMapper)
-        {
-            this.gameOwnerUserMapper = gameOwnerMapper;
-        }
-
         public GameDTO ToDTO(Game gameModel)
         {
             if (gameModel == null)
@@ -23,7 +16,7 @@ namespace BoardRentAndProperty.Mappers
             return new GameDTO
             {
                 Id = gameModel.Id,
-                Owner = gameOwnerUserMapper.ToDTO(gameModel.Owner),
+                Owner = gameModel.Owner,
                 Name = gameModel.Name,
                 Price = gameModel.Price,
                 MinimumPlayerNumber = gameModel.MinimumPlayerNumber,
@@ -44,7 +37,7 @@ namespace BoardRentAndProperty.Mappers
             return new Game
             {
                 Id = gameDto.Id,
-                Owner = gameOwnerUserMapper.ToModel(gameDto.Owner),
+                Owner = gameDto.Owner,
                 Name = gameDto.Name,
                 Price = gameDto.Price,
                 MinimumPlayerNumber = gameDto.MinimumPlayerNumber,

@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using BoardRentAndProperty.DataTransferObjects;
+using BoardRentAndProperty.Models;
 using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Utilities;
 
@@ -14,13 +15,13 @@ namespace BoardRentAndProperty.ViewModels
 
         private readonly IGameService gameListingService;
         private readonly IRentalService rentalCreationService;
-        private readonly IUserService userLookupService;
+        private readonly IAccountService accountService;
         private readonly ICurrentUserContext currentUserContext;
 
         public int CurrentUserId => currentUserContext.CurrentUserId;
 
         public ObservableCollection<GameDTO> OwnedActiveGames { get; set; } = new();
-        public ObservableCollection<UserDTO> AvailableRenters { get; set; } = new();
+        public ObservableCollection<Account> AvailableRenters { get; set; } = new();
 
         private GameDTO selectedGameToRent;
         public GameDTO SelectedGameToRent
@@ -33,13 +34,13 @@ namespace BoardRentAndProperty.ViewModels
             }
         }
 
-        private UserDTO selectedRenterUser;
-        public UserDTO SelectedRenter
+        private Account selectedRenter;
+        public Account SelectedRenter
         {
-            get => selectedRenterUser;
+            get => selectedRenter;
             set
             {
-                selectedRenterUser = value;
+                selectedRenter = value;
                 OnPropertyChanged();
             }
         }
@@ -67,16 +68,16 @@ namespace BoardRentAndProperty.ViewModels
         }
 
         public CreateRentalViewModel(IGameService gameListingService, IRentalService rentalCreationService,
-                                     IUserService userLookupService, ICurrentUserContext currentUserContext)
+                                     IAccountService accountService, ICurrentUserContext currentUserContext)
         {
             this.gameListingService = gameListingService;
             this.rentalCreationService = rentalCreationService;
-            this.userLookupService = userLookupService;
+            this.accountService = accountService;
             this.currentUserContext = currentUserContext;
-            LoadRentalFormData();
+            _ = LoadRentalFormDataAsync();
         }
 
-        public void LoadRentalFormData()
+        public async System.Threading.Tasks.Task LoadRentalFormDataAsync()
         {
             OwnedActiveGames.Clear();
             foreach (var activeGame in gameListingService.GetActiveGamesForOwner(CurrentUserId))
@@ -85,7 +86,13 @@ namespace BoardRentAndProperty.ViewModels
             }
 
             AvailableRenters.Clear();
-            foreach (var potentialRenter in userLookupService.GetUsersExcept(CurrentUserId))
+            ServiceResult<System.Collections.Generic.List<Account>> renterListResult = await accountService.GetAccountsExceptPamUserIdAsync(CurrentUserId);
+            if (!renterListResult.Success || renterListResult.Data == null)
+            {
+                return;
+            }
+
+            foreach (var potentialRenter in renterListResult.Data)
             {
                 AvailableRenters.Add(potentialRenter);
             }
@@ -119,7 +126,7 @@ namespace BoardRentAndProperty.ViewModels
             {
                 rentalCreationService.CreateConfirmedRental(
                     SelectedGameToRent.Id,
-                    SelectedRenter.Id,
+                    SelectedRenter.PamUserId ?? 0,
                     CurrentUserId,
                     StartDate.Value.DateTime,
                     EndDate.Value.DateTime);

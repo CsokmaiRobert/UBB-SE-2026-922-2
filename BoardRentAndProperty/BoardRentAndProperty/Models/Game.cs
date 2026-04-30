@@ -5,7 +5,7 @@ namespace BoardRentAndProperty.Models
     public class Game : IEntity
     {
         public int Id { get; set; }
-        public User Owner { get; set; }
+        public Account Owner { get; set; }
         public string Name { get; set; }
         public decimal Price { get; set; }
         public int MinimumPlayerNumber { get; set; }
@@ -18,7 +18,7 @@ namespace BoardRentAndProperty.Models
         {
         }
 
-        public Game(int id, User gameOwner, string name, decimal price,
+        public Game(int id, Account gameOwner, string name, decimal price,
                     int minimumPlayerNumber, int maximumPlayerNumber,
                     string description, byte[] image, bool isActive)
         {

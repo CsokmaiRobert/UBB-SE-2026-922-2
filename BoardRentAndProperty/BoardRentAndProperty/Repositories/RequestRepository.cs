@@ -36,17 +36,17 @@ namespace BoardRentAndProperty.Repositories
                 Name = databaseReader["game_name"] as string ?? string.Empty,
                 Image = databaseReader["game_image"] as byte[] ?? Array.Empty<byte>()
             };
-            var renterUser = new User((int)databaseReader["renter_id"], databaseReader["renter_display_name"] as string ?? string.Empty);
-            var ownerUser = new User((int)databaseReader["owner_id"], databaseReader["owner_display_name"] as string ?? string.Empty);
+            var renter = new Account { PamUserId = (int)databaseReader["renter_id"], DisplayName = databaseReader["renter_display_name"] as string ?? string.Empty };
+            var owner = new Account { PamUserId = (int)databaseReader["owner_id"], DisplayName = databaseReader["owner_display_name"] as string ?? string.Empty };
             var requestStatus = (RequestStatus)(int)databaseReader["status"];
-            User? offeringUser = null;
+            Account? offeringAccount = null;
             var offeringUserIdValue = databaseReader["offering_user_id"];
             if (offeringUserIdValue != DBNull.Value)
             {
-                offeringUser = new User((int)offeringUserIdValue, databaseReader["offering_user_display_name"] as string ?? string.Empty);
+                offeringAccount = new Account { PamUserId = (int)offeringUserIdValue, DisplayName = databaseReader["offering_user_display_name"] as string ?? string.Empty };
             }
-            return new Request((int)databaseReader["request_id"], requestedGame, renterUser, ownerUser,
-                (DateTime)databaseReader["start_date"], (DateTime)databaseReader["end_date"], requestStatus, offeringUser);
+            return new Request((int)databaseReader["request_id"], requestedGame, renter, owner,
+                (DateTime)databaseReader["start_date"], (DateTime)databaseReader["end_date"], requestStatus, offeringAccount);
         }
 
         public ImmutableList<Request> GetAll()
@@ -92,12 +92,12 @@ namespace BoardRentAndProperty.Repositories
                 "VALUES(@game_id, @renter_id, @owner_id, @start_date, @end_date, @status, @offering_user_id); " +
                 "SELECT SCOPE_IDENTITY();";
             command.Parameters.AddWithValue("@game_id", requestToInsert.Game?.Id ?? MissingForeignKeyId);
-            command.Parameters.AddWithValue("@renter_id", requestToInsert.Renter?.Id ?? MissingForeignKeyId);
-            command.Parameters.AddWithValue("@owner_id", requestToInsert.Owner?.Id ?? MissingForeignKeyId);
+            command.Parameters.AddWithValue("@renter_id", requestToInsert.Renter?.PamUserId ?? MissingForeignKeyId);
+            command.Parameters.AddWithValue("@owner_id", requestToInsert.Owner?.PamUserId ?? MissingForeignKeyId);
             command.Parameters.AddWithValue("@start_date", requestToInsert.StartDate);
             command.Parameters.AddWithValue("@end_date", requestToInsert.EndDate);
             command.Parameters.AddWithValue("@status", (int)requestToInsert.Status);
-            command.Parameters.AddWithValue("@offering_user_id", requestToInsert.OfferingUser?.Id ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@offering_user_id", requestToInsert.OfferingAccount?.PamUserId ?? (object)DBNull.Value);
             requestToInsert.Id = Convert.ToInt32(command.ExecuteScalar());
         }
 
@@ -150,18 +150,18 @@ namespace BoardRentAndProperty.Repositories
                 Name = deleteOutputReader["game_name"] as string ?? string.Empty,
                 Image = deleteOutputReader["game_image"] as byte[] ?? Array.Empty<byte>()
             };
-            var deletedRenterUser = new User((int)deleteOutputReader["renter_id"], deleteOutputReader["renter_display_name"] as string ?? string.Empty);
-            var deletedOwnerUser = new User((int)deleteOutputReader["owner_id"], deleteOutputReader["owner_display_name"] as string ?? string.Empty);
+            var deletedRenter = new Account { PamUserId = (int)deleteOutputReader["renter_id"], DisplayName = deleteOutputReader["renter_display_name"] as string ?? string.Empty };
+            var deletedOwner = new Account { PamUserId = (int)deleteOutputReader["owner_id"], DisplayName = deleteOutputReader["owner_display_name"] as string ?? string.Empty };
             var deletedRequestStatus = (RequestStatus)(int)deleteOutputReader["status"];
-            User? deletedOfferingUser = null;
+            Account? deletedOfferingAccount = null;
             var deletedOfferingUserIdValue = deleteOutputReader["offering_user_id"];
             if (deletedOfferingUserIdValue != DBNull.Value)
             {
-                deletedOfferingUser = new User((int)deletedOfferingUserIdValue, deleteOutputReader["offering_user_display_name"] as string ?? string.Empty);
+                deletedOfferingAccount = new Account { PamUserId = (int)deletedOfferingUserIdValue, DisplayName = deleteOutputReader["offering_user_display_name"] as string ?? string.Empty };
             }
 
-            return new Request((int)deleteOutputReader["request_id"], deletedRequestedGame, deletedRenterUser, deletedOwnerUser,
-                (DateTime)deleteOutputReader["start_date"], (DateTime)deleteOutputReader["end_date"], deletedRequestStatus, deletedOfferingUser);
+            return new Request((int)deleteOutputReader["request_id"], deletedRequestedGame, deletedRenter, deletedOwner,
+                (DateTime)deleteOutputReader["start_date"], (DateTime)deleteOutputReader["end_date"], deletedRequestStatus, deletedOfferingAccount);
         }
 
         public void Update(int requestIdToUpdate, Request requestDataToUpdate)
@@ -177,12 +177,12 @@ namespace BoardRentAndProperty.Repositories
                         "offering_user_id = @offering_user_id WHERE request_id = @id";
                     command.Parameters.AddWithValue("@id", requestIdToUpdate);
                     command.Parameters.AddWithValue("@game_id", requestDataToUpdate.Game?.Id ?? MissingForeignKeyId);
-                    command.Parameters.AddWithValue("@renter_id", requestDataToUpdate.Renter?.Id ?? MissingForeignKeyId);
-                    command.Parameters.AddWithValue("@owner_id", requestDataToUpdate.Owner?.Id ?? MissingForeignKeyId);
+                    command.Parameters.AddWithValue("@renter_id", requestDataToUpdate.Renter?.PamUserId ?? MissingForeignKeyId);
+                    command.Parameters.AddWithValue("@owner_id", requestDataToUpdate.Owner?.PamUserId ?? MissingForeignKeyId);
                     command.Parameters.AddWithValue("@start_date", requestDataToUpdate.StartDate);
                     command.Parameters.AddWithValue("@end_date", requestDataToUpdate.EndDate);
                     command.Parameters.AddWithValue("@status", (int)requestDataToUpdate.Status);
-                    command.Parameters.AddWithValue("@offering_user_id", requestDataToUpdate.OfferingUser?.Id ?? (object)DBNull.Value);
+                    command.Parameters.AddWithValue("@offering_user_id", requestDataToUpdate.OfferingAccount?.PamUserId ?? (object)DBNull.Value);
                     command.ExecuteNonQuery();
                 }
             }
@@ -345,8 +345,8 @@ namespace BoardRentAndProperty.Repositories
                 "INSERT INTO Rentals(game_id, renter_id, owner_id, start_date, end_date) " +
                 "VALUES(@game_id, @renter_id, @owner_id, @start_date, @end_date); SELECT SCOPE_IDENTITY();";
             command.Parameters.AddWithValue("@game_id", approvedRequest.Game?.Id ?? MissingForeignKeyId);
-            command.Parameters.AddWithValue("@renter_id", approvedRequest.Renter?.Id ?? MissingForeignKeyId);
-            command.Parameters.AddWithValue("@owner_id", approvedRequest.Owner?.Id ?? MissingForeignKeyId);
+            command.Parameters.AddWithValue("@renter_id", approvedRequest.Renter?.PamUserId ?? MissingForeignKeyId);
+            command.Parameters.AddWithValue("@owner_id", approvedRequest.Owner?.PamUserId ?? MissingForeignKeyId);
             command.Parameters.AddWithValue("@start_date", approvedRequest.StartDate);
             command.Parameters.AddWithValue("@end_date", approvedRequest.EndDate);
             return Convert.ToInt32(command.ExecuteScalar());
@@ -390,13 +390,13 @@ namespace BoardRentAndProperty.Repositories
                     Name = reader["game_name"] as string ?? string.Empty,
                     Image = reader["game_image"] as byte[] ?? Array.Empty<byte>()
                 };
-                var overlappingRenterUser = new User((int)reader["renter_id"], reader["renter_display_name"] as string ?? string.Empty);
-                var overlappingOwnerUser = new User((int)reader["owner_id"], reader["owner_display_name"] as string ?? string.Empty);
+                var overlappingRenter = new Account { PamUserId = (int)reader["renter_id"], DisplayName = reader["renter_display_name"] as string ?? string.Empty };
+                var overlappingOwner = new Account { PamUserId = (int)reader["owner_id"], DisplayName = reader["owner_display_name"] as string ?? string.Empty };
                 overlappingRequests.Add(new Request(
                     (int)reader["request_id"],
                     overlappingGame,
-                    overlappingRenterUser,
-                    overlappingOwnerUser,
+                    overlappingRenter,
+                    overlappingOwner,
                     (DateTime)reader["start_date"],
                     (DateTime)reader["end_date"]));
             }

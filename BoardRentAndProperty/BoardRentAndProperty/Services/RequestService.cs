@@ -80,7 +80,7 @@ namespace BoardRentAndProperty.Services
                 return Result<int, CreateRequestError>.Failure(CreateRequestError.GameDoesNotExist);
             }
 
-            var requestedGameOwnerId = requestedGame.Owner?.Id ?? ownerUserId;
+            var requestedGameOwnerId = requestedGame.Owner?.PamUserId ?? ownerUserId;
             if (renterUserId == requestedGameOwnerId)
             {
                 return Result<int, CreateRequestError>.Failure(CreateRequestError.OwnerCannotRent);
@@ -94,8 +94,8 @@ namespace BoardRentAndProperty.Services
             var newRentalRequest = new Request(
                 id: NewRequestId,
                 requestedGame: new Game { Id = gameId },
-                renterUser: new User { Id = renterUserId },
-                ownerUser: new User { Id = requestedGameOwnerId },
+                renterUser: new Account { PamUserId = renterUserId },
+                ownerUser: new Account { PamUserId = requestedGameOwnerId },
                 startDate: proposedStartDate,
                 endDate: proposedEndDate);
 
@@ -121,7 +121,7 @@ namespace BoardRentAndProperty.Services
                 return Result<int, ApproveRequestError>.Failure(ApproveRequestError.NotFound);
             }
 
-            if (requestToApprove.Owner?.Id != approverOwnerId)
+            if (requestToApprove.Owner?.PamUserId != approverOwnerId)
             {
                 return Result<int, ApproveRequestError>.Failure(ApproveRequestError.Unauthorized);
             }
@@ -151,7 +151,7 @@ namespace BoardRentAndProperty.Services
                 return Result<int, DenyRequestError>.Failure(DenyRequestError.NotFound);
             }
 
-            if (requestToDeny.Owner?.Id != denyingOwnerId)
+            if (requestToDeny.Owner?.PamUserId != denyingOwnerId)
             {
                 return Result<int, DenyRequestError>.Failure(DenyRequestError.Unauthorized);
             }
@@ -160,7 +160,7 @@ namespace BoardRentAndProperty.Services
 
             requestDataRepository.Delete(requestId);
 
-            var deniedRenterId = requestToDeny.Renter?.Id ?? MissingUserId;
+            var deniedRenterId = requestToDeny.Renter?.PamUserId ?? MissingUserId;
             var deniedGameName = requestToDeny.Game?.Name ?? "the selected game";
             SendNotificationToUser(
                 deniedRenterId,
@@ -182,7 +182,7 @@ namespace BoardRentAndProperty.Services
                 return Result<int, CancelRequestError>.Failure(CancelRequestError.NotFound);
             }
 
-            if (requestToCancel.Renter?.Id != cancellingRenterUserId)
+            if (requestToCancel.Renter?.PamUserId != cancellingRenterUserId)
             {
                 return Result<int, CancelRequestError>.Failure(CancelRequestError.Unauthorized);
             }
@@ -210,7 +210,7 @@ namespace BoardRentAndProperty.Services
             {
                 requestDataRepository.Delete(pendingRequest.Id);
 
-                var affectedRenterId = pendingRequest.Renter?.Id ?? MissingUserId;
+                var affectedRenterId = pendingRequest.Renter?.PamUserId ?? MissingUserId;
                 var affectedGameName = pendingRequest.Game?.Name ?? "the selected game";
                 SendNotificationToUser(
                     affectedRenterId,
@@ -312,7 +312,7 @@ namespace BoardRentAndProperty.Services
                 return Result<int, OfferError>.Failure(OfferError.NotFound);
             }
 
-            if (requestToOffer.Owner?.Id != offeringGameOwnerId)
+            if (requestToOffer.Owner?.PamUserId != offeringGameOwnerId)
             {
                 return Result<int, OfferError>.Failure(OfferError.NotOwner);
             }
@@ -334,7 +334,7 @@ namespace BoardRentAndProperty.Services
         {
             foreach (var overlappingRequest in overlappingRequests)
             {
-                var affectedRenterId = overlappingRequest.Renter?.Id ?? MissingUserId;
+                var affectedRenterId = overlappingRequest.Renter?.PamUserId ?? MissingUserId;
                 SendNotificationToUser(
                     affectedRenterId,
                     Constants.NotificationTitles.BookingUnavailable,
@@ -364,7 +364,7 @@ namespace BoardRentAndProperty.Services
             return new NotificationDTO
             {
                 Id = NewRequestId,
-                User = new UserDTO { Id = recipientUserId },
+                Recipient = new Account { PamUserId = recipientUserId },
                 Timestamp = DateTime.UtcNow,
                 Title = notificationTitle,
                 Body = notificationBody,
@@ -398,14 +398,14 @@ namespace BoardRentAndProperty.Services
             NotifyOverlappingRequestsUnavailable(conflictingRequests, approvedGameName);
 
             SendNotificationToUser(
-                openRequestToApprove.Renter?.Id ?? MissingUserId,
+                openRequestToApprove.Renter?.PamUserId ?? MissingUserId,
                 Constants.NotificationTitles.RentalRequestApproved,
                 $"Your request for {approvedGameName} {FormatRequestPeriod(openRequestToApprove.StartDate, openRequestToApprove.EndDate)} was approved.");
 
             requestNotificationService.ScheduleUpcomingRentalReminder(
                 createdRentalId,
-                openRequestToApprove.Renter?.Id ?? MissingUserId,
-                openRequestToApprove.Owner?.Id ?? MissingUserId,
+                openRequestToApprove.Renter?.PamUserId ?? MissingUserId,
+                openRequestToApprove.Owner?.PamUserId ?? MissingUserId,
                 openRequestToApprove.Game?.Name ?? "your game",
                 openRequestToApprove.StartDate);
 

@@ -90,7 +90,7 @@ namespace BoardRentAndProperty.ViewModels
             var requestCreationResult = rentalRequestService.CreateRequest(
                 SelectedGame.Id,
                 CurrentUserId,
-                SelectedGame.Owner?.Id ?? 0,
+                SelectedGame.Owner?.PamUserId ?? 0,
                 StartDate.Value.DateTime,
                 EndDate.Value.DateTime);
 

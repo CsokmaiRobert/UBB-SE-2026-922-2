@@ -9,7 +9,7 @@ namespace BoardRentAndProperty.DataTransferObjects
         private const string TimeDisplayFormat = "dd MMM yyyy, HH:mm";
 
         public int Id { get; set; }
-        public UserDTO User { get; set; }
+        public Account Recipient { get; set; }
         public DateTime Timestamp { get; set; }
         public string Title { get; set; }
         public string Body { get; set; }

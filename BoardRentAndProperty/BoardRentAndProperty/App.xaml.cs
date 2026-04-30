@@ -94,7 +94,6 @@ namespace BoardRentAndProperty
         {
             var serviceCollection = new ServiceCollection();
 
-            serviceCollection.AddSingleton<IMapper<User, UserDTO>, UserMapper>();
             serviceCollection.AddSingleton<IMapper<Game, GameDTO>, GameMapper>();
             serviceCollection.AddSingleton<IMapper<Notification, NotificationDTO>, NotificationMapper>();
             serviceCollection.AddSingleton<IMapper<Rental, RentalDTO>, RentalMapper>();
@@ -104,13 +103,11 @@ namespace BoardRentAndProperty
             serviceCollection.AddSingleton<IToastNotificationService, ToastNotificationService>();
             serviceCollection.AddSingleton<IServerClient, NotificationClient>();
 
-            serviceCollection.AddSingleton<IUserRepository, UserRepository>();
             serviceCollection.AddSingleton<IGameRepository, GameRepository>();
             serviceCollection.AddSingleton<IRequestRepository, RequestRepository>();
             serviceCollection.AddSingleton<IRentalRepository, RentalRepository>();
             serviceCollection.AddSingleton<INotificationRepository, NotificationRepository>();
 
-            serviceCollection.AddSingleton<IUserService, UserService>();
             serviceCollection.AddSingleton<IGameService, GameService>();
             serviceCollection.AddSingleton<IRentalService, RentalService>();
             serviceCollection.AddSingleton<INotificationService, NotificationService>();

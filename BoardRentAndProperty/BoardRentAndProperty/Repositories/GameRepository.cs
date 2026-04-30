@@ -30,7 +30,7 @@ namespace BoardRentAndProperty.Repositories
                         while (reader.Read())
                         {
                             var ownerDisplayName = reader["owner_display_name"] as string ?? string.Empty;
-                            var gameOwner = new User((int)reader["owner_id"], ownerDisplayName);
+                            var gameOwner = new Account { PamUserId = (int)reader["owner_id"], DisplayName = ownerDisplayName };
                             var mappedGame = new Game((int)reader["game_id"], gameOwner, (string)reader["name"], Convert.ToDecimal(reader["price"]), (int)reader["minimum_player_number"], (int)reader["maximum_player_number"], (string)reader["description"], reader["image"] as byte[], Convert.ToBoolean(reader["is_active"]));
                             retrievedGames.Add(mappedGame);
                         }
@@ -48,7 +48,7 @@ namespace BoardRentAndProperty.Repositories
                 using (var command = connection.CreateCommand())
                 {
                     command.CommandText = "INSERT INTO Games(owner_id, name, price, minimum_player_number, maximum_player_number, description, image, is_active) VALUES(@owner_id, @name, @price, @min_players, @max_players, @description, @image, @is_active); SELECT SCOPE_IDENTITY();";
-                    command.Parameters.AddWithValue("@owner_id", gameToInsert.Owner?.Id ?? MissingForeignKeyId);
+                    command.Parameters.AddWithValue("@owner_id", gameToInsert.Owner?.PamUserId ?? MissingForeignKeyId);
                     command.Parameters.AddWithValue("@name", gameToInsert.Name ?? string.Empty);
                     command.Parameters.AddWithValue("@price", gameToInsert.Price);
                     command.Parameters.AddWithValue("@min_players", gameToInsert.MinimumPlayerNumber);
@@ -80,7 +80,7 @@ namespace BoardRentAndProperty.Repositories
                         while (reader.Read())
                         {
                             var ownerDisplayName = reader["owner_display_name"] as string ?? string.Empty;
-                            var gameOwner = new User((int)reader["owner_id"], ownerDisplayName);
+                            var gameOwner = new Account { PamUserId = (int)reader["owner_id"], DisplayName = ownerDisplayName };
                             var mappedGame = new Game((int)reader["game_id"], gameOwner, (string)reader["name"], Convert.ToDecimal(reader["price"]), (int)reader["minimum_player_number"], (int)reader["maximum_player_number"], (string)reader["description"], reader["image"] as byte[], Convert.ToBoolean(reader["is_active"]));
                             retrievedGames.Add(mappedGame);
                         }
@@ -99,7 +99,7 @@ namespace BoardRentAndProperty.Repositories
                 {
                     command.CommandText = "UPDATE Games SET owner_id = @owner_id, name = @name, price = @price, minimum_player_number = @min_players, maximum_player_number = @max_players, description = @description, image = @image, is_active = @is_active WHERE game_id = @id";
                     command.Parameters.AddWithValue("@id", gameIdToUpdate);
-                    command.Parameters.AddWithValue("@owner_id", gameDataToUpdate.Owner?.Id ?? MissingForeignKeyId);
+                    command.Parameters.AddWithValue("@owner_id", gameDataToUpdate.Owner?.PamUserId ?? MissingForeignKeyId);
                     command.Parameters.AddWithValue("@name", gameDataToUpdate.Name ?? string.Empty);
                     command.Parameters.AddWithValue("@price", gameDataToUpdate.Price);
                     command.Parameters.AddWithValue("@min_players", gameDataToUpdate.MinimumPlayerNumber);
@@ -129,7 +129,7 @@ namespace BoardRentAndProperty.Repositories
                         if (reader.Read())
                         {
                             var ownerDisplayName = reader["owner_display_name"] as string ?? string.Empty;
-                            var gameOwner = new User((int)reader["owner_id"], ownerDisplayName);
+                            var gameOwner = new Account { PamUserId = (int)reader["owner_id"], DisplayName = ownerDisplayName };
                             return new Game((int)reader["game_id"], gameOwner, (string)reader["name"], Convert.ToDecimal(reader["price"]), (int)reader["minimum_player_number"], (int)reader["maximum_player_number"], (string)reader["description"], reader["image"] as byte[], Convert.ToBoolean(reader["is_active"]));
                         }
                     }
@@ -155,7 +155,7 @@ namespace BoardRentAndProperty.Repositories
                     {
                         if (reader.Read())
                         {
-                            var deletedGameOwner = new User((int)reader["owner_id"], reader["owner_display_name"] as string ?? string.Empty);
+                            var deletedGameOwner = new Account { PamUserId = (int)reader["owner_id"], DisplayName = reader["owner_display_name"] as string ?? string.Empty };
                             return new Game((int)reader["game_id"], deletedGameOwner, (string)reader["name"],
                                 Convert.ToDecimal(reader["price"]), (int)reader["minimum_player_number"],
                                 (int)reader["maximum_player_number"], (string)reader["description"],

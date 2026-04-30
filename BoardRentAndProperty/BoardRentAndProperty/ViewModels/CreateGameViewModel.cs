@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using BoardRentAndProperty.Constants;
 using BoardRentAndProperty.DataTransferObjects;
+using BoardRentAndProperty.Models;
 using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Utilities;
 
@@ -85,7 +86,7 @@ namespace BoardRentAndProperty.ViewModels
             return new GameDTO
             {
                 Id = NewGameId,
-                Owner = new UserDTO { Id = CurrentUserId },
+                Owner = new Account { PamUserId = CurrentUserId },
                 Name = GameName,
                 Price = GamePrice,
                 MinimumPlayerNumber = MinimumPlayersRequired,

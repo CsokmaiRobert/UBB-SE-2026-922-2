@@ -134,8 +134,8 @@ namespace BoardRentAndProperty.ViewModels
                 return;
             }
 
-            if (incomingNotification?.User?.Id != InvalidOrUnknownUserId
-                && incomingNotification?.User?.Id != resolvedCurrentUserId)
+            if (incomingNotification?.Recipient?.PamUserId != InvalidOrUnknownUserId
+                && incomingNotification?.Recipient?.PamUserId != resolvedCurrentUserId)
             {
                 return;
             }

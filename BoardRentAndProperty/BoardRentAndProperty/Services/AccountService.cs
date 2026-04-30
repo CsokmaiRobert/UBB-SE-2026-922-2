@@ -165,5 +165,21 @@ namespace BoardRentAndProperty.Services
                 await this.accountRepository.UpdateAsync(accountEntity);
             }
         }
+
+        public async Task<ServiceResult<List<Account>>> GetAccountsExceptPamUserIdAsync(int excludedPamUserId)
+        {
+            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
+            {
+                await unitOfWork.OpenAsync();
+                this.accountRepository.SetUnitOfWork(unitOfWork);
+
+                List<Account> accountEntities = await this.accountRepository.GetAllAsync(1, int.MaxValue);
+                List<Account> selectableAccounts = accountEntities
+                    .Where(accountEntity => accountEntity.PamUserId.HasValue && accountEntity.PamUserId.Value != excludedPamUserId)
+                    .ToList();
+
+                return ServiceResult<List<Account>>.Ok(selectableAccounts);
+            }
+        }
     }
 }

@@ -6,7 +6,7 @@ namespace BoardRentAndProperty.Models
     public class Notification : IEntity
     {
         public int Id { get; set; }
-        public User User { get; set; }
+        public Account Recipient { get; set; }
         public DateTime Timestamp { get; set; }
         public string Title { get; set; }
         public string Body { get; set; }
@@ -16,11 +16,11 @@ namespace BoardRentAndProperty.Models
         public Notification()
         {
         }
-        public Notification(int id, User recipientUser, DateTime timestamp, string title, string body,
+        public Notification(int id, Account recipientAccount, DateTime timestamp, string title, string body,
                             NotificationType notificationType = NotificationType.Informational, int? relatedRequestId = null)
         {
             this.Id = id;
-            User = recipientUser;
+            Recipient = recipientAccount;
             Timestamp = timestamp;
             Title = title;
             Body = body;

@@ -117,7 +117,7 @@ namespace BoardRentAndProperty.Services
         public ImmutableList<GameDTO> GetAvailableGamesForRenter(int renterUserId)
         {
             return GetAllGames()
-                .Where(game => game.IsActive && game.Owner?.Id != renterUserId)
+                .Where(game => game.IsActive && game.Owner?.PamUserId != renterUserId)
                 .ToImmutableList();
         }
 

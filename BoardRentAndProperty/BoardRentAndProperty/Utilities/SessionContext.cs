@@ -38,6 +38,7 @@ namespace BoardRentAndProperty.Utilities
                 this.IsLoggedIn = true;
 
                 this.PhoneNumber = account.PhoneNumber;
+                this.Email = account.Email;
                 this.City = account.City;
                 this.Country = account.Country;
                 this.StreetName = account.StreetName;

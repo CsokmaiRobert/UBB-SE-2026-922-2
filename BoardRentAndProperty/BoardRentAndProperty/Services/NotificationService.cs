@@ -445,7 +445,7 @@ namespace BoardRentAndProperty.Services
             return new NotificationDTO
             {
                 Id = notificationId,
-                User = new UserDTO { Id = recipientUserId },
+                Recipient = new Account { PamUserId = recipientUserId },
                 Timestamp = notificationTimestamp,
                 Title = notificationTitle,
                 Body = notificationBody,
@@ -465,7 +465,7 @@ namespace BoardRentAndProperty.Services
             return new Notification
             {
                 Id = NewNotificationId,
-                User = new User { Id = recipientUserId },
+                Recipient = new Account { PamUserId = recipientUserId },
                 Timestamp = notificationTimestamp,
                 Title = notificationTitle,
                 Body = notificationBody,

@@ -6,13 +6,6 @@ namespace BoardRentAndProperty.Mappers
 {
     public class NotificationMapper : IMapper<Notification, NotificationDTO>
     {
-        private readonly IMapper<User, UserDTO> notificationRecipientUserMapper;
-
-        public NotificationMapper(IMapper<User, UserDTO> notificationRecipientUserMapper)
-        {
-            this.notificationRecipientUserMapper = notificationRecipientUserMapper;
-        }
-
         public NotificationDTO ToDTO(Notification notificationModel)
         {
             if (notificationModel == null)
@@ -23,7 +16,7 @@ namespace BoardRentAndProperty.Mappers
             return new NotificationDTO
             {
                 Id = notificationModel.Id,
-                User = notificationRecipientUserMapper.ToDTO(notificationModel.User),
+                Recipient = notificationModel.Recipient,
                 Timestamp = notificationModel.Timestamp,
                 Title = notificationModel.Title,
                 Body = notificationModel.Body,
@@ -42,7 +35,7 @@ namespace BoardRentAndProperty.Mappers
             return new Notification
             {
                 Id = notificationDto.Id,
-                User = notificationRecipientUserMapper.ToModel(notificationDto.User),
+                Recipient = notificationDto.Recipient,
                 Timestamp = notificationDto.Timestamp,
                 Title = notificationDto.Title,
                 Body = notificationDto.Body,

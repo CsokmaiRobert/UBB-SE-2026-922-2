@@ -210,6 +210,21 @@ namespace BoardRentAndProperty.Repositories
             }
         }
 
+        public async Task<int> CreatePamUserAsync(string displayName)
+        {
+            using (var sqlCommand = this.DatabaseConnection.CreateCommand())
+            {
+                sqlCommand.CommandText = @"
+                    INSERT INTO Users (display_name)
+                    VALUES (@DisplayName);
+                    SELECT CAST(SCOPE_IDENTITY() AS INT);";
+                sqlCommand.Parameters.AddWithValue("@DisplayName", displayName);
+
+                object createdIdentifier = await sqlCommand.ExecuteScalarAsync();
+                return Convert.ToInt32(createdIdentifier);
+            }
+        }
+
         public async Task AddRoleAsync(Guid identifier, string roleName)
         {
             using (var sqlCommand = this.DatabaseConnection.CreateCommand())

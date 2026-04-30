@@ -32,9 +32,9 @@ namespace BoardRentAndProperty.Repositories
                 Name = databaseReader["game_name"] as string ?? string.Empty,
                 Image = databaseReader["game_image"] as byte[] ?? Array.Empty<byte>()
             };
-            var renterUser = new User((int)databaseReader["renter_id"], databaseReader["renter_display_name"] as string ?? string.Empty);
-            var ownerUser = new User((int)databaseReader["owner_id"], databaseReader["owner_display_name"] as string ?? string.Empty);
-            return new Rental((int)databaseReader["rental_id"], rentalGame, renterUser, ownerUser,
+            var renter = new Account { PamUserId = (int)databaseReader["renter_id"], DisplayName = databaseReader["renter_display_name"] as string ?? string.Empty };
+            var owner = new Account { PamUserId = (int)databaseReader["owner_id"], DisplayName = databaseReader["owner_display_name"] as string ?? string.Empty };
+            return new Rental((int)databaseReader["rental_id"], rentalGame, renter, owner,
                 (DateTime)databaseReader["start_date"], (DateTime)databaseReader["end_date"]);
         }
 
@@ -80,8 +80,8 @@ namespace BoardRentAndProperty.Repositories
                 "INSERT INTO Rentals(game_id, renter_id, owner_id, start_date, end_date) " +
                 "VALUES(@game_id, @renter_id, @owner_id, @start_date, @end_date); SELECT SCOPE_IDENTITY();";
             command.Parameters.AddWithValue("@game_id", rentalToInsert.Game?.Id ?? MissingForeignKeyId);
-            command.Parameters.AddWithValue("@renter_id", rentalToInsert.Renter?.Id ?? MissingForeignKeyId);
-            command.Parameters.AddWithValue("@owner_id", rentalToInsert.Owner?.Id ?? MissingForeignKeyId);
+            command.Parameters.AddWithValue("@renter_id", rentalToInsert.Renter?.PamUserId ?? MissingForeignKeyId);
+            command.Parameters.AddWithValue("@owner_id", rentalToInsert.Owner?.PamUserId ?? MissingForeignKeyId);
             command.Parameters.AddWithValue("@start_date", rentalToInsert.StartDate);
             command.Parameters.AddWithValue("@end_date", rentalToInsert.EndDate);
             rentalToInsert.Id = Convert.ToInt32(command.ExecuteScalar());
@@ -208,8 +208,8 @@ namespace BoardRentAndProperty.Repositories
                         "start_date = @start_date, end_date = @end_date WHERE rental_id = @id";
                     command.Parameters.AddWithValue("@id", rentalIdToUpdate);
                     command.Parameters.AddWithValue("@game_id", rentalDataToUpdate.Game?.Id ?? MissingForeignKeyId);
-                    command.Parameters.AddWithValue("@renter_id", rentalDataToUpdate.Renter?.Id ?? MissingForeignKeyId);
-                    command.Parameters.AddWithValue("@owner_id", rentalDataToUpdate.Owner?.Id ?? MissingForeignKeyId);
+                    command.Parameters.AddWithValue("@renter_id", rentalDataToUpdate.Renter?.PamUserId ?? MissingForeignKeyId);
+                    command.Parameters.AddWithValue("@owner_id", rentalDataToUpdate.Owner?.PamUserId ?? MissingForeignKeyId);
                     command.Parameters.AddWithValue("@start_date", rentalDataToUpdate.StartDate);
                     command.Parameters.AddWithValue("@end_date", rentalDataToUpdate.EndDate);
                     command.ExecuteNonQuery();
