@@ -36,10 +36,10 @@ namespace BoardRentAndProperty.ViewModels
         private UserDTO selectedRenter;
         public UserDTO SelectedRenter
         {
-            get => selectedRenter;
+            get => selectedRenterUser;
             set
             {
-                selectedRenter = value;
+                selectedRenterUser = value;
                 OnPropertyChanged();
             }
         }
@@ -73,10 +73,10 @@ namespace BoardRentAndProperty.ViewModels
             this.rentalCreationService = rentalCreationService;
             this.userService = userService;
             this.currentUserContext = currentUserContext;
-            _ = LoadRentalFormDataAsync();
+            LoadRentalFormData();
         }
 
-        public async System.Threading.Tasks.Task LoadRentalFormDataAsync()
+        public void LoadRentalFormData()
         {
             OwnedActiveGames.Clear();
             foreach (var activeGame in gameListingService.GetActiveGamesForOwner(CurrentUserId))
@@ -105,7 +105,12 @@ namespace BoardRentAndProperty.ViewModels
                 return false;
             }
 
-            return StartDate != null && EndDate != null;
+            if (StartDate == null || EndDate == null)
+            {
+                return false;
+            }
+
+            return DateRangeValidationHelper.HasValidFutureDateRange(StartDate.Value.DateTime, EndDate.Value.DateTime);
         }
 
         public ViewOperationResult CreateRental()

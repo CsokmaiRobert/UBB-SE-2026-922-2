@@ -31,8 +31,12 @@
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0" Margin="12">
-            <TextBlock Text="My Rentals" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center"/>
-            
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Others' Rentals" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center"/>
+            <Button Grid.Column="1" Content="+ Create Rental" Click="CreateRentalButton_Click" Background="DarkBlue" Foreground="White" VerticalAlignment="Center" Padding="12,6"/>
         </Grid>
 
         <ListView x:Name="ItemsListView" Grid.Row="1"
