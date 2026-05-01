@@ -10,27 +10,30 @@ namespace BoardRentAndProperty.Repositories
 
     public class AccountRepository : IAccountRepository
     {
-        private readonly AppDbContext dbContext;
+        private readonly IDbContextFactory<AppDbContext> dbContextFactory;
 
-        public AccountRepository(AppDbContext dbContext)
+        public AccountRepository(IDbContextFactory<AppDbContext> dbContextFactory)
         {
-            this.dbContext = dbContext;
+            this.dbContextFactory = dbContextFactory;
         }
 
         public async Task<Account> GetByIdAsync(Guid id)
         {
+            using var dbContext = this.dbContextFactory.CreateDbContext();
             return await dbContext.Accounts.Include(account => account.Roles)
                 .FirstOrDefaultAsync(account => account.Id == id);
         }
 
         public async Task<Account> GetByUsernameAsync(string username)
         {
+            using var dbContext = this.dbContextFactory.CreateDbContext();
             return await dbContext.Accounts.Include(account => account.Roles)
                 .FirstOrDefaultAsync(account => account.Username == username);
         }
 
         public async Task<Account> GetByEmailAsync(string email)
         {
+            using var dbContext = this.dbContextFactory.CreateDbContext();
             return await dbContext.Accounts.Include(account => account.Roles)
                 .FirstOrDefaultAsync(account => account.Email == email);
         }
@@ -38,6 +41,8 @@ namespace BoardRentAndProperty.Repositories
         public async Task<List<Account>> GetAllAsync(int page, int pageSize)
         {
             const int pageOffset = 1;
+
+            using var dbContext = this.dbContextFactory.CreateDbContext();
             return await dbContext.Accounts
                 .Include(account => account.Roles)
                 .OrderBy(account => account.CreatedAt)
@@ -48,25 +53,31 @@ namespace BoardRentAndProperty.Repositories
 
         public async Task AddAsync(Account account)
         {
+            using var dbContext = this.dbContextFactory.CreateDbContext();
             dbContext.Accounts.Add(account);
             await dbContext.SaveChangesAsync();
         }
 
         public async Task UpdateAsync(Account account)
         {
+            using var dbContext = this.dbContextFactory.CreateDbContext();
             dbContext.Accounts.Update(account);
             await dbContext.SaveChangesAsync();
         }
 
         public async Task AddRoleAsync(Guid accountId, string roleName)
         {
-            var role = await dbContext.Roles.FirstOrDefaultAsync(r => r.Name == roleName);
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+
+            var role = await dbContext.Roles.FirstOrDefaultAsync(repositoryRole => repositoryRole.Name == roleName);
             if (role == null)
             {
                 return;
             }
 
-            bool alreadyHasRole = await dbContext.Set<AccountRole>().AnyAsync(ar => ar.AccountId == accountId && ar.RoleId == role.Id);
+            bool alreadyHasRole = await dbContext.Set<AccountRole>()
+                .AnyAsync(accountRole => accountRole.AccountId == accountId && accountRole.RoleId == role.Id);
+
             if (!alreadyHasRole)
             {
                 dbContext.Set<AccountRole>().Add(new AccountRole { AccountId = accountId, RoleId = role.Id });

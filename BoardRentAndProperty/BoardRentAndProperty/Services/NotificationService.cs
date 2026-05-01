@@ -70,7 +70,7 @@ namespace BoardRentAndProperty.Services
             {
                 NotifyAllSubscribers(new NotificationDTO
                 {
-                    Id = model.Id, User = new UserDTO { Id = recipientAccountId },
+                    Id = model.Id, Recipient = new UserDTO { Id = recipientAccountId },
                     Timestamp = ts, Title = notificationToSend.Title, Body = notificationToSend.Body,
                     Type = notificationToSend.Type, RelatedRequestId = notificationToSend.RelatedRequestId
                 });
@@ -109,7 +109,7 @@ namespace BoardRentAndProperty.Services
         {
             NotifyAllSubscribers(new NotificationDTO
             {
-                Id = NewNotificationId, User = new UserDTO { Id = Guid.Empty },
+                Id = NewNotificationId, Recipient = new UserDTO { Id = Guid.Empty },
                 Timestamp = received.Timestamp, Title = received.Title, Body = received.Body
             });
             toastAlertService.Show(received.Title, received.Body);
@@ -217,7 +217,7 @@ namespace BoardRentAndProperty.Services
 
         private void SendImmediate(Guid accountId, string title, string body)
         {
-            SendNotificationToUser(accountId, new NotificationDTO { Id = NewNotificationId, User = new UserDTO { Id = accountId }, Timestamp = DateTime.UtcNow, Title = title, Body = body });
+            SendNotificationToUser(accountId, new NotificationDTO { Id = NewNotificationId, Recipient = new UserDTO { Id = accountId }, Timestamp = DateTime.UtcNow, Title = title, Body = body });
         }
     }
 }

@@ -18,16 +18,33 @@ namespace BoardRentAndProperty.ViewModels
 
         private readonly INotificationService notificationLookupService;
         private readonly IDisposable notificationSubscription;
+        private readonly ICurrentUserContext currentUserContext;
+        private readonly IServerClient serverClient;
 
         private readonly DispatcherQueue? uiDispatcherQueue;
+        private NotificationConnectionStatus currentConnectionStatus;
 
         public Guid CurrentUserId { get; private set; }
+        public bool HasConnectionWarning =>
+            currentConnectionStatus == NotificationConnectionStatus.Offline
+            || currentConnectionStatus == NotificationConnectionStatus.Reconnecting;
+
+        public string ConnectionWarningMessage => currentConnectionStatus switch
+        {
+            NotificationConnectionStatus.Offline => "Notification server is offline. You can keep using the app, but live notifications are temporarily unavailable.",
+            NotificationConnectionStatus.Reconnecting => "Reconnecting to the notification server...",
+            _ => string.Empty,
+        };
 
         public NotificationsViewModel(
             INotificationService notificationLookupService,
-            ICurrentUserContext currentUserContext)
+            ICurrentUserContext currentUserContext,
+            IServerClient serverClient)
         {
             this.notificationLookupService = notificationLookupService;
+            this.currentUserContext = currentUserContext;
+            this.serverClient = serverClient;
+            this.currentConnectionStatus = serverClient.ConnectionStatus;
 
             try
             {
@@ -38,9 +55,15 @@ namespace BoardRentAndProperty.ViewModels
                 uiDispatcherQueue = null;
             }
 
+            this.serverClient.ConnectionStatusChanged += this.OnConnectionStatusChanged;
             LoadNotificationsForUser(currentUserContext.CurrentUserId);
 
             notificationSubscription = notificationLookupService.Subscribe(this);
+        }
+
+        public void LoadCurrentUserNotifications()
+        {
+            LoadNotificationsForUser(this.currentUserContext.CurrentUserId);
         }
 
         public void LoadNotificationsForUser(Guid targetUserId)
@@ -94,6 +117,28 @@ namespace BoardRentAndProperty.ViewModels
             LoadNotificationsForUser(CurrentUserId);
         }
 
-        public void Dispose() => notificationSubscription?.Dispose();
+        public void Dispose()
+        {
+            notificationSubscription?.Dispose();
+            this.serverClient.ConnectionStatusChanged -= this.OnConnectionStatusChanged;
+        }
+
+        private void OnConnectionStatusChanged(object? sender, NotificationConnectionStatusChangedEventArgs eventArgs)
+        {
+            void ApplyStatus()
+            {
+                currentConnectionStatus = eventArgs.ConnectionStatus;
+                OnPropertyChanged(nameof(HasConnectionWarning));
+                OnPropertyChanged(nameof(ConnectionWarningMessage));
+            }
+
+            if (uiDispatcherQueue != null && !uiDispatcherQueue.HasThreadAccess)
+            {
+                uiDispatcherQueue.TryEnqueue(ApplyStatus);
+                return;
+            }
+
+            ApplyStatus();
+        }
     }
 }

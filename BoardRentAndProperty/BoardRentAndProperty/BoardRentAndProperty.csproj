@@ -50,10 +50,9 @@
   </ItemGroup>
 
   <Target Name="CleanAndBuildNotificationServer"
-          BeforeTargets="ResolveReferences"
-          Condition="'$(DesignTimeBuild)' != 'true'">
+          AfterTargets="Build"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(BuildingSolutionFile)' != 'true'">
     <!--<Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;$notificationServerProcesses = Get-Process NotificationServer -ErrorAction SilentlyContinue; if ($notificationServerProcesses) { $notificationServerProcesses | Stop-Process -Force }; exit 0&quot;" />-->
-    <RemoveDir Directories="..\NotificationServer\bin\$(Platform)\$(Configuration);..\NotificationServer\obj\$(Platform)\$(Configuration)" />
     <MSBuild Projects="..\NotificationServer\NotificationServer.csproj"
              Targets="Build"
              Properties="Configuration=$(Configuration);Platform=x64" />

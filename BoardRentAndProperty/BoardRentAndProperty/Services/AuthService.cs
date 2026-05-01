@@ -30,6 +30,12 @@ namespace BoardRentAndProperty.Services
             {
                 Id = Guid.NewGuid(), DisplayName = registrationRequest.DisplayName, Username = registrationRequest.Username,
                 Email = registrationRequest.Email, PasswordHash = PasswordHasher.HashPassword(registrationRequest.Password),
+                PhoneNumber = registrationRequest.PhoneNumber ?? string.Empty,
+                AvatarUrl = string.Empty,
+                Country = registrationRequest.Country ?? string.Empty,
+                City = registrationRequest.City ?? string.Empty,
+                StreetName = registrationRequest.StreetName ?? string.Empty,
+                StreetNumber = registrationRequest.StreetNumber ?? string.Empty,
                 CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, IsSuspended = false
             };
             await accountRepository.AddAsync(newAccount);

@@ -10,31 +10,38 @@ namespace BoardRentAndProperty.Repositories
 {
     public class RequestRepository : IRequestRepository
     {
-        private readonly AppDbContext dbContext;
+        private readonly IDbContextFactory<AppDbContext> dbContextFactory;
 
-        public RequestRepository(AppDbContext dbContext)
+        public RequestRepository(IDbContextFactory<AppDbContext> dbContextFactory)
         {
-            this.dbContext = dbContext;
+            this.dbContextFactory = dbContextFactory;
         }
 
-        private IQueryable<Request> RequestsWithNavigations =>
+        private static IQueryable<Request> RequestsWithNavigations(AppDbContext dbContext) =>
             dbContext.Requests
                 .Include(request => request.Game)
                 .Include(request => request.Renter)
                 .Include(request => request.Owner)
                 .Include(request => request.OfferingUser);
 
-        public ImmutableList<Request> GetAll() => RequestsWithNavigations.ToImmutableList();
+        public ImmutableList<Request> GetAll()
+        {
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            return RequestsWithNavigations(dbContext).ToImmutableList();
+        }
 
         public void Add(Request request)
         {
-            request.Game = ResolveGame(request.Game);
-            request.Renter = ResolveAccount(request.Renter);
-            request.Owner = ResolveAccount(request.Owner);
-            request.OfferingUser = ResolveAccount(request.OfferingUser);
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+
+            request.Game = ResolveGame(dbContext, request.Game);
+            request.Renter = ResolveAccount(dbContext, request.Renter);
+            request.Owner = ResolveAccount(dbContext, request.Owner);
+            request.OfferingUser = ResolveAccount(dbContext, request.OfferingUser);
             dbContext.Requests.Add(request);
             dbContext.SaveChanges();
-            var saved = RequestsWithNavigations.FirstOrDefault(savedRequest => savedRequest.Id == request.Id);
+
+            var saved = RequestsWithNavigations(dbContext).FirstOrDefault(savedRequest => savedRequest.Id == request.Id);
             if (saved != null)
             {
                 request.Game = saved.Game;
@@ -46,11 +53,13 @@ namespace BoardRentAndProperty.Repositories
 
         public Request Delete(int id)
         {
-            var request = RequestsWithNavigations.FirstOrDefault(request => request.Id == id);
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            var request = RequestsWithNavigations(dbContext).FirstOrDefault(repositoryRequest => repositoryRequest.Id == id);
             if (request == null)
             {
                 throw new KeyNotFoundException();
             }
+
             dbContext.Requests.Remove(request);
             dbContext.SaveChanges();
             return request;
@@ -58,24 +67,29 @@ namespace BoardRentAndProperty.Repositories
 
         public void Update(int id, Request updated)
         {
-            var existing = RequestsWithNavigations.FirstOrDefault(request => request.Id == id);
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            var existing = RequestsWithNavigations(dbContext).FirstOrDefault(request => request.Id == id);
             if (existing == null)
             {
                 return;
             }
+
             if (updated.Game != null)
             {
-                existing.Game = ResolveGame(updated.Game);
+                existing.Game = ResolveGame(dbContext, updated.Game);
             }
+
             if (updated.Renter != null)
             {
-                existing.Renter = ResolveAccount(updated.Renter);
+                existing.Renter = ResolveAccount(dbContext, updated.Renter);
             }
+
             if (updated.Owner != null)
             {
-                existing.Owner = ResolveAccount(updated.Owner);
+                existing.Owner = ResolveAccount(dbContext, updated.Owner);
             }
-            existing.OfferingUser = ResolveAccount(updated.OfferingUser);
+
+            existing.OfferingUser = ResolveAccount(dbContext, updated.OfferingUser);
             existing.StartDate = updated.StartDate;
             existing.EndDate = updated.EndDate;
             existing.Status = updated.Status;
@@ -84,38 +98,52 @@ namespace BoardRentAndProperty.Repositories
 
         public void UpdateStatus(int requestId, RequestStatus status, Guid? offeringAccountId)
         {
-            var existing = RequestsWithNavigations.FirstOrDefault(request => request.Id == requestId);
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            var existing = RequestsWithNavigations(dbContext).FirstOrDefault(request => request.Id == requestId);
             if (existing == null)
             {
                 return;
             }
+
             existing.Status = status;
-            existing.OfferingUser = FindAccountById(offeringAccountId);
+            existing.OfferingUser = FindAccountById(dbContext, offeringAccountId);
             dbContext.SaveChanges();
         }
 
         public Request Get(int id)
         {
-            var request = RequestsWithNavigations.FirstOrDefault(request => request.Id == id);
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            var request = RequestsWithNavigations(dbContext).FirstOrDefault(repositoryRequest => repositoryRequest.Id == id);
             if (request == null)
             {
                 throw new KeyNotFoundException();
             }
+
             return request;
         }
 
-        public ImmutableList<Request> GetRequestsByOwner(Guid ownerAccountId) =>
-            RequestsWithNavigations.Where(request => request.Owner.Id == ownerAccountId).ToImmutableList();
+        public ImmutableList<Request> GetRequestsByOwner(Guid ownerAccountId)
+        {
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            return RequestsWithNavigations(dbContext).Where(request => request.Owner.Id == ownerAccountId).ToImmutableList();
+        }
 
-        public ImmutableList<Request> GetRequestsByRenter(Guid renterAccountId) =>
-            RequestsWithNavigations.Where(request => request.Renter.Id == renterAccountId).ToImmutableList();
+        public ImmutableList<Request> GetRequestsByRenter(Guid renterAccountId)
+        {
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            return RequestsWithNavigations(dbContext).Where(request => request.Renter.Id == renterAccountId).ToImmutableList();
+        }
 
-        public ImmutableList<Request> GetRequestsByGame(int gameId) =>
-            RequestsWithNavigations.Where(request => request.Game.Id == gameId).ToImmutableList();
+        public ImmutableList<Request> GetRequestsByGame(int gameId)
+        {
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            return RequestsWithNavigations(dbContext).Where(request => request.Game.Id == gameId).ToImmutableList();
+        }
 
         public ImmutableList<Request> GetOverlappingRequests(int gameId, int excludeRequestId, DateTime bufferedStart, DateTime bufferedEnd)
         {
-            return RequestsWithNavigations
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            return RequestsWithNavigations(dbContext)
                 .Where(request => request.Game.Id == gameId
                     && request.Id != excludeRequestId
                     && request.StartDate < bufferedEnd
@@ -125,6 +153,7 @@ namespace BoardRentAndProperty.Repositories
 
         public int ApproveAtomically(Request approvedRequest, ImmutableList<Request> overlappingRequests)
         {
+            using var dbContext = this.dbContextFactory.CreateDbContext();
             using var transaction = dbContext.Database.BeginTransaction();
             try
             {
@@ -135,6 +164,7 @@ namespace BoardRentAndProperty.Repositories
                         .ToList();
                     dbContext.Notifications.RemoveRange(conflictNotifications);
                 }
+
                 var approvedNotifications = dbContext.Notifications
                     .Where(notification => notification.RelatedRequest.Id == approvedRequest.Id)
                     .ToList();
@@ -142,9 +172,9 @@ namespace BoardRentAndProperty.Repositories
 
                 var newRental = new Rental
                 {
-                    Game = approvedRequest.Game,
-                    Renter = approvedRequest.Renter,
-                    Owner = approvedRequest.Owner,
+                    Game = ResolveGame(dbContext, approvedRequest.Game),
+                    Renter = ResolveAccount(dbContext, approvedRequest.Renter),
+                    Owner = ResolveAccount(dbContext, approvedRequest.Owner),
                     StartDate = approvedRequest.StartDate,
                     EndDate = approvedRequest.EndDate
                 };
@@ -159,13 +189,14 @@ namespace BoardRentAndProperty.Repositories
                         dbContext.Requests.Remove(conflictEntity);
                     }
                 }
+
                 var approvedEntity = dbContext.Requests.FirstOrDefault(request => request.Id == approvedRequest.Id);
                 if (approvedEntity != null)
                 {
                     dbContext.Requests.Remove(approvedEntity);
                 }
-                dbContext.SaveChanges();
 
+                dbContext.SaveChanges();
                 transaction.Commit();
                 return newRental.Id;
             }
@@ -176,48 +207,55 @@ namespace BoardRentAndProperty.Repositories
             }
         }
 
-        private Account ResolveAccount(Account? account)
+        private static Account ResolveAccount(AppDbContext dbContext, Account? account)
         {
             if (account == null)
             {
                 return null;
             }
+
             var cached = dbContext.Accounts.Local.FirstOrDefault(cachedAccount => cachedAccount.Id == account.Id);
             if (cached != null)
             {
                 return cached;
             }
+
             if (dbContext.Entry(account).State == EntityState.Detached)
             {
                 dbContext.Attach(account);
             }
+
             return account;
         }
 
-        private Game ResolveGame(Game? game)
+        private static Game ResolveGame(AppDbContext dbContext, Game? game)
         {
             if (game == null)
             {
                 return null;
             }
+
             var cached = dbContext.Games.Local.FirstOrDefault(cachedGame => cachedGame.Id == game.Id);
             if (cached != null)
             {
                 return cached;
             }
+
             if (dbContext.Entry(game).State == EntityState.Detached)
             {
                 dbContext.Attach(game);
             }
+
             return game;
         }
 
-        private Account? FindAccountById(Guid? accountId)
+        private static Account? FindAccountById(AppDbContext dbContext, Guid? accountId)
         {
             if (!accountId.HasValue)
             {
                 return null;
             }
+
             var cached = dbContext.Accounts.Local.FirstOrDefault(cachedAccount => cachedAccount.Id == accountId.Value);
             return cached ?? dbContext.Accounts.Find(accountId.Value);
         }

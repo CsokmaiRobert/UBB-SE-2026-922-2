@@ -4,7 +4,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using BoardRentAndProperty;
 using BoardRentAndProperty.DataTransferObjects;
-using BoardRentAndProperty.Models;
 using BoardRentAndProperty.ViewModels;
 
 namespace BoardRentAndProperty.Views
@@ -29,7 +28,7 @@ namespace BoardRentAndProperty.Views
 
         private void RenterPicker_SelectionChanged(object sender, SelectionChangedEventArgs selectionChangedEventArgs)
         {
-            ViewModel.SelectedRenter = RenterPicker.SelectedItem as Account;
+            ViewModel.SelectedRenter = RenterPicker.SelectedItem as UserDTO;
         }
 
         private async void SaveButton_Click(object sender, RoutedEventArgs routedEventArgs)

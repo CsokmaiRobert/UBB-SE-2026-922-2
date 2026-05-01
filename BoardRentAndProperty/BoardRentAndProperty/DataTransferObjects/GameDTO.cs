@@ -6,7 +6,7 @@ namespace BoardRentAndProperty.DataTransferObjects
     public class GameDTO : IDTO<Game, int>
     {
         public int Id { get; set; }
-        public Account Owner { get; set; }
+        public UserDTO? Owner { get; set; }
         public string Name { get; set; }
         public decimal Price { get; set; }
         public int MinimumPlayerNumber { get; set; }

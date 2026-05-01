@@ -38,7 +38,7 @@ namespace BoardRentAndProperty.Services
                 return ServiceResult<AccountProfileDataTransferObject>.Fail("Account not found.");
             }
 
-            return ServiceResult<AccountProfileDataTransferObject>.Ok(this.accountProfileMapper.ToDto(accountEntity));
+            return ServiceResult<AccountProfileDataTransferObject>.Ok(this.accountProfileMapper.ToDataTransferObject(accountEntity));
         }
 
         public async Task<ServiceResult<bool>> UpdateProfileAsync(Guid accountId, AccountProfileDataTransferObject profileUpdateData)
@@ -65,8 +65,9 @@ namespace BoardRentAndProperty.Services
                 return ServiceResult<bool>.Fail(string.Join(";", validationErrors));
             }
 
-            this.accountProfileMapper.ApplyTo(accountEntity, profileUpdateData);
+            this.accountProfileMapper.ApplyToEntity(accountEntity, profileUpdateData);
             await this.accountRepository.UpdateAsync(accountEntity);
+            RefreshSessionContext(accountEntity);
 
             return ServiceResult<bool>.Ok(true);
         }
@@ -120,6 +121,7 @@ namespace BoardRentAndProperty.Services
             accountEntity.UpdatedAt = DateTime.UtcNow;
 
             await this.accountRepository.UpdateAsync(accountEntity);
+            RefreshSessionContext(accountEntity);
 
             return destinationPath;
         }
@@ -136,6 +138,7 @@ namespace BoardRentAndProperty.Services
             accountEntity.UpdatedAt = DateTime.UtcNow;
 
             await this.accountRepository.UpdateAsync(accountEntity);
+            RefreshSessionContext(accountEntity);
         }
 
         private List<string> ValidateProfileDetails(AccountProfileDataTransferObject profileData)
@@ -163,6 +166,14 @@ namespace BoardRentAndProperty.Services
             }
 
             return errors;
+        }
+
+        private void RefreshSessionContext(Account accountEntity)
+        {
+            if (this.sessionContext.AccountId == accountEntity.Id && this.sessionContext.IsLoggedIn)
+            {
+                this.sessionContext.Populate(accountEntity, this.sessionContext.Role);
+            }
         }
     }
 }

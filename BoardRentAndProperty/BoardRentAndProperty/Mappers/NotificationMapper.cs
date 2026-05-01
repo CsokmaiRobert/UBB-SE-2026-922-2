@@ -22,7 +22,7 @@ namespace BoardRentAndProperty.Mappers
             return new NotificationDTO
             {
                 Id = model.Id,
-                User = recipientMapper.ToDTO(model.Recipient),
+                Recipient = recipientMapper.ToDTO(model.Recipient),
                 Timestamp = model.Timestamp,
                 Title = model.Title,
                 Body = model.Body,
@@ -37,7 +37,7 @@ namespace BoardRentAndProperty.Mappers
             {
                 return null;
             }
-            var recipient = recipientMapper.ToModel(dto.User);
+            var recipient = recipientMapper.ToModel(dto.Recipient);
             return new Notification
             {
                 Id = dto.Id,

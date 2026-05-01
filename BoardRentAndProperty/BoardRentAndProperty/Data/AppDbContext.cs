@@ -1,14 +1,15 @@
 namespace BoardRentAndProperty.Data
 {
     using System;
+    using System.Configuration;
     using BoardRentAndProperty.Models;
     using BoardRentAndProperty.Utilities;
     using Microsoft.EntityFrameworkCore;
 
     public class AppDbContext : DbContext
     {
-        private const string ConnectionString =
-            "Data Source=LENOVOLOQIN\\MEIOAI;Database=BoardRentAndProperty;Integrated Security=True;Encrypt=True;TrustServerCertificate=True;";
+        private const string DefaultConnectionString =
+            "Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=BoardRentAndProperty;Integrated Security=True;Encrypt=True;TrustServerCertificate=True";
 
         private static readonly Guid AdminRoleId = new Guid("00000000-0000-0000-0000-000000000001");
         private static readonly Guid StandardUserRoleId = new Guid("00000000-0000-0000-0000-000000000002");
@@ -26,11 +27,26 @@ namespace BoardRentAndProperty.Data
         public DbSet<Request> Requests { get; set; }
         public DbSet<Notification> Notifications { get; set; }
 
+        public AppDbContext()
+        {
+        }
+
+        public AppDbContext(DbContextOptions<AppDbContext> options)
+            : base(options)
+        {
+        }
+
+        public static string GetConnectionString()
+        {
+            return ConfigurationManager.ConnectionStrings["BoardRentAndProperty"]?.ConnectionString
+                ?? DefaultConnectionString;
+        }
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             if (!optionsBuilder.IsConfigured)
             {
-                optionsBuilder.UseSqlServer(ConnectionString);
+                optionsBuilder.UseSqlServer(GetConnectionString());
             }
         }
 
@@ -55,8 +71,8 @@ namespace BoardRentAndProperty.Data
                 entity.HasMany(account => account.Roles)
                       .WithMany()
                       .UsingEntity<AccountRole>(
-                          joinEntity => joinEntity.HasOne<Role>().WithMany().HasForeignKey(accountRole => accountRole.RoleId).OnDelete(DeleteBehavior.Cascade),
-                          joinEntity => joinEntity.HasOne<Account>().WithMany().HasForeignKey(accountRole => accountRole.AccountId).OnDelete(DeleteBehavior.Cascade),
+                          joinEntity => joinEntity.HasOne(accountRole => accountRole.Role).WithMany().HasForeignKey(accountRole => accountRole.RoleId).OnDelete(DeleteBehavior.Cascade),
+                          joinEntity => joinEntity.HasOne(accountRole => accountRole.Account).WithMany().HasForeignKey(accountRole => accountRole.AccountId).OnDelete(DeleteBehavior.Cascade),
                           joinEntity =>
                           {
                               joinEntity.ToTable("AccountRoles");
@@ -76,7 +92,7 @@ namespace BoardRentAndProperty.Data
             {
                 entity.ToTable("FailedLoginAttempt");
                 entity.HasKey(failedLogin => failedLogin.AccountId);
-                entity.HasOne<Account>().WithOne().HasForeignKey<FailedLoginAttempt>(failedLogin => failedLogin.AccountId).OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(failedLogin => failedLogin.Account).WithOne().HasForeignKey<FailedLoginAttempt>(failedLogin => failedLogin.AccountId).OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Game>(entity =>

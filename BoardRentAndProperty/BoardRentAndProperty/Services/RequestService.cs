@@ -236,7 +236,7 @@ namespace BoardRentAndProperty.Services
             }
             requestNotificationService.SendNotificationToUser(accountId, new NotificationDTO
             {
-                Id = NewRequestId, User = new UserDTO { Id = accountId }, Timestamp = DateTime.UtcNow,
+                Id = NewRequestId, Recipient = new UserDTO { Id = accountId }, Timestamp = DateTime.UtcNow,
                 Title = title, Body = body, Type = type, RelatedRequestId = relatedRequestId
             });
         }

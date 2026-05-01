@@ -1,8 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using BoardRentAndProperty.DataTransferObjects;
-using BoardRentAndProperty.Models;
 using BoardRentAndProperty.Utilities;
 
 namespace BoardRentAndProperty.Services
@@ -14,6 +12,5 @@ namespace BoardRentAndProperty.Services
         Task<ServiceResult<bool>> ChangePasswordAsync(Guid accountId, string currentPassword, string newPassword);
         Task<string> UploadAvatarAsync(Guid accountId, string sourceFilePath);
         Task RemoveAvatarAsync(Guid accountId);
-        Task<ServiceResult<List<Account>>> GetAccountsExceptPamUserIdAsync(int excludedPamUserId);
     }
 }

@@ -8,16 +8,17 @@ namespace BoardRentAndProperty.Repositories
 
     public class FailedLoginRepository : IFailedLoginRepository
     {
-        private readonly AppDbContext dbContext;
+        private readonly IDbContextFactory<AppDbContext> dbContextFactory;
 
-        public FailedLoginRepository(AppDbContext dbContext)
+        public FailedLoginRepository(IDbContextFactory<AppDbContext> dbContextFactory)
         {
-            this.dbContext = dbContext;
+            this.dbContextFactory = dbContextFactory;
         }
 
         public async Task<FailedLoginAttempt?> GetByAccountIdAsync(Guid accountId)
         {
-            return await dbContext.FailedLoginAttempts.FirstOrDefaultAsync(f => f.AccountId == accountId);
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            return await dbContext.FailedLoginAttempts.FirstOrDefaultAsync(failedLogin => failedLogin.AccountId == accountId);
         }
 
         public async Task IncrementAsync(Guid accountId)
@@ -25,6 +26,7 @@ namespace BoardRentAndProperty.Repositories
             const int lockThreshold = 5;
             const int lockMinutes = 15;
 
+            using var dbContext = this.dbContextFactory.CreateDbContext();
             var attempt = await dbContext.FailedLoginAttempts.FirstOrDefaultAsync(failedLogin => failedLogin.AccountId == accountId);
             if (attempt == null)
             {
@@ -44,6 +46,7 @@ namespace BoardRentAndProperty.Repositories
 
         public async Task ResetAsync(Guid accountId)
         {
+            using var dbContext = this.dbContextFactory.CreateDbContext();
             var attempt = await dbContext.FailedLoginAttempts.FirstOrDefaultAsync(failedLogin => failedLogin.AccountId == accountId);
             if (attempt != null)
             {

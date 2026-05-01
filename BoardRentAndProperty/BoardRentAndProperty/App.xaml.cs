@@ -16,6 +16,7 @@ using BoardRentAndProperty.ViewModels;
 using BoardRentAndProperty.Views;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using H.NotifyIcon;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -81,7 +82,10 @@ namespace BoardRentAndProperty
 
             ConfigureServices();
 
-            Services.GetRequiredService<AppDbContext>().Database.EnsureCreated();
+            using (var databaseContext = Services.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext())
+            {
+                databaseContext.Database.Migrate();
+            }
 
             InitializeServices();
 
@@ -133,7 +137,8 @@ namespace BoardRentAndProperty
             serviceCollection.AddTransient<RentalsToOthersViewModel>();
 
             // data layer
-            serviceCollection.AddSingleton<AppDbContext>();
+            serviceCollection.AddDbContextFactory<AppDbContext>(options =>
+                options.UseSqlServer(AppDbContext.GetConnectionString()));
 
             // account domain repositories
             serviceCollection.AddSingleton<IAccountRepository, AccountRepository>();
@@ -147,7 +152,6 @@ namespace BoardRentAndProperty
             serviceCollection.AddSingleton<ISessionContext, SessionContext>();
 
             // BoardRent mappers (uniformity rule)
-            serviceCollection.AddSingleton<AccountMapper>();
             serviceCollection.AddSingleton<AccountProfileMapper>();
 
             // BoardRent view models
