@@ -40,7 +40,7 @@
                                 <Border Width="100" Height="100" Background="#ccc" CornerRadius="50">
                                     <Grid>
                                         <FontIcon Glyph="&#xE77B;" FontSize="48" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#888"/>
-                                        <Image Source="{Binding AvatarUrl}" Stretch="UniformToFill"/>
+                                        <Image Source="{Binding ProfileImage}" Stretch="UniformToFill"/>
                                     </Grid>
                                 </Border>
                                 <StackPanel Spacing="10">
@@ -113,7 +113,7 @@
 
                                 <ComboBox Grid.Row="3" Grid.Column="1"
                                           Header="Country"
-                                          ItemsSource="{Binding Countries}"
+                                          ItemsSource="{Binding AvailableCountries}"
                                           SelectedItem="{Binding Country, Mode=TwoWay}" />
                             </Grid>
 

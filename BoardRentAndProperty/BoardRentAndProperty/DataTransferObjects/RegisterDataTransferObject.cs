@@ -1,9 +1,18 @@
 namespace BoardRentAndProperty.DataTransferObjects
 {
     using System;
+    using BoardRentAndProperty.Mappers;
+    using BoardRentAndProperty.Models;
 
-    public class RegisterDataTransferObject
+    public class RegisterDataTransferObject : IDTO<Account>
     {
+        public Guid Id { get; set; }
+
+        int IDTO<Account>.Id
+        {
+            get => 0;
+            set { }
+        }
         public string DisplayName { get; set; }
 
         public string Username { get; set; }
