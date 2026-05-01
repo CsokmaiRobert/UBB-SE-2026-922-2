@@ -7,8 +7,8 @@ namespace BoardRentAndProperty.Models
     {
         public int Id { get; set; }
         public Game Game { get; set; }
-        public User Renter { get; set; }
-        public User Owner { get; set; }
+        public Account Renter { get; set; }
+        public Account Owner { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
 
@@ -16,7 +16,7 @@ namespace BoardRentAndProperty.Models
         {
         }
 
-        public Rental(int id, Game rentedGame, User renterUser, User ownerUser, DateTime startDate, DateTime endDate)
+        public Rental(int id, Game rentedGame, Account renterUser, Account ownerUser, DateTime startDate, DateTime endDate)
         {
             this.Id = id;
             Game = rentedGame;

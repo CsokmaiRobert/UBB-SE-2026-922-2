@@ -4,13 +4,12 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using BoardRentAndProperty;
 using BoardRentAndProperty.DataTransferObjects;
 using BoardRentAndProperty.Mappers;
+using BoardRentAndProperty.Models;
 using BoardRentAndProperty.Repositories;
 using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Utilities;
-using BoardRentAndProperty.Models;
 
 namespace BoardRentAndProperty.Services
 {
@@ -21,15 +20,21 @@ namespace BoardRentAndProperty.Services
         private const int MissingUserId = 0;
 
         private bool isDisposed;
-        private readonly CancellationTokenSource reminderScheduleCancellationSource = new();
         private readonly INotificationRepository notificationDataRepository;
         private readonly IMapper<Notification, NotificationDTO> notificationDtoMapper;
         private readonly IServerClient serverNotificationClient;
         private readonly ICurrentUserContext currentUserContext;
         private readonly IToastNotificationService toastAlertService;
+        private Task? serverListeningTask;
 
         private readonly List<IObserver<NotificationDTO>> notificationSubscribers = new();
         private readonly object notificationSubscribersLock = new();
+        private readonly Dictionary<int, ScheduledReminder> scheduledRemindersByRentalId = new();
+        private readonly object scheduledRemindersLock = new();
+
+        public event EventHandler<NotificationConnectionStatusChangedEventArgs>? ConnectionStatusChanged;
+
+        public NotificationConnectionStatus ConnectionStatus => serverNotificationClient.ConnectionStatus;
 
         public NotificationService(
             INotificationRepository notificationRepository,
@@ -44,6 +49,7 @@ namespace BoardRentAndProperty.Services
             this.currentUserContext = currentUserContext;
             this.toastAlertService = toastNotificationService;
             serverNotificationClient.Subscribe(this);
+            serverNotificationClient.ConnectionStatusChanged += OnServerConnectionStatusChanged;
         }
 
         public NotificationDTO DeleteNotificationByIdentifier(int notificationId) =>
@@ -56,6 +62,8 @@ namespace BoardRentAndProperty.Services
             notificationDataRepository
                 .GetNotificationsByUser(targetUserId)
                 .Select(notification => notificationDtoMapper.ToDTO(notification))
+                .OrderByDescending(notification => notification.Timestamp)
+                .ThenByDescending(notification => notification.Id)
                 .ToImmutableList();
 
         public void SendNotificationToUser(int recipientUserId, NotificationDTO notificationToSend)
@@ -67,7 +75,7 @@ namespace BoardRentAndProperty.Services
 
             DateTime notificationTimestamp = notificationToSend.Timestamp == default ? DateTime.UtcNow : notificationToSend.Timestamp;
 
-            var notificationModel = BuildNotificationDomainModel(
+            var persistedNotification = PersistNotification(
                 recipientUserId,
                 notificationTimestamp,
                 notificationToSend.Title,
@@ -75,26 +83,56 @@ namespace BoardRentAndProperty.Services
                 notificationToSend.Type,
                 notificationToSend.RelatedRequestId);
 
-            notificationDataRepository.Add(notificationModel);
+            BroadcastNotificationForCurrentUser(recipientUserId, persistedNotification);
+            PushNotificationToServer(recipientUserId, notificationToSend.Title, notificationToSend.Body);
+        }
 
+        private Notification PersistNotification(
+            int recipientUserId,
+            DateTime notificationTimestamp,
+            string notificationTitle,
+            string notificationBody,
+            NotificationType notificationType,
+            int? linkedRequestId)
+        {
+            var notificationModel = BuildNotificationDomainModel(
+                recipientUserId,
+                notificationTimestamp,
+                notificationTitle,
+                notificationBody,
+                notificationType,
+                linkedRequestId);
+
+            notificationDataRepository.Add(notificationModel);
+            return notificationModel;
+        }
+
+        private void BroadcastNotificationForCurrentUser(int recipientUserId, Notification notificationModel)
+        {
             if (currentUserContext.CurrentUserId == recipientUserId)
             {
                 NotifyAllSubscribers(BuildNotificationDataTransferObject(
                     notificationModel.Id,
                     recipientUserId,
-                    notificationTimestamp,
-                    notificationToSend.Title,
-                    notificationToSend.Body,
-                    notificationToSend.Type,
-                    notificationToSend.RelatedRequestId));
+                    notificationModel.Timestamp,
+                    notificationModel.Title,
+                    notificationModel.Body,
+                    notificationModel.Type,
+                    notificationModel.RelatedRequestId));
             }
-
-            serverNotificationClient.SendNotification(recipientUserId, notificationToSend.Title, notificationToSend.Body);
         }
 
-        public void DeleteNotificationsLinkedToRequest(int linkedRequestId)
+        private void PushNotificationToServer(int recipientUserId, string notificationTitle, string notificationBody)
         {
-            notificationDataRepository.DeleteNotificationsLinkedToRequest(linkedRequestId);
+            try
+            {
+                serverNotificationClient.SendNotification(recipientUserId, notificationTitle, notificationBody);
+            }
+            catch (Exception serverPushException)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"NotificationService: server push failed - {serverPushException}");
+            }
         }
 
         public void UpdateNotificationByIdentifier(int notificationId, NotificationDTO updatedNotificationData)
@@ -104,18 +142,28 @@ namespace BoardRentAndProperty.Services
 
         public void StartListening()
         {
-            _ = Task.Run(async () =>
+            if (isDisposed)
             {
-                try
+                return;
+            }
+
+            if (serverListeningTask is { IsCompleted: false }
+                && serverNotificationClient.ConnectionStatus == NotificationConnectionStatus.Connected)
+            {
+                return;
+            }
+
+            serverListeningTask = serverNotificationClient.ListenAsync();
+            _ = serverListeningTask.ContinueWith(
+                completedTask =>
                 {
-                    await serverNotificationClient.ListenAsync();
-                }
-                catch (Exception listenException)
-                {
-                    System.Diagnostics.Debug.WriteLine(
-                        $"NotificationService: listen loop terminated - {listenException}");
-                }
-            });
+                    if (completedTask.Exception != null)
+                    {
+                        System.Diagnostics.Debug.WriteLine(
+                            $"NotificationService: listen loop terminated - {completedTask.Exception}");
+                    }
+                },
+                TaskScheduler.Default);
         }
 
         public void StopListening() => serverNotificationClient.StopListening();
@@ -192,6 +240,11 @@ namespace BoardRentAndProperty.Services
 
         public void SubscribeToServer(int userId) => serverNotificationClient.SubscribeToServer(userId);
 
+        private void OnServerConnectionStatusChanged(object? sender, NotificationConnectionStatusChangedEventArgs eventArgs)
+        {
+            ConnectionStatusChanged?.Invoke(this, eventArgs);
+        }
+
         public void Dispose()
         {
             if (isDisposed)
@@ -201,14 +254,19 @@ namespace BoardRentAndProperty.Services
 
             isDisposed = true;
 
-            reminderScheduleCancellationSource.Cancel();
-            reminderScheduleCancellationSource.Dispose();
+            CancelAllScheduledReminders();
+            serverNotificationClient.ConnectionStatusChanged -= OnServerConnectionStatusChanged;
             StopListening();
             (serverNotificationClient as IDisposable)?.Dispose();
         }
 
-        public void ScheduleUpcomingRentalReminder(int renterUserId, int ownerUserId, string rentalGameName, DateTime rentalStartDate)
+        public void ScheduleUpcomingRentalReminder(int rentalId, int renterUserId, int ownerUserId, string rentalGameName, DateTime rentalStartDate)
         {
+            if (isDisposed || rentalId == NewNotificationId)
+            {
+                return;
+            }
+
             var rentalStartUtc = rentalStartDate.ToUniversalTime();
             var currentUtcTime = DateTime.UtcNow;
 
@@ -221,8 +279,27 @@ namespace BoardRentAndProperty.Services
             string reminderTitle = Constants.NotificationTitles.UpcomingRentalReminder;
             string reminderBody = BuildUpcomingRentalReminderBody(rentalGameName, rentalStartDate);
 
-            ScheduleOrSendReminderForUser(renterUserId, reminderTitle, reminderBody, scheduledReminderTime);
-            ScheduleOrSendReminderForUser(ownerUserId, reminderTitle, reminderBody, scheduledReminderTime);
+            ScheduleOrSendReminderForRental(
+                rentalId,
+                renterUserId,
+                ownerUserId,
+                reminderTitle,
+                reminderBody,
+                scheduledReminderTime);
+        }
+
+        public void CancelUpcomingRentalReminder(int rentalId)
+        {
+            ScheduledReminder? scheduledReminderToCancel = null;
+            lock (scheduledRemindersLock)
+            {
+                if (scheduledRemindersByRentalId.TryGetValue(rentalId, out scheduledReminderToCancel))
+                {
+                    scheduledRemindersByRentalId.Remove(rentalId);
+                }
+            }
+
+            scheduledReminderToCancel?.Cancel();
         }
 
         private static string BuildUpcomingRentalReminderBody(string rentalGameName, DateTime rentalStartDate)
@@ -231,40 +308,90 @@ namespace BoardRentAndProperty.Services
                    "Delivery/Pick-up: Coordinate delivery/pick-up directly with the other party.";
         }
 
-        private void ScheduleOrSendReminderForUser(int recipientUserId, string reminderTitle, string reminderBody, DateTime scheduledSendTime)
+        private void ScheduleOrSendReminderForRental(
+            int rentalId,
+            int renterUserId,
+            int ownerUserId,
+            string reminderTitle,
+            string reminderBody,
+            DateTime scheduledSendTime)
+        {
+            TimeSpan sendDelay = scheduledSendTime.ToUniversalTime() - DateTime.UtcNow;
+            if (sendDelay <= TimeSpan.Zero)
+            {
+                SendReminderNotificationsImmediately(renterUserId, ownerUserId, reminderTitle, reminderBody);
+                return;
+            }
+
+            CancelUpcomingRentalReminder(rentalId);
+
+            var cancellationSource = new CancellationTokenSource();
+            var scheduledReminder = new ScheduledReminder(cancellationSource);
+
+            lock (scheduledRemindersLock)
+            {
+                if (isDisposed)
+                {
+                    scheduledReminder.Cancel();
+                    scheduledReminder.Dispose();
+                    return;
+                }
+
+                scheduledRemindersByRentalId[rentalId] = scheduledReminder;
+            }
+
+            scheduledReminder.RunningTask = SendScheduledReminderAsync(
+                rentalId,
+                renterUserId,
+                ownerUserId,
+                reminderTitle,
+                reminderBody,
+                sendDelay,
+                cancellationSource.Token)
+                .ContinueWith(
+                    completedTask => CompleteScheduledReminder(rentalId, scheduledReminder),
+                    CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default);
+        }
+
+        private async Task SendScheduledReminderAsync(
+            int rentalId,
+            int renterUserId,
+            int ownerUserId,
+            string reminderTitle,
+            string reminderBody,
+            TimeSpan sendDelay,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                await Task.Delay(sendDelay, cancellationToken);
+                SendReminderNotificationsImmediately(renterUserId, ownerUserId, reminderTitle, reminderBody);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception scheduledReminderException)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"NotificationService: scheduled reminder failed for rental {rentalId} - {scheduledReminderException}");
+            }
+        }
+
+        private void SendReminderNotificationsImmediately(int renterUserId, int ownerUserId, string reminderTitle, string reminderBody)
+        {
+            SendReminderNotificationIfRecipientExists(renterUserId, reminderTitle, reminderBody);
+            SendReminderNotificationIfRecipientExists(ownerUserId, reminderTitle, reminderBody);
+        }
+
+        private void SendReminderNotificationIfRecipientExists(int recipientUserId, string reminderTitle, string reminderBody)
         {
             if (recipientUserId == MissingUserId)
             {
                 return;
             }
 
-            TimeSpan sendDelay = scheduledSendTime.ToUniversalTime() - DateTime.UtcNow;
-            if (sendDelay <= TimeSpan.Zero)
-            {
-                SendReminderNotificationImmediately(recipientUserId, reminderTitle, reminderBody);
-                return;
-            }
-
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await Task.Delay(sendDelay, reminderScheduleCancellationSource.Token);
-                    SendReminderNotificationImmediately(recipientUserId, reminderTitle, reminderBody);
-                }
-                catch (OperationCanceledException)
-                {
-                }
-                catch (Exception scheduledReminderException)
-                {
-                    System.Diagnostics.Debug.WriteLine(
-                        $"NotificationService: scheduled reminder failed - {scheduledReminderException}");
-                }
-            });
-        }
-
-        private void SendReminderNotificationImmediately(int recipientUserId, string reminderTitle, string reminderBody)
-        {
             var immediateReminderDto = BuildNotificationDataTransferObject(
                 NewNotificationId,
                 recipientUserId,
@@ -275,6 +402,35 @@ namespace BoardRentAndProperty.Services
                 null);
 
             SendNotificationToUser(recipientUserId, immediateReminderDto);
+        }
+
+        private void CompleteScheduledReminder(int rentalId, ScheduledReminder completedReminder)
+        {
+            lock (scheduledRemindersLock)
+            {
+                if (scheduledRemindersByRentalId.TryGetValue(rentalId, out var trackedReminder)
+                    && ReferenceEquals(trackedReminder, completedReminder))
+                {
+                    scheduledRemindersByRentalId.Remove(rentalId);
+                }
+            }
+
+            completedReminder.Dispose();
+        }
+
+        private void CancelAllScheduledReminders()
+        {
+            ScheduledReminder[] remindersToCancel;
+            lock (scheduledRemindersLock)
+            {
+                remindersToCancel = scheduledRemindersByRentalId.Values.ToArray();
+                scheduledRemindersByRentalId.Clear();
+            }
+
+            foreach (var scheduledReminder in remindersToCancel)
+            {
+                scheduledReminder.Cancel();
+            }
         }
 
         private static NotificationDTO BuildNotificationDataTransferObject(
@@ -289,7 +445,7 @@ namespace BoardRentAndProperty.Services
             return new NotificationDTO
             {
                 Id = notificationId,
-                User = new UserDTO { Id = recipientUserId },
+                Recipient = new Account { PamUserId = recipientUserId },
                 Timestamp = notificationTimestamp,
                 Title = notificationTitle,
                 Body = notificationBody,
@@ -309,13 +465,52 @@ namespace BoardRentAndProperty.Services
             return new Notification
             {
                 Id = NewNotificationId,
-                User = new User { Id = recipientUserId },
+                Recipient = new Account { PamUserId = recipientUserId },
                 Timestamp = notificationTimestamp,
                 Title = notificationTitle,
                 Body = notificationBody,
                 Type = notificationType,
                 RelatedRequestId = linkedRequestId
             };
+        }
+
+        private sealed class ScheduledReminder : IDisposable
+        {
+            private bool isDisposed;
+
+            public ScheduledReminder(CancellationTokenSource cancellationSource)
+            {
+                CancellationSource = cancellationSource;
+            }
+
+            public CancellationTokenSource CancellationSource { get; }
+
+            public Task? RunningTask { get; set; }
+
+            public void Cancel()
+            {
+                try
+                {
+                    if (!CancellationSource.IsCancellationRequested)
+                    {
+                        CancellationSource.Cancel();
+                    }
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+
+            public void Dispose()
+            {
+                if (isDisposed)
+                {
+                    return;
+                }
+
+                isDisposed = true;
+                CancellationSource.Dispose();
+            }
         }
     }
 }

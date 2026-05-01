@@ -15,20 +15,49 @@ namespace BoardRentAndProperty.ViewModels
                                            IDisposable
     {
         private const int InvalidOrUnknownUserId = 0;
-        private const int FallbackDefaultUserId = 1;
 
         private readonly INotificationService notificationLookupService;
+        private readonly ICurrentUserContext currentUserContext;
         private readonly IDisposable notificationSubscription;
 
         private readonly DispatcherQueue? uiDispatcherQueue;
+        private bool hasConnectionWarning;
+        private string connectionWarningMessage = string.Empty;
 
         public int CurrentUserId { get; private set; }
+
+        public bool HasConnectionWarning
+        {
+            get => hasConnectionWarning;
+            private set
+            {
+                if (hasConnectionWarning != value)
+                {
+                    hasConnectionWarning = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public string ConnectionWarningMessage
+        {
+            get => connectionWarningMessage;
+            private set
+            {
+                if (connectionWarningMessage != value)
+                {
+                    connectionWarningMessage = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
 
         public NotificationsViewModel(
             INotificationService notificationLookupService,
             ICurrentUserContext currentUserContext)
         {
             this.notificationLookupService = notificationLookupService;
+            this.currentUserContext = currentUserContext;
 
             try
             {
@@ -39,9 +68,16 @@ namespace BoardRentAndProperty.ViewModels
                 uiDispatcherQueue = null;
             }
 
-            LoadNotificationsForUser(currentUserContext.CurrentUserId);
+            LoadCurrentUserNotifications();
 
             notificationSubscription = notificationLookupService.Subscribe(this);
+            notificationLookupService.ConnectionStatusChanged += OnConnectionStatusChanged;
+            ApplyConnectionStatus(notificationLookupService.ConnectionStatus);
+        }
+
+        public void LoadCurrentUserNotifications()
+        {
+            LoadNotificationsForUser(currentUserContext.CurrentUserId);
         }
 
         public void LoadNotificationsForUser(int targetUserId)
@@ -52,9 +88,16 @@ namespace BoardRentAndProperty.ViewModels
 
         protected override void Reload()
         {
+            if (CurrentUserId == InvalidOrUnknownUserId)
+            {
+                SetAllItems(ImmutableList<NotificationDTO>.Empty);
+                return;
+            }
+
             var userNotificationsSortedByNewest = notificationLookupService
                 .GetNotificationsForUser(CurrentUserId)
-                .OrderByDescending(notification => notification.Id)
+                .OrderByDescending(notification => notification.Timestamp)
+                .ThenByDescending(notification => notification.Id)
                 .ToImmutableList();
 
             SetAllItems(userNotificationsSortedByNewest);
@@ -84,19 +127,62 @@ namespace BoardRentAndProperty.ViewModels
 
         public void OnNext(NotificationDTO incomingNotification)
         {
-            var resolvedUserIdForReload = CurrentUserId == InvalidOrUnknownUserId
-                ? FallbackDefaultUserId
-                : CurrentUserId;
-
-            if (uiDispatcherQueue != null && !uiDispatcherQueue.HasThreadAccess)
+            var resolvedCurrentUserId = currentUserContext.CurrentUserId;
+            if (resolvedCurrentUserId == InvalidOrUnknownUserId)
             {
-                uiDispatcherQueue.TryEnqueue(() => LoadNotificationsForUser(resolvedUserIdForReload));
+                LoadNotificationsForUser(InvalidOrUnknownUserId);
                 return;
             }
 
-            LoadNotificationsForUser(resolvedUserIdForReload);
+            if (incomingNotification?.Recipient?.PamUserId != InvalidOrUnknownUserId
+                && incomingNotification?.Recipient?.PamUserId != resolvedCurrentUserId)
+            {
+                return;
+            }
+
+            if (uiDispatcherQueue != null && !uiDispatcherQueue.HasThreadAccess)
+            {
+                uiDispatcherQueue.TryEnqueue(() => LoadNotificationsForUser(resolvedCurrentUserId));
+                return;
+            }
+
+            LoadNotificationsForUser(resolvedCurrentUserId);
         }
 
-        public void Dispose() => notificationSubscription?.Dispose();
+        private void OnConnectionStatusChanged(object? sender, NotificationConnectionStatusChangedEventArgs eventArgs)
+        {
+            if (uiDispatcherQueue != null && !uiDispatcherQueue.HasThreadAccess)
+            {
+                uiDispatcherQueue.TryEnqueue(() => ApplyConnectionStatus(eventArgs.ConnectionStatus));
+                return;
+            }
+
+            ApplyConnectionStatus(eventArgs.ConnectionStatus);
+        }
+
+        private void ApplyConnectionStatus(NotificationConnectionStatus connectionStatus)
+        {
+            switch (connectionStatus)
+            {
+                case NotificationConnectionStatus.Reconnecting:
+                    ConnectionWarningMessage = "Notifications are reconnecting.";
+                    HasConnectionWarning = true;
+                    break;
+                case NotificationConnectionStatus.Offline:
+                    ConnectionWarningMessage = "Notifications are offline. New alerts will appear after reconnecting.";
+                    HasConnectionWarning = true;
+                    break;
+                default:
+                    ConnectionWarningMessage = string.Empty;
+                    HasConnectionWarning = false;
+                    break;
+            }
+        }
+
+        public void Dispose()
+        {
+            notificationLookupService.ConnectionStatusChanged -= OnConnectionStatusChanged;
+            notificationSubscription?.Dispose();
+        }
     }
 }

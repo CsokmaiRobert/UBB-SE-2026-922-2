@@ -7,12 +7,10 @@ namespace BoardRentAndProperty.Mappers
     public class RequestMapper : IMapper<Request, RequestDTO>
     {
         private readonly IMapper<Game, GameDTO> requestedGameMapper;
-        private readonly IMapper<User, UserDTO> requestParticipantUserMapper;
 
-        public RequestMapper(IMapper<Game, GameDTO> gameMapper, IMapper<User, UserDTO> userMapper)
+        public RequestMapper(IMapper<Game, GameDTO> gameMapper)
         {
             this.requestedGameMapper = gameMapper;
-            this.requestParticipantUserMapper = userMapper;
         }
 
         public RequestDTO ToDTO(Request requestModel)
@@ -26,12 +24,12 @@ namespace BoardRentAndProperty.Mappers
             {
                 Id = requestModel.Id,
                 Game = requestedGameMapper.ToDTO(requestModel.Game),
-                Renter = requestParticipantUserMapper.ToDTO(requestModel.Renter),
-                Owner = requestParticipantUserMapper.ToDTO(requestModel.Owner),
+                Renter = requestModel.Renter,
+                Owner = requestModel.Owner,
                 StartDate = requestModel.StartDate,
                 EndDate = requestModel.EndDate,
                 Status = requestModel.Status,
-                OfferingUser = requestModel.OfferingUser != null ? requestParticipantUserMapper.ToDTO(requestModel.OfferingUser) : null
+                OfferingAccount = requestModel.OfferingAccount
             };
         }
 
@@ -46,12 +44,12 @@ namespace BoardRentAndProperty.Mappers
             {
                 Id = requestDto.Id,
                 Game = requestedGameMapper.ToModel(requestDto.Game),
-                Renter = requestParticipantUserMapper.ToModel(requestDto.Renter),
-                Owner = requestParticipantUserMapper.ToModel(requestDto.Owner),
+                Renter = requestDto.Renter,
+                Owner = requestDto.Owner,
                 StartDate = requestDto.StartDate,
                 EndDate = requestDto.EndDate,
                 Status = requestDto.Status,
-                OfferingUser = requestDto.OfferingUser != null ? requestParticipantUserMapper.ToModel(requestDto.OfferingUser) : null
+                OfferingAccount = requestDto.OfferingAccount
             };
         }
     }

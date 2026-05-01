@@ -5,6 +5,7 @@ namespace BoardRentAndProperty.Services
     using System.IO;
     using System.Linq;
     using System.Threading.Tasks;
+    using BoardRentAndProperty.Constants;
     using BoardRentAndProperty.Data;
     using BoardRentAndProperty.DataTransferObjects;
     using BoardRentAndProperty.Mappers;
@@ -14,12 +15,6 @@ namespace BoardRentAndProperty.Services
 
     public class AccountService : IAccountService
     {
-        private const int MinimumDisplayNameLength = 2;
-        private const int MaximumDisplayNameLength = 50;
-        private const int MaximumStreetNumberLength = 10;
-        private const string AvatarFolderName = "Avatars";
-        private const string ApplicationName = "BoardRent";
-
         private readonly IAccountRepository accountRepository;
         private readonly IUnitOfWorkFactory unitOfWorkFactory;
         private readonly ISessionContext sessionContext;
@@ -35,39 +30,39 @@ namespace BoardRentAndProperty.Services
 
         public async Task<ServiceResult<AccountProfileDataTransferObject>> GetProfileAsync(Guid accountId)
         {
-            using (var unitOfWork = this.unitOfWorkFactory.Create())
+            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
             {
                 await unitOfWork.OpenAsync();
                 this.accountRepository.SetUnitOfWork(unitOfWork);
 
-                var accountEntity = await this.accountRepository.GetByIdAsync(accountId);
+                Account accountEntity = await this.accountRepository.GetByIdAsync(accountId);
                 if (accountEntity == null)
                 {
                     return ServiceResult<AccountProfileDataTransferObject>.Fail("Account not found.");
                 }
 
-                return ServiceResult<AccountProfileDataTransferObject>.Ok(this.accountProfileMapper.ToDto(accountEntity));
+                return ServiceResult<AccountProfileDataTransferObject>.Ok(this.accountProfileMapper.ToDataTransferObject(accountEntity));
             }
         }
 
         public async Task<ServiceResult<bool>> UpdateProfileAsync(Guid accountId, AccountProfileDataTransferObject profileUpdateData)
         {
-            using (var unitOfWork = this.unitOfWorkFactory.Create())
+            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
             {
                 await unitOfWork.OpenAsync();
                 this.accountRepository.SetUnitOfWork(unitOfWork);
 
-                var accountEntity = await this.accountRepository.GetByIdAsync(accountId);
+                Account accountEntity = await this.accountRepository.GetByIdAsync(accountId);
                 if (accountEntity == null)
                 {
                     return ServiceResult<bool>.Fail("Account not found.");
                 }
 
-                var validationErrors = this.ValidateProfileDetails(profileUpdateData);
+                List<string> validationErrors = AccountProfileValidator.Validate(profileUpdateData);
 
                 if (!string.IsNullOrWhiteSpace(profileUpdateData.Email) && profileUpdateData.Email != accountEntity.Email)
                 {
-                    var accountWithDuplicateEmail = await this.accountRepository.GetByEmailAsync(profileUpdateData.Email);
+                    Account accountWithDuplicateEmail = await this.accountRepository.GetByEmailAsync(profileUpdateData.Email);
                     if (accountWithDuplicateEmail != null && accountWithDuplicateEmail.Id != accountId)
                     {
                         validationErrors.Add("Email|This email address is already taken by another account.");
@@ -79,7 +74,7 @@ namespace BoardRentAndProperty.Services
                     return ServiceResult<bool>.Fail(string.Join(";", validationErrors));
                 }
 
-                this.accountProfileMapper.ApplyTo(accountEntity, profileUpdateData);
+                this.accountProfileMapper.ApplyToEntity(accountEntity, profileUpdateData);
                 await this.accountRepository.UpdateAsync(accountEntity);
 
                 return ServiceResult<bool>.Ok(true);
@@ -88,12 +83,12 @@ namespace BoardRentAndProperty.Services
 
         public async Task<ServiceResult<bool>> ChangePasswordAsync(Guid accountId, string currentPassword, string newPassword)
         {
-            using (var unitOfWork = this.unitOfWorkFactory.Create())
+            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
             {
                 await unitOfWork.OpenAsync();
                 this.accountRepository.SetUnitOfWork(unitOfWork);
 
-                var accountEntity = await this.accountRepository.GetByIdAsync(accountId);
+                Account accountEntity = await this.accountRepository.GetByIdAsync(accountId);
                 if (accountEntity == null)
                 {
                     return ServiceResult<bool>.Fail("Account not found.");
@@ -122,12 +117,12 @@ namespace BoardRentAndProperty.Services
 
         public async Task<string> UploadAvatarAsync(Guid accountId, string sourceFilePath)
         {
-            using (var unitOfWork = this.unitOfWorkFactory.Create())
+            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
             {
                 await unitOfWork.OpenAsync();
                 this.accountRepository.SetUnitOfWork(unitOfWork);
 
-                var accountEntity = await this.accountRepository.GetByIdAsync(accountId);
+                Account accountEntity = await this.accountRepository.GetByIdAsync(accountId);
                 if (accountEntity == null)
                 {
                     throw new InvalidOperationException("Account not found.");
@@ -135,7 +130,7 @@ namespace BoardRentAndProperty.Services
 
                 string fileName = $"{accountId}_{Path.GetFileName(sourceFilePath)}";
                 string localApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                string saveFolderPath = Path.Combine(localApplicationData, ApplicationName, AvatarFolderName);
+                string saveFolderPath = Path.Combine(localApplicationData, DomainConstants.ApplicationName, DomainConstants.AvatarFolderName);
 
                 Directory.CreateDirectory(saveFolderPath);
                 string destinationPath = Path.Combine(saveFolderPath, fileName);
@@ -153,12 +148,12 @@ namespace BoardRentAndProperty.Services
 
         public async Task RemoveAvatarAsync(Guid accountId)
         {
-            using (var unitOfWork = this.unitOfWorkFactory.Create())
+            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
             {
                 await unitOfWork.OpenAsync();
                 this.accountRepository.SetUnitOfWork(unitOfWork);
 
-                var accountEntity = await this.accountRepository.GetByIdAsync(accountId);
+                Account accountEntity = await this.accountRepository.GetByIdAsync(accountId);
                 if (accountEntity == null)
                 {
                     throw new InvalidOperationException("Account not found.");
@@ -171,32 +166,20 @@ namespace BoardRentAndProperty.Services
             }
         }
 
-        private List<string> ValidateProfileDetails(AccountProfileDataTransferObject profileData)
+        public async Task<ServiceResult<List<Account>>> GetAccountsExceptPamUserIdAsync(int excludedPamUserId)
         {
-            var errors = new List<string>();
-
-            if (string.IsNullOrWhiteSpace(profileData.DisplayName) ||
-                profileData.DisplayName.Length < MinimumDisplayNameLength ||
-                profileData.DisplayName.Length > MaximumDisplayNameLength)
+            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
             {
-                errors.Add("DisplayName|Display name must be between 2 and 50 characters long.");
-            }
+                await unitOfWork.OpenAsync();
+                this.accountRepository.SetUnitOfWork(unitOfWork);
 
-            if (!string.IsNullOrWhiteSpace(profileData.PhoneNumber))
-            {
-                if (!System.Text.RegularExpressions.Regex.IsMatch(profileData.PhoneNumber, @"^\+?\d{7,15}$"))
-                {
-                    errors.Add("PhoneNumber|Phone number format is invalid.");
-                }
-            }
+                List<Account> accountEntities = await this.accountRepository.GetAllAsync(1, int.MaxValue);
+                List<Account> selectableAccounts = accountEntities
+                    .Where(accountEntity => accountEntity.PamUserId.HasValue && accountEntity.PamUserId.Value != excludedPamUserId)
+                    .ToList();
 
-            if (!string.IsNullOrWhiteSpace(profileData.StreetNumber) && profileData.StreetNumber.Length > MaximumStreetNumberLength)
-            {
-                errors.Add("StreetNumber|Street number must be a valid value.");
+                return ServiceResult<List<Account>>.Ok(selectableAccounts);
             }
-
-            return errors;
         }
-
     }
 }

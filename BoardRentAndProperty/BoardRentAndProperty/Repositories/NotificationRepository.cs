@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using Microsoft.Data.SqlClient;
 using BoardRentAndProperty.Mappers;
-using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Models;
+using Microsoft.Data.SqlClient;
 
 namespace BoardRentAndProperty.Repositories
 {
@@ -17,14 +16,16 @@ namespace BoardRentAndProperty.Repositories
 
         private const string BaseNotificationSelectQuery =
             "SELECT n.*, u.display_name AS user_display_name FROM Notifications n LEFT JOIN Users u ON u.id = n.user_id";
+        private const string NewestFirstOrderByClause =
+            " ORDER BY n.[timestamp] DESC, n.notification_id DESC";
 
         private static Notification ReadNotificationFromReader(SqlDataReader databaseReader)
         {
-            var notificationOwner = new User((int)databaseReader["user_id"], databaseReader["user_display_name"] as string ?? string.Empty);
+            var notificationRecipient = new Account { PamUserId = (int)databaseReader["user_id"], DisplayName = databaseReader["user_display_name"] as string ?? string.Empty };
             var notificationType = (NotificationType)(int)databaseReader["type"];
             var relatedRequestIdValue = databaseReader["related_request_id"];
             return new Notification(
-                (int)databaseReader["notification_id"], notificationOwner,
+                (int)databaseReader["notification_id"], notificationRecipient,
                 (DateTime)databaseReader["timestamp"], (string)databaseReader["title"], (string)databaseReader["body"],
                 notificationType, relatedRequestIdValue == DBNull.Value ? null : (int)relatedRequestIdValue);
         }
@@ -37,7 +38,7 @@ namespace BoardRentAndProperty.Repositories
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = BaseNotificationSelectQuery;
+                    command.CommandText = BaseNotificationSelectQuery + NewestFirstOrderByClause;
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -58,7 +59,7 @@ namespace BoardRentAndProperty.Repositories
                 using (var command = connection.CreateCommand())
                 {
                     command.CommandText = "INSERT INTO Notifications(user_id, timestamp, title, body, type, related_request_id) VALUES(@user_id, @timestamp, @title, @body, @type, @related_request_id); SELECT SCOPE_IDENTITY();";
-                    command.Parameters.AddWithValue("@user_id", notificationToInsert.User?.Id ?? MissingUserId);
+                    command.Parameters.AddWithValue("@user_id", notificationToInsert.Recipient?.PamUserId ?? MissingUserId);
                     command.Parameters.AddWithValue("@timestamp", notificationToInsert.Timestamp);
                     command.Parameters.AddWithValue("@title", notificationToInsert.Title);
                     command.Parameters.AddWithValue("@body", notificationToInsert.Body);
@@ -105,7 +106,7 @@ namespace BoardRentAndProperty.Repositories
                 {
                     command.CommandText = "UPDATE Notifications SET user_id = @user_id, timestamp = @timestamp, title = @title, body = @body, type = @type, related_request_id = @related_request_id WHERE notification_id = @id";
                     command.Parameters.AddWithValue("@id", notificationIdToUpdate);
-                    command.Parameters.AddWithValue("@user_id", notificationDataToUpdate.User?.Id ?? MissingUserId);
+                    command.Parameters.AddWithValue("@user_id", notificationDataToUpdate.Recipient?.PamUserId ?? MissingUserId);
                     command.Parameters.AddWithValue("@timestamp", notificationDataToUpdate.Timestamp);
                     command.Parameters.AddWithValue("@title", notificationDataToUpdate.Title);
                     command.Parameters.AddWithValue("@body", notificationDataToUpdate.Body);
@@ -145,7 +146,7 @@ namespace BoardRentAndProperty.Repositories
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = BaseNotificationSelectQuery + " WHERE n.user_id = @user_id";
+                    command.CommandText = BaseNotificationSelectQuery + " WHERE n.user_id = @user_id" + NewestFirstOrderByClause;
                     command.Parameters.AddWithValue("@user_id", targetUserId);
                     using (var reader = command.ExecuteReader())
                     {
@@ -159,18 +160,5 @@ namespace BoardRentAndProperty.Repositories
             return userNotifications.ToImmutableList();
         }
 
-        public void DeleteNotificationsLinkedToRequest(int linkedRequestId)
-        {
-            using (var connection = new SqlConnection(boardRentConnectionString))
-            {
-                connection.Open();
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText = "DELETE FROM Notifications WHERE related_request_id = @request_id";
-                    command.Parameters.AddWithValue("@request_id", linkedRequestId);
-                    command.ExecuteNonQuery();
-                }
-            }
-        }
     }
 }

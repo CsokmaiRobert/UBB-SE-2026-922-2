@@ -72,7 +72,7 @@ namespace BoardRentAndProperty.Services
             }
 
             var gameToRent = gameLookupRepository.Get(gameId);
-            if (gameToRent.Owner.Id != ownerUserId)
+            if (gameToRent.Owner?.PamUserId != ownerUserId)
             {
                 throw new InvalidOperationException("Seller ID must match Game Owner ID [ENT-REN-04].");
             }
@@ -86,8 +86,8 @@ namespace BoardRentAndProperty.Services
             var confirmedRental = new Rental(
                 id: NewRentalId,
                 rentedGame: new Game { Id = gameId },
-                renterUser: new User { Id = renterUserId },
-                ownerUser: new User { Id = ownerUserId },
+                renterUser: new Account { PamUserId = renterUserId },
+                ownerUser: new Account { PamUserId = ownerUserId },
                 startDate: rentalStartDate,
                 endDate: rentalEndDate);
 

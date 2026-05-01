@@ -19,6 +19,13 @@ namespace BoardRentAndProperty.Utilities
 
         public bool IsLoggedIn { get; private set; }
 
+        public string PhoneNumber { get; private set; }
+        public string Email { get; private set; }
+        public string Country { get; private set; }
+        public string City { get; private set; }
+        public string StreetName { get; private set; }
+        public string StreetNumber { get; private set; }
+
         public void Populate(Account account, string roleName)
         {
             if (account != null)
@@ -29,6 +36,13 @@ namespace BoardRentAndProperty.Utilities
                 this.Role = roleName;
                 this.PamUserId = account.PamUserId ?? UnauthenticatedPamUserId;
                 this.IsLoggedIn = true;
+
+                this.PhoneNumber = account.PhoneNumber;
+                this.Email = account.Email;
+                this.City = account.City;
+                this.Country = account.Country;
+                this.StreetName = account.StreetName;
+                this.StreetNumber = account.StreetNumber;
             }
         }
 
@@ -40,6 +54,12 @@ namespace BoardRentAndProperty.Utilities
             this.Role = string.Empty;
             this.PamUserId = UnauthenticatedPamUserId;
             this.IsLoggedIn = false;
+            this.Email = string.Empty;
+            this.PhoneNumber = string.Empty;
+            this.City = string.Empty;
+            this.Country = string.Empty;
+            this.StreetName = string.Empty;
+            this.StreetNumber = string.Empty;
         }
     }
 }
