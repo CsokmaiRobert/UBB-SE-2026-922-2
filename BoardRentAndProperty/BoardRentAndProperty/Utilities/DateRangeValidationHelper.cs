@@ -1,6 +1,6 @@
 using System;
 
-namespace BoardRentAndProperty.Services
+namespace BoardRentAndProperty.Utilities
 {
     internal static class DateRangeValidationHelper
     {
