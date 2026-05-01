@@ -3,6 +3,8 @@ namespace BoardRentAndProperty.ViewModels
     using System;
     using System.Collections.Generic;
     using System.Threading.Tasks;
+
+    using BoardRentAndProperty.Constants;
     using BoardRentAndProperty.DataTransferObjects;
     using BoardRentAndProperty.Services;
     using BoardRentAndProperty.Utilities;
@@ -70,12 +72,7 @@ namespace BoardRentAndProperty.ViewModels
 
         public Action OnNavigateBackRequest { get; set; }
 
-        public List<string> AvailableCountries { get; } = new List<string>
-        {
-            "Romania",
-            "Germany",
-            "France",
-        };
+        public IReadOnlyList<string> AvailableCountries => DomainConstants.CountryList;
 
         private void ClearErrors()
         {

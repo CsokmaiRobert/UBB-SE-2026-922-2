@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using BoardRentAndProperty.Constants;
 using BoardRentAndProperty.DataTransferObjects;
+using BoardRentAndProperty.Models;
 using BoardRentAndProperty.Services;
 
 namespace BoardRentAndProperty.ViewModels
@@ -46,7 +47,7 @@ namespace BoardRentAndProperty.ViewModels
             }
 
             EditedGameId = loadedGame.Id;
-            EditedGameOwnerId = loadedGame.Owner?.Id ?? MissingOwnerId;
+            EditedGameOwnerId = loadedGame.Owner?.PamUserId ?? MissingOwnerId;
 
             GameName = loadedGame.Name;
             GamePrice = loadedGame.Price;
@@ -105,7 +106,7 @@ namespace BoardRentAndProperty.ViewModels
             return new GameDTO
             {
                 Id = EditedGameId,
-                Owner = new UserDTO { Id = EditedGameOwnerId },
+                Owner = new Account { PamUserId = EditedGameOwnerId },
                 Name = GameName,
                 Price = GamePrice,
                 MinimumPlayerNumber = MinimumPlayersRequired,
