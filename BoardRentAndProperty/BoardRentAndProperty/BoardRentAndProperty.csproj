@@ -24,6 +24,16 @@
     <PackageReference Include="CommunityToolkit.WinUI.UI.Controls.DataGrid" Version="7.1.2" />
     <PackageReference Include="H.NotifyIcon.WinUI" Version="2.3.2" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
     <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.3" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.7705" />
@@ -40,10 +50,9 @@
   </ItemGroup>
 
   <Target Name="CleanAndBuildNotificationServer"
-          BeforeTargets="ResolveReferences"
-          Condition="'$(DesignTimeBuild)' != 'true'">
+          AfterTargets="Build"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(BuildingSolutionFile)' != 'true'">
     <!--<Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;$notificationServerProcesses = Get-Process NotificationServer -ErrorAction SilentlyContinue; if ($notificationServerProcesses) { $notificationServerProcesses | Stop-Process -Force }; exit 0&quot;" />-->
-    <RemoveDir Directories="..\NotificationServer\bin\$(Platform)\$(Configuration);..\NotificationServer\obj\$(Platform)\$(Configuration)" />
     <MSBuild Projects="..\NotificationServer\NotificationServer.csproj"
              Targets="Build"
              Properties="Configuration=$(Configuration);Platform=x64" />

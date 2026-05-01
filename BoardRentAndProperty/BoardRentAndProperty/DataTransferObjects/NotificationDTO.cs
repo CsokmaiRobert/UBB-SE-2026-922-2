@@ -4,12 +4,12 @@ using BoardRentAndProperty.Models;
 
 namespace BoardRentAndProperty.DataTransferObjects
 {
-    public class NotificationDTO : IDTO<Notification>
+    public class NotificationDTO : IDTO<Notification, int>
     {
         private const string TimeDisplayFormat = "dd MMM yyyy, HH:mm";
 
         public int Id { get; set; }
-        public Account Recipient { get; set; }
+        public UserDTO? Recipient { get; set; }
         public DateTime Timestamp { get; set; }
         public string Title { get; set; }
         public string Body { get; set; }

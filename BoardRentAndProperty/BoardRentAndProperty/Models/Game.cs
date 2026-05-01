@@ -1,8 +1,9 @@
+using System;
 using BoardRentAndProperty.Mappers;
 
 namespace BoardRentAndProperty.Models
 {
-    public class Game : IEntity
+    public class Game : IEntity<int>
     {
         public int Id { get; set; }
         public Account Owner { get; set; }

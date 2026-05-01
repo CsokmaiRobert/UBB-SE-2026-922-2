@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using BoardRentAndProperty.Constants;
 using BoardRentAndProperty.DataTransferObjects;
-using BoardRentAndProperty.Models;
 using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Utilities;
 
@@ -30,7 +29,7 @@ namespace BoardRentAndProperty.ViewModels
         public bool IsGameActive { get; set; } = true;
         public byte[] GameImage { get; set; } = null;
 
-        public int CurrentUserId => currentUserContext.CurrentUserId;
+        public Guid CurrentUserId => currentUserContext.CurrentUserId;
 
         public CreateGameViewModel(IGameService gameListingService, ICurrentUserContext currentUserContext)
         {
@@ -86,7 +85,7 @@ namespace BoardRentAndProperty.ViewModels
             return new GameDTO
             {
                 Id = NewGameId,
-                Owner = new Account { PamUserId = CurrentUserId },
+                Owner = new UserDTO { Id = CurrentUserId },
                 Name = GameName,
                 Price = GamePrice,
                 MinimumPlayerNumber = MinimumPlayersRequired,

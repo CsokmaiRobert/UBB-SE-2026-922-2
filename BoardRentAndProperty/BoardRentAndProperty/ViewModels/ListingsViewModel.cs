@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using BoardRentAndProperty.DataTransferObjects;
 using BoardRentAndProperty.Services;
@@ -11,9 +12,9 @@ namespace BoardRentAndProperty.ViewModels
             "There are {0} active rentals for this game. It was removed successfully.";
 
         private readonly IGameService gameListingService;
-        private readonly int currentOwnerUserId;
+        private readonly Guid currentOwnerUserId;
 
-        public ListingsViewModel(IGameService gameListingService, int currentOwnerUserId)
+        public ListingsViewModel(IGameService gameListingService, Guid currentOwnerUserId)
         {
             this.gameListingService = gameListingService;
             this.currentOwnerUserId = currentOwnerUserId;

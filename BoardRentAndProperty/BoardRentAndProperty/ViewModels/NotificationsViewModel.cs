@@ -14,50 +14,37 @@ namespace BoardRentAndProperty.ViewModels
                                            IObserver<NotificationDTO>,
                                            IDisposable
     {
-        private const int InvalidOrUnknownUserId = 0;
+        private static readonly Guid InvalidOrUnknownUserId = Guid.Empty;
 
         private readonly INotificationService notificationLookupService;
-        private readonly ICurrentUserContext currentUserContext;
         private readonly IDisposable notificationSubscription;
+        private readonly ICurrentUserContext currentUserContext;
+        private readonly IServerClient serverClient;
 
         private readonly DispatcherQueue? uiDispatcherQueue;
-        private bool hasConnectionWarning;
-        private string connectionWarningMessage = string.Empty;
+        private NotificationConnectionStatus currentConnectionStatus;
 
-        public int CurrentUserId { get; private set; }
+        public Guid CurrentUserId { get; private set; }
+        public bool HasConnectionWarning =>
+            currentConnectionStatus == NotificationConnectionStatus.Offline
+            || currentConnectionStatus == NotificationConnectionStatus.Reconnecting;
 
-        public bool HasConnectionWarning
+        public string ConnectionWarningMessage => currentConnectionStatus switch
         {
-            get => hasConnectionWarning;
-            private set
-            {
-                if (hasConnectionWarning != value)
-                {
-                    hasConnectionWarning = value;
-                    OnPropertyChanged();
-                }
-            }
-        }
-
-        public string ConnectionWarningMessage
-        {
-            get => connectionWarningMessage;
-            private set
-            {
-                if (connectionWarningMessage != value)
-                {
-                    connectionWarningMessage = value;
-                    OnPropertyChanged();
-                }
-            }
-        }
+            NotificationConnectionStatus.Offline => "Notification server is offline. You can keep using the app, but live notifications are temporarily unavailable.",
+            NotificationConnectionStatus.Reconnecting => "Reconnecting to the notification server...",
+            _ => string.Empty,
+        };
 
         public NotificationsViewModel(
             INotificationService notificationLookupService,
-            ICurrentUserContext currentUserContext)
+            ICurrentUserContext currentUserContext,
+            IServerClient serverClient)
         {
             this.notificationLookupService = notificationLookupService;
             this.currentUserContext = currentUserContext;
+            this.serverClient = serverClient;
+            this.currentConnectionStatus = serverClient.ConnectionStatus;
 
             try
             {
@@ -68,19 +55,18 @@ namespace BoardRentAndProperty.ViewModels
                 uiDispatcherQueue = null;
             }
 
-            LoadCurrentUserNotifications();
+            this.serverClient.ConnectionStatusChanged += this.OnConnectionStatusChanged;
+            LoadNotificationsForUser(currentUserContext.CurrentUserId);
 
             notificationSubscription = notificationLookupService.Subscribe(this);
-            notificationLookupService.ConnectionStatusChanged += OnConnectionStatusChanged;
-            ApplyConnectionStatus(notificationLookupService.ConnectionStatus);
         }
 
         public void LoadCurrentUserNotifications()
         {
-            LoadNotificationsForUser(currentUserContext.CurrentUserId);
+            LoadNotificationsForUser(this.currentUserContext.CurrentUserId);
         }
 
-        public void LoadNotificationsForUser(int targetUserId)
+        public void LoadNotificationsForUser(Guid targetUserId)
         {
             CurrentUserId = targetUserId;
             Reload();
@@ -88,16 +74,9 @@ namespace BoardRentAndProperty.ViewModels
 
         protected override void Reload()
         {
-            if (CurrentUserId == InvalidOrUnknownUserId)
-            {
-                SetAllItems(ImmutableList<NotificationDTO>.Empty);
-                return;
-            }
-
             var userNotificationsSortedByNewest = notificationLookupService
                 .GetNotificationsForUser(CurrentUserId)
-                .OrderByDescending(notification => notification.Timestamp)
-                .ThenByDescending(notification => notification.Id)
+                .OrderByDescending(notification => notification.Id)
                 .ToImmutableList();
 
             SetAllItems(userNotificationsSortedByNewest);
@@ -127,62 +106,39 @@ namespace BoardRentAndProperty.ViewModels
 
         public void OnNext(NotificationDTO incomingNotification)
         {
-            var resolvedCurrentUserId = currentUserContext.CurrentUserId;
-            if (resolvedCurrentUserId == InvalidOrUnknownUserId)
-            {
-                LoadNotificationsForUser(InvalidOrUnknownUserId);
-                return;
-            }
-
-            if (incomingNotification?.Recipient?.PamUserId != InvalidOrUnknownUserId
-                && incomingNotification?.Recipient?.PamUserId != resolvedCurrentUserId)
-            {
-                return;
-            }
+            if (CurrentUserId == InvalidOrUnknownUserId) return;
 
             if (uiDispatcherQueue != null && !uiDispatcherQueue.HasThreadAccess)
             {
-                uiDispatcherQueue.TryEnqueue(() => LoadNotificationsForUser(resolvedCurrentUserId));
+                uiDispatcherQueue.TryEnqueue(() => LoadNotificationsForUser(CurrentUserId));
                 return;
             }
 
-            LoadNotificationsForUser(resolvedCurrentUserId);
-        }
-
-        private void OnConnectionStatusChanged(object? sender, NotificationConnectionStatusChangedEventArgs eventArgs)
-        {
-            if (uiDispatcherQueue != null && !uiDispatcherQueue.HasThreadAccess)
-            {
-                uiDispatcherQueue.TryEnqueue(() => ApplyConnectionStatus(eventArgs.ConnectionStatus));
-                return;
-            }
-
-            ApplyConnectionStatus(eventArgs.ConnectionStatus);
-        }
-
-        private void ApplyConnectionStatus(NotificationConnectionStatus connectionStatus)
-        {
-            switch (connectionStatus)
-            {
-                case NotificationConnectionStatus.Reconnecting:
-                    ConnectionWarningMessage = "Notifications are reconnecting.";
-                    HasConnectionWarning = true;
-                    break;
-                case NotificationConnectionStatus.Offline:
-                    ConnectionWarningMessage = "Notifications are offline. New alerts will appear after reconnecting.";
-                    HasConnectionWarning = true;
-                    break;
-                default:
-                    ConnectionWarningMessage = string.Empty;
-                    HasConnectionWarning = false;
-                    break;
-            }
+            LoadNotificationsForUser(CurrentUserId);
         }
 
         public void Dispose()
         {
-            notificationLookupService.ConnectionStatusChanged -= OnConnectionStatusChanged;
             notificationSubscription?.Dispose();
+            this.serverClient.ConnectionStatusChanged -= this.OnConnectionStatusChanged;
+        }
+
+        private void OnConnectionStatusChanged(object? sender, NotificationConnectionStatusChangedEventArgs eventArgs)
+        {
+            void ApplyStatus()
+            {
+                currentConnectionStatus = eventArgs.ConnectionStatus;
+                OnPropertyChanged(nameof(HasConnectionWarning));
+                OnPropertyChanged(nameof(ConnectionWarningMessage));
+            }
+
+            if (uiDispatcherQueue != null && !uiDispatcherQueue.HasThreadAccess)
+            {
+                uiDispatcherQueue.TryEnqueue(ApplyStatus);
+                return;
+            }
+
+            ApplyStatus();
         }
     }
 }

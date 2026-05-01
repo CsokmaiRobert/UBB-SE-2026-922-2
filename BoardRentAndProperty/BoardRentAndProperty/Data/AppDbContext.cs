@@ -1,230 +1,232 @@
 namespace BoardRentAndProperty.Data
 {
+    using System;
+    using System.Configuration;
+    using BoardRentAndProperty.Models;
     using BoardRentAndProperty.Utilities;
-    using Microsoft.Data.SqlClient;
+    using Microsoft.EntityFrameworkCore;
 
-    public class AppDbContext
+    public class AppDbContext : DbContext
     {
-        private const string DatabaseName = "BoardRentDb";
-        private const string ConnectionString =
-            "Server=(localdb)\\MSSQLLocalDB;Database=BoardRentDb;Trusted_Connection=True;";
-        private const string MasterConnectionString =
-            "Server=(localdb)\\MSSQLLocalDB;Database=master;Trusted_Connection=True;";
-        private const string InitializationLockName = "BoardRentDb.Initialization";
-        private const int InitializationLockTimeoutMilliseconds = 15000;
+        private const string DefaultConnectionString =
+            "Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=BoardRentAndProperty;Integrated Security=True;Encrypt=True;TrustServerCertificate=True";
+
+        private static readonly Guid AdminRoleId = new Guid("00000000-0000-0000-0000-000000000001");
+        private static readonly Guid StandardUserRoleId = new Guid("00000000-0000-0000-0000-000000000002");
+        private static readonly Guid AdminAccountId = new Guid("00000000-0000-0000-0000-000000000010");
+        private static readonly Guid DariusAccountId = new Guid("00000000-0000-0000-0000-000000000011");
+        private static readonly Guid MihaiAccountId = new Guid("00000000-0000-0000-0000-000000000012");
+
         private const string SeedDevPassword = "password123";
 
-        public SqlConnection CreateConnection()
+        public DbSet<Account> Accounts { get; set; }
+        public DbSet<Role> Roles { get; set; }
+        public DbSet<FailedLoginAttempt> FailedLoginAttempts { get; set; }
+        public DbSet<Game> Games { get; set; }
+        public DbSet<Rental> Rentals { get; set; }
+        public DbSet<Request> Requests { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
+
+        public AppDbContext()
         {
-            return new SqlConnection(ConnectionString);
         }
 
-        public void EnsureCreated()
+        public AppDbContext(DbContextOptions<AppDbContext> options)
+            : base(options)
         {
-            using (var masterConnection = new SqlConnection(MasterConnectionString))
+        }
+
+        public static string GetConnectionString()
+        {
+            return ConfigurationManager.ConnectionStrings["BoardRentAndProperty"]?.ConnectionString
+                ?? DefaultConnectionString;
+        }
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            if (!optionsBuilder.IsConfigured)
             {
-                masterConnection.Open();
-
-                AcquireInitializationLock(masterConnection);
-
-                try
-                {
-                    EnsureDatabaseExists(masterConnection);
-                    EnsureSchemaCreated();
-                }
-                finally
-                {
-                    ReleaseInitializationLock(masterConnection);
-                }
+                optionsBuilder.UseSqlServer(GetConnectionString());
             }
         }
 
-        private static void AcquireInitializationLock(SqlConnection masterConnection)
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            using var command = masterConnection.CreateCommand();
-            command.CommandText = @"
-                DECLARE @lockResult INT;
-                EXEC @lockResult = sp_getapplock
-                    @Resource = @Resource,
-                    @LockMode = 'Exclusive',
-                    @LockOwner = 'Session',
-                    @LockTimeout = @Timeout;
+            modelBuilder.Entity<Account>(entity =>
+            {
+                entity.ToTable("Account");
+                entity.HasKey(account => account.Id);
+                entity.Property(account => account.Username).HasMaxLength(100).IsRequired();
+                entity.Property(account => account.DisplayName).HasMaxLength(200).IsRequired();
+                entity.Property(account => account.Email).HasMaxLength(200).IsRequired();
+                entity.Property(account => account.PasswordHash).HasMaxLength(500).IsRequired();
+                entity.Property(account => account.PhoneNumber).HasMaxLength(50);
+                entity.Property(account => account.AvatarUrl).HasMaxLength(500);
+                entity.Property(account => account.StreetName).HasMaxLength(200);
+                entity.Property(account => account.StreetNumber).HasMaxLength(20);
+                entity.Property(account => account.Country).HasMaxLength(100);
+                entity.Property(account => account.City).HasMaxLength(100);
+                entity.HasIndex(account => account.Username).IsUnique();
+                entity.HasIndex(account => account.Email).IsUnique();
+                entity.HasMany(account => account.Roles)
+                      .WithMany()
+                      .UsingEntity<AccountRole>(
+                          joinEntity => joinEntity.HasOne(accountRole => accountRole.Role).WithMany().HasForeignKey(accountRole => accountRole.RoleId).OnDelete(DeleteBehavior.Cascade),
+                          joinEntity => joinEntity.HasOne(accountRole => accountRole.Account).WithMany().HasForeignKey(accountRole => accountRole.AccountId).OnDelete(DeleteBehavior.Cascade),
+                          joinEntity =>
+                          {
+                              joinEntity.ToTable("AccountRoles");
+                              joinEntity.HasKey(accountRole => new { accountRole.AccountId, accountRole.RoleId });
+                          });
+            });
 
-                IF @lockResult < 0
-                BEGIN
-                    THROW 51000, 'Unable to acquire the BoardRentDb initialization lock.', 1;
-                END";
-            command.Parameters.AddWithValue("@Resource", InitializationLockName);
-            command.Parameters.AddWithValue("@Timeout", InitializationLockTimeoutMilliseconds);
-            command.ExecuteNonQuery();
+            modelBuilder.Entity<Role>(entity =>
+            {
+                entity.ToTable("Role");
+                entity.HasKey(role => role.Id);
+                entity.Property(role => role.Name).HasMaxLength(50).IsRequired();
+                entity.HasIndex(role => role.Name).IsUnique();
+            });
+
+            modelBuilder.Entity<FailedLoginAttempt>(entity =>
+            {
+                entity.ToTable("FailedLoginAttempt");
+                entity.HasKey(failedLogin => failedLogin.AccountId);
+                entity.HasOne(failedLogin => failedLogin.Account).WithOne().HasForeignKey<FailedLoginAttempt>(failedLogin => failedLogin.AccountId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Game>(entity =>
+            {
+                entity.ToTable("Games");
+                entity.HasKey(game => game.Id);
+                entity.Property(game => game.Id).ValueGeneratedOnAdd();
+                entity.Property(game => game.Name).HasMaxLength(100).IsRequired();
+                entity.Property(game => game.Price).HasColumnType("decimal(10,2)");
+                entity.Property(game => game.Image).HasColumnType("varbinary(max)");
+                entity.HasOne(game => game.Owner).WithMany().HasForeignKey("OwnerId").OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Rental>(entity =>
+            {
+                entity.ToTable("Rentals");
+                entity.HasKey(rental => rental.Id);
+                entity.Property(rental => rental.Id).ValueGeneratedOnAdd();
+                entity.HasOne(rental => rental.Game).WithMany().HasForeignKey("GameId").OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(rental => rental.Renter).WithMany().HasForeignKey("RenterId").OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(rental => rental.Owner).WithMany().HasForeignKey("OwnerId").OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Request>(entity =>
+            {
+                entity.ToTable("Requests");
+                entity.HasKey(request => request.Id);
+                entity.Property(request => request.Id).ValueGeneratedOnAdd();
+                entity.HasOne(request => request.Game).WithMany().HasForeignKey("GameId").OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(request => request.Renter).WithMany().HasForeignKey("RenterId").OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(request => request.Owner).WithMany().HasForeignKey("OwnerId").OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(request => request.OfferingUser).WithMany().HasForeignKey("OfferingUserId").OnDelete(DeleteBehavior.SetNull).IsRequired(false);
+            });
+
+            modelBuilder.Entity<Notification>(entity =>
+            {
+                entity.ToTable("Notifications");
+                entity.HasKey(notification => notification.Id);
+                entity.Property(notification => notification.Id).ValueGeneratedOnAdd();
+                entity.Property(notification => notification.Title).HasMaxLength(200).IsRequired();
+                entity.Property(notification => notification.Body).HasMaxLength(2000).IsRequired();
+                entity.HasOne(notification => notification.Recipient).WithMany().HasForeignKey("RecipientId").OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(notification => notification.RelatedRequest).WithMany().HasForeignKey("RelatedRequestId").OnDelete(DeleteBehavior.SetNull).IsRequired(false);
+            });
+
+            SeedData(modelBuilder);
         }
 
-        private static void ReleaseInitializationLock(SqlConnection masterConnection)
+        private static void SeedData(ModelBuilder modelBuilder)
         {
-            using var command = masterConnection.CreateCommand();
-            command.CommandText = @"
-                EXEC sp_releaseapplock
-                    @Resource = @Resource,
-                    @LockOwner = 'Session';";
-            command.Parameters.AddWithValue("@Resource", InitializationLockName);
-            command.ExecuteNonQuery();
-        }
+            var seedDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        private static void EnsureDatabaseExists(SqlConnection masterConnection)
-        {
-            using var command = masterConnection.CreateCommand();
-            command.CommandText = $@"
-                IF DB_ID(N'{DatabaseName}') IS NULL
-                BEGIN
-                    CREATE DATABASE [{DatabaseName}];
-                END";
-            command.ExecuteNonQuery();
-        }
+            modelBuilder.Entity<Role>().HasData(
+                new Role
+                {
+                    Id = AdminRoleId,
+                    Name = "Administrator"
+                },
+                new Role
+                {
+                    Id = StandardUserRoleId,
+                    Name = "Standard User"
+                });
 
-        private void EnsureSchemaCreated()
-        {
-            using var connection = this.CreateConnection();
-            connection.Open();
+            var adminHash = PasswordHasher.HashPassword(SeedDevPassword);
+            modelBuilder.Entity<Account>().HasData(
+                new Account
+                {
+                    Id = AdminAccountId,
+                    Username = "admin",
+                    DisplayName = "Administrator",
+                    Email = "admin@boardrent.com",
+                    PasswordHash = adminHash,
+                    PhoneNumber = string.Empty,
+                    AvatarUrl = string.Empty,
+                    Country = string.Empty,
+                    City = string.Empty,
+                    StreetName = string.Empty,
+                    StreetNumber = string.Empty,
+                    IsSuspended = false,
+                    CreatedAt = seedDate,
+                    UpdatedAt = seedDate
+                },
+                new Account
+                {
+                    Id = DariusAccountId,
+                    Username = "darius",
+                    DisplayName = "Darius Turcu",
+                    Email = "darius@boardrent.com",
+                    PasswordHash = adminHash,
+                    PhoneNumber = string.Empty,
+                    AvatarUrl = string.Empty,
+                    Country = string.Empty,
+                    City = string.Empty,
+                    StreetName = string.Empty,
+                    StreetNumber = string.Empty,
+                    IsSuspended = false,
+                    CreatedAt = seedDate,
+                    UpdatedAt = seedDate
+                },
+                new Account
+                {
+                    Id = MihaiAccountId,
+                    Username = "mihai",
+                    DisplayName = "Mihai Tira",
+                    Email = "mihai@boardrent.com",
+                    PasswordHash = adminHash,
+                    PhoneNumber = string.Empty,
+                    AvatarUrl = string.Empty,
+                    Country = string.Empty,
+                    City = string.Empty,
+                    StreetName = string.Empty,
+                    StreetNumber = string.Empty,
+                    IsSuspended = false,
+                    CreatedAt = seedDate,
+                    UpdatedAt = seedDate
+                });
 
-            this.EnsureCoreTablesCreated(connection);
-            this.EnsurePamUserIdColumnExists(connection);
-            this.SeedRolesIfMissing(connection);
-            this.SeedAccountIfMissing(
-                connection,
-                username: "admin",
-                displayName: "Administrator",
-                email: "admin@boardrent.com",
-                roleName: "Administrator",
-                pamUserId: null);
-            this.SeedAccountIfMissing(
-                connection,
-                username: "darius",
-                displayName: "Darius Turcu",
-                email: "darius@boardrent.com",
-                roleName: "Standard User",
-                pamUserId: 1);
-            this.SeedAccountIfMissing(
-                connection,
-                username: "mihai",
-                displayName: "Mihai Tira",
-                email: "mihai@boardrent.com",
-                roleName: "Standard User",
-                pamUserId: 2);
-        }
-
-        private void EnsureCoreTablesCreated(SqlConnection connection)
-        {
-            using var command = connection.CreateCommand();
-            command.CommandText = @"
-                IF OBJECT_ID(N'[dbo].[Role]', N'U') IS NULL
-                BEGIN
-                    CREATE TABLE [dbo].[Role] (
-                        Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-                        Name NVARCHAR(50) NOT NULL UNIQUE
-                    );
-                END;
-
-                IF OBJECT_ID(N'[dbo].[Account]', N'U') IS NULL
-                BEGIN
-                    CREATE TABLE [dbo].[Account] (
-                        Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-                        Username NVARCHAR(100) NOT NULL UNIQUE,
-                        DisplayName NVARCHAR(200) NOT NULL,
-                        Email NVARCHAR(200) NOT NULL UNIQUE,
-                        PasswordHash NVARCHAR(500) NOT NULL,
-                        PhoneNumber NVARCHAR(50) NULL,
-                        AvatarUrl NVARCHAR(500) NULL,
-                        IsSuspended BIT NOT NULL DEFAULT 0,
-                        CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-                        UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-                        StreetName NVARCHAR(200) NULL,
-                        StreetNumber NVARCHAR(20) NULL,
-                        Country NVARCHAR(100) NULL,
-                        City NVARCHAR(100) NULL,
-                        PamUserId INT NULL UNIQUE
-                    );
-                END;
-
-                IF OBJECT_ID(N'[dbo].[AccountRoles]', N'U') IS NULL
-                BEGIN
-                    CREATE TABLE [dbo].[AccountRoles] (
-                        AccountId UNIQUEIDENTIFIER NOT NULL,
-                        RoleId UNIQUEIDENTIFIER NOT NULL,
-                        PRIMARY KEY (AccountId, RoleId),
-                        FOREIGN KEY (AccountId) REFERENCES [dbo].[Account](Id) ON DELETE CASCADE,
-                        FOREIGN KEY (RoleId) REFERENCES [dbo].[Role](Id) ON DELETE CASCADE
-                    );
-                END;
-
-                IF OBJECT_ID(N'[dbo].[FailedLoginAttempt]', N'U') IS NULL
-                BEGIN
-                    CREATE TABLE [dbo].[FailedLoginAttempt] (
-                        AccountId UNIQUEIDENTIFIER PRIMARY KEY,
-                        FailedAttempts INT NOT NULL DEFAULT 0,
-                        LockedUntil DATETIME2 NULL,
-                        FOREIGN KEY (AccountId) REFERENCES [dbo].[Account](Id) ON DELETE CASCADE
-                    );
-                END;";
-            command.ExecuteNonQuery();
-        }
-
-        private void EnsurePamUserIdColumnExists(SqlConnection connection)
-        {
-            using var command = connection.CreateCommand();
-            command.CommandText = @"
-                IF NOT EXISTS (
-                    SELECT 1 FROM sys.columns
-                    WHERE object_id = OBJECT_ID(N'[dbo].[Account]')
-                      AND name = N'PamUserId')
-                BEGIN
-                    ALTER TABLE [dbo].[Account] ADD PamUserId INT NULL;
-                    ALTER TABLE [dbo].[Account] ADD CONSTRAINT UQ_Account_PamUserId UNIQUE (PamUserId);
-                END;";
-            command.ExecuteNonQuery();
-        }
-
-        private void SeedRolesIfMissing(SqlConnection connection)
-        {
-            using var command = connection.CreateCommand();
-            command.CommandText = @"
-                IF NOT EXISTS (SELECT 1 FROM [dbo].[Role] WHERE Name = 'Administrator')
-                    INSERT INTO [dbo].[Role] (Id, Name) VALUES (NEWID(), 'Administrator');
-
-                IF NOT EXISTS (SELECT 1 FROM [dbo].[Role] WHERE Name = 'Standard User')
-                    INSERT INTO [dbo].[Role] (Id, Name) VALUES (NEWID(), 'Standard User');";
-            command.ExecuteNonQuery();
-        }
-
-        private void SeedAccountIfMissing(
-            SqlConnection connection,
-            string username,
-            string displayName,
-            string email,
-            string roleName,
-            int? pamUserId)
-        {
-            using var command = connection.CreateCommand();
-            command.CommandText = @"
-                IF NOT EXISTS (SELECT 1 FROM [dbo].[Account] WHERE Username = @Username)
-                BEGIN
-                    DECLARE @newAccountId UNIQUEIDENTIFIER = NEWID();
-                    DECLARE @roleId UNIQUEIDENTIFIER = (SELECT Id FROM [dbo].[Role] WHERE Name = @RoleName);
-
-                    INSERT INTO [dbo].[Account]
-                        (Id, Username, DisplayName, Email, PasswordHash, IsSuspended, CreatedAt, UpdatedAt, PamUserId)
-                    VALUES
-                        (@newAccountId, @Username, @DisplayName, @Email, @PasswordHash, 0, GETUTCDATE(), GETUTCDATE(), @PamUserId);
-
-                    IF @roleId IS NOT NULL
-                        INSERT INTO [dbo].[AccountRoles] (AccountId, RoleId) VALUES (@newAccountId, @roleId);
-                END;";
-            command.Parameters.AddWithValue("@Username", username);
-            command.Parameters.AddWithValue("@DisplayName", displayName);
-            command.Parameters.AddWithValue("@Email", email);
-            command.Parameters.AddWithValue("@PasswordHash", PasswordHasher.HashPassword(SeedDevPassword));
-            command.Parameters.AddWithValue("@RoleName", roleName);
-            command.Parameters.AddWithValue("@PamUserId", (object?)pamUserId ?? System.DBNull.Value);
-            command.ExecuteNonQuery();
+            modelBuilder.Entity<AccountRole>().HasData(
+                new AccountRole
+                {
+                    AccountId = AdminAccountId,
+                    RoleId = AdminRoleId
+                },
+                new AccountRole
+                {
+                    AccountId = DariusAccountId,
+                    RoleId = StandardUserRoleId
+                },
+                new AccountRole
+                {
+                    AccountId = MihaiAccountId,
+                    RoleId = StandardUserRoleId
+                });
         }
     }
 }

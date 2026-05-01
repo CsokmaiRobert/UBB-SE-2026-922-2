@@ -1,334 +1,204 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Data;
-using Microsoft.Data.SqlClient;
-using BoardRentAndProperty.Mappers;
-using BoardRentAndProperty.Services;
+using System.Linq;
+using BoardRentAndProperty.Data;
 using BoardRentAndProperty.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace BoardRentAndProperty.Repositories
 {
     public class RequestRepository : IRequestRepository
     {
-        private const int NewRequestId = 0;
-        private const int MissingForeignKeyId = 0;
-        private const string ConnectionStringName = "BoardRent";
+        private readonly IDbContextFactory<AppDbContext> dbContextFactory;
 
-        private readonly string boardRentConnectionString =
-            System.Configuration.ConfigurationManager.ConnectionStrings[ConnectionStringName]?.ConnectionString ?? string.Empty;
-
-        private const string BaseRequestSelectQuery =
-            "SELECT r.*, renterUser.display_name AS renter_display_name, ownerUser.display_name AS owner_display_name, " +
-            "g.name AS game_name, g.image AS game_image, " +
-            "offeringUser.display_name AS offering_user_display_name " +
-            "FROM Requests r " +
-            "LEFT JOIN Users renterUser ON renterUser.Id = r.renter_id " +
-            "LEFT JOIN Users ownerUser ON ownerUser.Id = r.owner_id " +
-            "LEFT JOIN Games g ON g.game_id = r.game_id " +
-            "LEFT JOIN Users offeringUser ON offeringUser.Id = r.offering_user_id";
-
-        private static Request ReadFullRequestFromReader(SqlDataReader databaseReader)
+        public RequestRepository(IDbContextFactory<AppDbContext> dbContextFactory)
         {
-            var requestedGame = new Game
-            {
-                Id = (int)databaseReader["game_id"],
-                Name = databaseReader["game_name"] as string ?? string.Empty,
-                Image = databaseReader["game_image"] as byte[] ?? Array.Empty<byte>()
-            };
-            var renter = new Account { PamUserId = (int)databaseReader["renter_id"], DisplayName = databaseReader["renter_display_name"] as string ?? string.Empty };
-            var owner = new Account { PamUserId = (int)databaseReader["owner_id"], DisplayName = databaseReader["owner_display_name"] as string ?? string.Empty };
-            var requestStatus = (RequestStatus)(int)databaseReader["status"];
-            Account? offeringAccount = null;
-            var offeringUserIdValue = databaseReader["offering_user_id"];
-            if (offeringUserIdValue != DBNull.Value)
-            {
-                offeringAccount = new Account { PamUserId = (int)offeringUserIdValue, DisplayName = databaseReader["offering_user_display_name"] as string ?? string.Empty };
-            }
-            return new Request((int)databaseReader["request_id"], requestedGame, renter, owner,
-                (DateTime)databaseReader["start_date"], (DateTime)databaseReader["end_date"], requestStatus, offeringAccount);
+            this.dbContextFactory = dbContextFactory;
         }
+
+        private static IQueryable<Request> RequestsWithNavigations(AppDbContext dbContext) =>
+            dbContext.Requests
+                .Include(request => request.Game)
+                .Include(request => request.Renter)
+                .Include(request => request.Owner)
+                .Include(request => request.OfferingUser);
 
         public ImmutableList<Request> GetAll()
         {
-            var allRetrievedRequests = new List<Request>();
-            using (var connection = new SqlConnection(boardRentConnectionString))
-            {
-                connection.Open();
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText = BaseRequestSelectQuery;
-                    using (var reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            allRetrievedRequests.Add(ReadFullRequestFromReader(reader));
-                        }
-                    }
-                }
-            }
-            return allRetrievedRequests.ToImmutableList();
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            return RequestsWithNavigations(dbContext).ToImmutableList();
         }
 
-        public void Add(Request requestToInsert)
+        public void Add(Request request)
         {
-            using (var connection = new SqlConnection(boardRentConnectionString))
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+
+            request.Game = ResolveGame(dbContext, request.Game);
+            request.Renter = ResolveAccount(dbContext, request.Renter);
+            request.Owner = ResolveAccount(dbContext, request.Owner);
+            request.OfferingUser = ResolveAccount(dbContext, request.OfferingUser);
+            dbContext.Requests.Add(request);
+            dbContext.SaveChanges();
+
+            var saved = RequestsWithNavigations(dbContext).FirstOrDefault(savedRequest => savedRequest.Id == request.Id);
+            if (saved != null)
             {
-                connection.Open();
-                using (var transaction = connection.BeginTransaction())
-                {
-                    AddRequestWithinTransaction(requestToInsert, connection, transaction);
-                    transaction.Commit();
-                }
+                request.Game = saved.Game;
+                request.Renter = saved.Renter;
+                request.Owner = saved.Owner;
+                request.OfferingUser = saved.OfferingUser;
             }
         }
 
-        private static void AddRequestWithinTransaction(Request requestToInsert, SqlConnection connection, SqlTransaction transaction)
+        public Request Delete(int id)
         {
-            using var command = connection.CreateCommand();
-            command.Transaction = transaction;
-            command.CommandText =
-                "INSERT INTO Requests(game_id, renter_id, owner_id, start_date, end_date, status, offering_user_id) " +
-                "VALUES(@game_id, @renter_id, @owner_id, @start_date, @end_date, @status, @offering_user_id); " +
-                "SELECT SCOPE_IDENTITY();";
-            command.Parameters.AddWithValue("@game_id", requestToInsert.Game?.Id ?? MissingForeignKeyId);
-            command.Parameters.AddWithValue("@renter_id", requestToInsert.Renter?.PamUserId ?? MissingForeignKeyId);
-            command.Parameters.AddWithValue("@owner_id", requestToInsert.Owner?.PamUserId ?? MissingForeignKeyId);
-            command.Parameters.AddWithValue("@start_date", requestToInsert.StartDate);
-            command.Parameters.AddWithValue("@end_date", requestToInsert.EndDate);
-            command.Parameters.AddWithValue("@status", (int)requestToInsert.Status);
-            command.Parameters.AddWithValue("@offering_user_id", requestToInsert.OfferingAccount?.PamUserId ?? (object)DBNull.Value);
-            requestToInsert.Id = Convert.ToInt32(command.ExecuteScalar());
-        }
-
-        private static readonly string DeleteRequestWithOutputQuery =
-            "DELETE r OUTPUT deleted.request_id, deleted.game_id, deleted.renter_id, deleted.owner_id, " +
-            "deleted.start_date, deleted.end_date, deleted.status, deleted.offering_user_id, " +
-            "renterUser.display_name AS renter_display_name, ownerUser.display_name AS owner_display_name, " +
-            "g.name AS game_name, g.image AS game_image, " +
-            "offeringUser.display_name AS offering_user_display_name " +
-            "FROM Requests r " +
-            "LEFT JOIN Users renterUser ON renterUser.Id = r.renter_id " +
-            "LEFT JOIN Users ownerUser ON ownerUser.Id = r.owner_id " +
-            "LEFT JOIN Games g ON g.game_id = r.game_id " +
-            "LEFT JOIN Users offeringUser ON offeringUser.Id = r.offering_user_id " +
-            "WHERE r.request_id = @id";
-
-        public Request Delete(int requestIdToRemove)
-        {
-            using (var connection = new SqlConnection(boardRentConnectionString))
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            var request = RequestsWithNavigations(dbContext).FirstOrDefault(repositoryRequest => repositoryRequest.Id == id);
+            if (request == null)
             {
-                connection.Open();
-                using (var transaction = connection.BeginTransaction())
-                {
-                    UnlinkNotificationsFromRequestWithinTransaction(requestIdToRemove, connection, transaction);
-                    using var command = connection.CreateCommand();
-                    command.Transaction = transaction;
-                    command.CommandText = DeleteRequestWithOutputQuery;
-                    command.Parameters.AddWithValue("@id", requestIdToRemove);
-                    using (var reader = command.ExecuteReader())
-                    {
-                        if (reader.Read())
-                        {
-                            var deletedRequest = ReadRequestFromDeleteOutputReader(reader);
-                            transaction.Commit();
-                            return deletedRequest;
-                        }
-                    }
-
-                    transaction.Rollback();
-                }
-            }
-            throw new KeyNotFoundException();
-        }
-
-        private static Request ReadRequestFromDeleteOutputReader(SqlDataReader deleteOutputReader)
-        {
-            var deletedRequestedGame = new Game
-            {
-                Id = (int)deleteOutputReader["game_id"],
-                Name = deleteOutputReader["game_name"] as string ?? string.Empty,
-                Image = deleteOutputReader["game_image"] as byte[] ?? Array.Empty<byte>()
-            };
-            var deletedRenter = new Account { PamUserId = (int)deleteOutputReader["renter_id"], DisplayName = deleteOutputReader["renter_display_name"] as string ?? string.Empty };
-            var deletedOwner = new Account { PamUserId = (int)deleteOutputReader["owner_id"], DisplayName = deleteOutputReader["owner_display_name"] as string ?? string.Empty };
-            var deletedRequestStatus = (RequestStatus)(int)deleteOutputReader["status"];
-            Account? deletedOfferingAccount = null;
-            var deletedOfferingUserIdValue = deleteOutputReader["offering_user_id"];
-            if (deletedOfferingUserIdValue != DBNull.Value)
-            {
-                deletedOfferingAccount = new Account { PamUserId = (int)deletedOfferingUserIdValue, DisplayName = deleteOutputReader["offering_user_display_name"] as string ?? string.Empty };
+                throw new KeyNotFoundException();
             }
 
-            return new Request((int)deleteOutputReader["request_id"], deletedRequestedGame, deletedRenter, deletedOwner,
-                (DateTime)deleteOutputReader["start_date"], (DateTime)deleteOutputReader["end_date"], deletedRequestStatus, deletedOfferingAccount);
+            dbContext.Requests.Remove(request);
+            dbContext.SaveChanges();
+            return request;
         }
 
-        public void Update(int requestIdToUpdate, Request requestDataToUpdate)
+        public void Update(int id, Request updated)
         {
-            using (var connection = new SqlConnection(boardRentConnectionString))
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            var existing = RequestsWithNavigations(dbContext).FirstOrDefault(request => request.Id == id);
+            if (existing == null)
             {
-                connection.Open();
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText =
-                        "UPDATE Requests SET game_id = @game_id, renter_id = @renter_id, owner_id = @owner_id, " +
-                        "start_date = @start_date, end_date = @end_date, status = @status, " +
-                        "offering_user_id = @offering_user_id WHERE request_id = @id";
-                    command.Parameters.AddWithValue("@id", requestIdToUpdate);
-                    command.Parameters.AddWithValue("@game_id", requestDataToUpdate.Game?.Id ?? MissingForeignKeyId);
-                    command.Parameters.AddWithValue("@renter_id", requestDataToUpdate.Renter?.PamUserId ?? MissingForeignKeyId);
-                    command.Parameters.AddWithValue("@owner_id", requestDataToUpdate.Owner?.PamUserId ?? MissingForeignKeyId);
-                    command.Parameters.AddWithValue("@start_date", requestDataToUpdate.StartDate);
-                    command.Parameters.AddWithValue("@end_date", requestDataToUpdate.EndDate);
-                    command.Parameters.AddWithValue("@status", (int)requestDataToUpdate.Status);
-                    command.Parameters.AddWithValue("@offering_user_id", requestDataToUpdate.OfferingAccount?.PamUserId ?? (object)DBNull.Value);
-                    command.ExecuteNonQuery();
-                }
+                return;
             }
-        }
 
-        public void UpdateStatus(int requestIdToUpdateStatus, RequestStatus newRequestStatus, int? offeringUserId)
-        {
-            using (var connection = new SqlConnection(boardRentConnectionString))
+            if (updated.Game != null)
             {
-                connection.Open();
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText =
-                        "UPDATE Requests SET status = @status, offering_user_id = @offering_user_id WHERE request_id = @id";
-                    command.Parameters.AddWithValue("@id", requestIdToUpdateStatus);
-                    command.Parameters.AddWithValue("@status", (int)newRequestStatus);
-                    command.Parameters.AddWithValue("@offering_user_id", offeringUserId ?? (object)DBNull.Value);
-                    command.ExecuteNonQuery();
-                }
+                existing.Game = ResolveGame(dbContext, updated.Game);
             }
-        }
 
-        public Request Get(int requestIdToFind)
-        {
-            using (var connection = new SqlConnection(boardRentConnectionString))
+            if (updated.Renter != null)
             {
-                connection.Open();
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText = BaseRequestSelectQuery + " WHERE r.request_id = @id";
-                    command.Parameters.AddWithValue("@id", requestIdToFind);
-                    using (var reader = command.ExecuteReader())
-                    {
-                        if (reader.Read())
-                        {
-                            return ReadFullRequestFromReader(reader);
-                        }
-                    }
-                }
+                existing.Renter = ResolveAccount(dbContext, updated.Renter);
             }
-            throw new KeyNotFoundException();
-        }
 
-        public ImmutableList<Request> GetRequestsByOwner(int ownerUserId)
-        {
-            var ownerRequests = new List<Request>();
-            using (var connection = new SqlConnection(boardRentConnectionString))
+            if (updated.Owner != null)
             {
-                connection.Open();
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText = BaseRequestSelectQuery + " WHERE r.owner_id = @owner_id";
-                    command.Parameters.AddWithValue("@owner_id", ownerUserId);
-                    using (var reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            ownerRequests.Add(ReadFullRequestFromReader(reader));
-                        }
-                    }
-                }
+                existing.Owner = ResolveAccount(dbContext, updated.Owner);
             }
-            return ownerRequests.ToImmutableList();
+
+            existing.OfferingUser = ResolveAccount(dbContext, updated.OfferingUser);
+            existing.StartDate = updated.StartDate;
+            existing.EndDate = updated.EndDate;
+            existing.Status = updated.Status;
+            dbContext.SaveChanges();
         }
 
-        public ImmutableList<Request> GetRequestsByRenter(int renterUserId)
+        public void UpdateStatus(int requestId, RequestStatus status, Guid? offeringAccountId)
         {
-            var renterRequests = new List<Request>();
-            using (var connection = new SqlConnection(boardRentConnectionString))
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            var existing = RequestsWithNavigations(dbContext).FirstOrDefault(request => request.Id == requestId);
+            if (existing == null)
             {
-                connection.Open();
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText = BaseRequestSelectQuery + " WHERE r.renter_id = @renter_id";
-                    command.Parameters.AddWithValue("@renter_id", renterUserId);
-                    using (var reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            renterRequests.Add(ReadFullRequestFromReader(reader));
-                        }
-                    }
-                }
+                return;
             }
-            return renterRequests.ToImmutableList();
+
+            existing.Status = status;
+            existing.OfferingUser = FindAccountById(dbContext, offeringAccountId);
+            dbContext.SaveChanges();
         }
 
-        public ImmutableList<Request> GetRequestsByGame(int requestedGameId)
+        public Request Get(int id)
         {
-            var gameRequests = new List<Request>();
-            using (var connection = new SqlConnection(boardRentConnectionString))
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            var request = RequestsWithNavigations(dbContext).FirstOrDefault(repositoryRequest => repositoryRequest.Id == id);
+            if (request == null)
             {
-                connection.Open();
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText = BaseRequestSelectQuery + " WHERE r.game_id = @game_id";
-                    command.Parameters.AddWithValue("@game_id", requestedGameId);
-                    using (var reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            gameRequests.Add(ReadFullRequestFromReader(reader));
-                        }
-                    }
-                }
+                throw new KeyNotFoundException();
             }
-            return gameRequests.ToImmutableList();
+
+            return request;
         }
 
-        public ImmutableList<Request> GetOverlappingRequests(
-            int gameIdForOverlapCheck,
-            int requestIdToExclude,
-            DateTime bufferedStartDate,
-            DateTime bufferedEndDate)
+        public ImmutableList<Request> GetRequestsByOwner(Guid ownerAccountId)
         {
-            using var connection = new SqlConnection(boardRentConnectionString);
-            connection.Open();
-            return QueryOverlappingRequestsWithinConnection(
-                gameIdForOverlapCheck,
-                requestIdToExclude,
-                bufferedStartDate,
-                bufferedEndDate,
-                connection,
-                transaction: null).ToImmutableList();
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            return RequestsWithNavigations(dbContext).Where(request => request.Owner.Id == ownerAccountId).ToImmutableList();
         }
 
-        public int ApproveAtomically(
-            Request requestToApprove,
-            ImmutableList<Request> conflictingRequests)
+        public ImmutableList<Request> GetRequestsByRenter(Guid renterAccountId)
         {
-            using var connection = new SqlConnection(boardRentConnectionString);
-            connection.Open();
-            using var transaction = connection.BeginTransaction(IsolationLevel.Serializable);
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            return RequestsWithNavigations(dbContext).Where(request => request.Renter.Id == renterAccountId).ToImmutableList();
+        }
+
+        public ImmutableList<Request> GetRequestsByGame(int gameId)
+        {
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            return RequestsWithNavigations(dbContext).Where(request => request.Game.Id == gameId).ToImmutableList();
+        }
+
+        public ImmutableList<Request> GetOverlappingRequests(int gameId, int excludeRequestId, DateTime bufferedStart, DateTime bufferedEnd)
+        {
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            return RequestsWithNavigations(dbContext)
+                .Where(request => request.Game.Id == gameId
+                    && request.Id != excludeRequestId
+                    && request.StartDate < bufferedEnd
+                    && request.EndDate > bufferedStart)
+                .ToImmutableList();
+        }
+
+        public int ApproveAtomically(Request approvedRequest, ImmutableList<Request> overlappingRequests)
+        {
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            using var transaction = dbContext.Database.BeginTransaction();
             try
             {
-                var newRentalIdentifier = InsertRentalFromApprovedRequest(requestToApprove, connection, transaction);
-
-                foreach (var conflictingRequest in conflictingRequests)
+                foreach (var conflict in overlappingRequests)
                 {
-                    DeleteRequestWithinTransaction(conflictingRequest.Id, connection, transaction);
+                    var conflictNotifications = dbContext.Notifications
+                        .Where(notification => notification.RelatedRequest.Id == conflict.Id)
+                        .ToList();
+                    dbContext.Notifications.RemoveRange(conflictNotifications);
                 }
 
-                DeleteRequestWithinTransaction(requestToApprove.Id, connection, transaction);
+                var approvedNotifications = dbContext.Notifications
+                    .Where(notification => notification.RelatedRequest.Id == approvedRequest.Id)
+                    .ToList();
+                dbContext.Notifications.RemoveRange(approvedNotifications);
 
+                var newRental = new Rental
+                {
+                    Game = ResolveGame(dbContext, approvedRequest.Game),
+                    Renter = ResolveAccount(dbContext, approvedRequest.Renter),
+                    Owner = ResolveAccount(dbContext, approvedRequest.Owner),
+                    StartDate = approvedRequest.StartDate,
+                    EndDate = approvedRequest.EndDate
+                };
+                dbContext.Rentals.Add(newRental);
+                dbContext.SaveChanges();
+
+                foreach (var conflict in overlappingRequests)
+                {
+                    var conflictEntity = dbContext.Requests.FirstOrDefault(request => request.Id == conflict.Id);
+                    if (conflictEntity != null)
+                    {
+                        dbContext.Requests.Remove(conflictEntity);
+                    }
+                }
+
+                var approvedEntity = dbContext.Requests.FirstOrDefault(request => request.Id == approvedRequest.Id);
+                if (approvedEntity != null)
+                {
+                    dbContext.Requests.Remove(approvedEntity);
+                }
+
+                dbContext.SaveChanges();
                 transaction.Commit();
-                return newRentalIdentifier;
+                return newRental.Id;
             }
             catch
             {
@@ -337,90 +207,57 @@ namespace BoardRentAndProperty.Repositories
             }
         }
 
-        private static int InsertRentalFromApprovedRequest(Request approvedRequest, SqlConnection connection, SqlTransaction transaction)
+        private static Account ResolveAccount(AppDbContext dbContext, Account? account)
         {
-            using var command = connection.CreateCommand();
-            command.Transaction = transaction;
-            command.CommandText =
-                "INSERT INTO Rentals(game_id, renter_id, owner_id, start_date, end_date) " +
-                "VALUES(@game_id, @renter_id, @owner_id, @start_date, @end_date); SELECT SCOPE_IDENTITY();";
-            command.Parameters.AddWithValue("@game_id", approvedRequest.Game?.Id ?? MissingForeignKeyId);
-            command.Parameters.AddWithValue("@renter_id", approvedRequest.Renter?.PamUserId ?? MissingForeignKeyId);
-            command.Parameters.AddWithValue("@owner_id", approvedRequest.Owner?.PamUserId ?? MissingForeignKeyId);
-            command.Parameters.AddWithValue("@start_date", approvedRequest.StartDate);
-            command.Parameters.AddWithValue("@end_date", approvedRequest.EndDate);
-            return Convert.ToInt32(command.ExecuteScalar());
-        }
-
-        private static List<Request> QueryOverlappingRequestsWithinConnection(
-            int gameIdForOverlapCheck,
-            int requestIdToExclude,
-            DateTime bufferedStartDate,
-            DateTime bufferedEndDate,
-            SqlConnection connection,
-            SqlTransaction? transaction)
-        {
-            var overlappingRequests = new List<Request>();
-            using var command = connection.CreateCommand();
-            if (transaction != null)
+            if (account == null)
             {
-                command.Transaction = transaction;
+                return null;
             }
 
-            command.CommandText =
-                "SELECT r.request_id, r.game_id, r.renter_id, r.owner_id, r.start_date, r.end_date, " +
-                "renterUser.display_name AS renter_display_name, ownerUser.display_name AS owner_display_name, " +
-                "g.name AS game_name, g.image AS game_image " +
-                "FROM Requests r " +
-                "LEFT JOIN Users renterUser ON renterUser.Id = r.renter_id " +
-                "LEFT JOIN Users ownerUser ON ownerUser.Id = r.owner_id " +
-                "LEFT JOIN Games g ON g.game_id = r.game_id " +
-                "WHERE r.game_id = @game_id AND r.request_id != @exclude_id " +
-                "AND r.start_date < @buffered_end AND r.end_date > @buffered_start";
-            command.Parameters.AddWithValue("@game_id", gameIdForOverlapCheck);
-            command.Parameters.AddWithValue("@exclude_id", requestIdToExclude);
-            command.Parameters.AddWithValue("@buffered_end", bufferedEndDate);
-            command.Parameters.AddWithValue("@buffered_start", bufferedStartDate);
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
+            var cached = dbContext.Accounts.Local.FirstOrDefault(cachedAccount => cachedAccount.Id == account.Id);
+            if (cached != null)
             {
-                var overlappingGame = new Game
-                {
-                    Id = (int)reader["game_id"],
-                    Name = reader["game_name"] as string ?? string.Empty,
-                    Image = reader["game_image"] as byte[] ?? Array.Empty<byte>()
-                };
-                var overlappingRenter = new Account { PamUserId = (int)reader["renter_id"], DisplayName = reader["renter_display_name"] as string ?? string.Empty };
-                var overlappingOwner = new Account { PamUserId = (int)reader["owner_id"], DisplayName = reader["owner_display_name"] as string ?? string.Empty };
-                overlappingRequests.Add(new Request(
-                    (int)reader["request_id"],
-                    overlappingGame,
-                    overlappingRenter,
-                    overlappingOwner,
-                    (DateTime)reader["start_date"],
-                    (DateTime)reader["end_date"]));
+                return cached;
             }
 
-            return overlappingRequests;
+            if (dbContext.Entry(account).State == EntityState.Detached)
+            {
+                dbContext.Attach(account);
+            }
+
+            return account;
         }
 
-        private static void UnlinkNotificationsFromRequestWithinTransaction(int linkedRequestId, SqlConnection connection, SqlTransaction transaction)
+        private static Game ResolveGame(AppDbContext dbContext, Game? game)
         {
-            using var command = connection.CreateCommand();
-            command.Transaction = transaction;
-            command.CommandText = "UPDATE Notifications SET related_request_id = NULL WHERE related_request_id = @id";
-            command.Parameters.AddWithValue("@id", linkedRequestId);
-            command.ExecuteNonQuery();
+            if (game == null)
+            {
+                return null;
+            }
+
+            var cached = dbContext.Games.Local.FirstOrDefault(cachedGame => cachedGame.Id == game.Id);
+            if (cached != null)
+            {
+                return cached;
+            }
+
+            if (dbContext.Entry(game).State == EntityState.Detached)
+            {
+                dbContext.Attach(game);
+            }
+
+            return game;
         }
 
-        private static void DeleteRequestWithinTransaction(int requestIdToDelete, SqlConnection connection, SqlTransaction transaction)
+        private static Account? FindAccountById(AppDbContext dbContext, Guid? accountId)
         {
-            using var command = connection.CreateCommand();
-            command.Transaction = transaction;
-            UnlinkNotificationsFromRequestWithinTransaction(requestIdToDelete, connection, transaction);
-            command.CommandText = "DELETE FROM Requests WHERE request_id = @id";
-            command.Parameters.AddWithValue("@id", requestIdToDelete);
-            command.ExecuteNonQuery();
+            if (!accountId.HasValue)
+            {
+                return null;
+            }
+
+            var cached = dbContext.Accounts.Local.FirstOrDefault(cachedAccount => cachedAccount.Id == accountId.Value);
+            return cached ?? dbContext.Accounts.Find(accountId.Value);
         }
     }
 }

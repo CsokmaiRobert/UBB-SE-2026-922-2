@@ -3,215 +3,78 @@ namespace BoardRentAndProperty.Services
     using System;
     using System.Linq;
     using System.Threading.Tasks;
-    using BoardRentAndProperty.Data;
     using BoardRentAndProperty.DataTransferObjects;
     using BoardRentAndProperty.Models;
     using BoardRentAndProperty.Repositories;
     using BoardRentAndProperty.Utilities;
-
     public class AuthService : IAuthService
     {
         private const string StandardUserRoleName = "Standard User";
-
         private readonly IAccountRepository accountRepository;
         private readonly IFailedLoginRepository failedLoginRepository;
-        private readonly IUnitOfWorkFactory unitOfWorkFactory;
         private readonly ISessionContext sessionContext;
-
-        public AuthService(
-            IAccountRepository accountRepository,
-            IFailedLoginRepository failedLoginRepository,
-            IUnitOfWorkFactory unitOfWorkFactory,
-            ISessionContext sessionContext)
+        public AuthService(IAccountRepository accountRepository, IFailedLoginRepository failedLoginRepository, ISessionContext sessionContext)
         {
             this.accountRepository = accountRepository;
             this.failedLoginRepository = failedLoginRepository;
-            this.unitOfWorkFactory = unitOfWorkFactory;
             this.sessionContext = sessionContext;
         }
-
         public async Task<ServiceResult<bool>> RegisterAsync(RegisterDataTransferObject registrationRequest)
         {
-            if (string.IsNullOrWhiteSpace(registrationRequest.Username) ||
-                string.IsNullOrWhiteSpace(registrationRequest.Email) ||
-                string.IsNullOrWhiteSpace(registrationRequest.DisplayName) ||
-                string.IsNullOrWhiteSpace(registrationRequest.Password))
+            var existingByUsername = await accountRepository.GetByUsernameAsync(registrationRequest.Username);
+            if (existingByUsername != null)
             {
-                return ServiceResult<bool>.Fail("Form|All fields are required.");
+                return ServiceResult<bool>.Fail("Username|Username is already taken.");
             }
-
-            if (registrationRequest.Password != registrationRequest.ConfirmPassword)
+            var newAccount = new Account
             {
-                return ServiceResult<bool>.Fail("Password|Passwords do not match.");
-            }
-
-            string emailPattern = @"^[^@\s]+@[^@\s]+\.[^@\s]+$";
-            if (!System.Text.RegularExpressions.Regex.IsMatch(registrationRequest.Email, emailPattern))
-            {
-                return ServiceResult<bool>.Fail("Email|Please enter a valid email address.");
-            }
-
-            var passwordValidation = PasswordValidator.Validate(registrationRequest.Password);
-            if (!passwordValidation.IsValid)
-            {
-                return ServiceResult<bool>.Fail(passwordValidation.Error);
-            }
-
-            if (!string.IsNullOrWhiteSpace(registrationRequest.PhoneNumber))
-            {
-                if (!System.Text.RegularExpressions.Regex.IsMatch(registrationRequest.PhoneNumber, @"^\+?\d{7,15}$"))
-                {
-                    return ServiceResult<bool>.Fail("PhoneNumber|Phone number format is invalid.");
-                }
-            }
-
-            try
-            {
-                Account newAccount;
-
-                using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
-                {
-                    await unitOfWork.OpenAsync();
-                    this.accountRepository.SetUnitOfWork(unitOfWork);
-
-                    if (await this.accountRepository.GetByUsernameAsync(registrationRequest.Username) != null)
-                    {
-                        return ServiceResult<bool>.Fail("Username|Username is already taken.");
-                    }
-
-                    if (await this.accountRepository.GetByEmailAsync(registrationRequest.Email) != null)
-                    {
-                        return ServiceResult<bool>.Fail("Email|Email is already registered.");
-                    }
-
-                    int linkedPamUserId = await this.accountRepository.CreatePamUserAsync(registrationRequest.DisplayName);
-
-                    newAccount = new Account
-                    {
-                        Id = Guid.NewGuid(),
-                        DisplayName = registrationRequest.DisplayName,
-                        Username = registrationRequest.Username,
-                        Email = registrationRequest.Email,
-                        PasswordHash = PasswordHasher.HashPassword(registrationRequest.Password),
-
-                        PhoneNumber = registrationRequest.PhoneNumber,
-                        Country = registrationRequest.Country,
-                        City = registrationRequest.City,
-                        StreetName = registrationRequest.StreetName,
-                        StreetNumber = registrationRequest.StreetNumber,
-
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow,
-                        IsSuspended = false,
-                        PamUserId = linkedPamUserId
-                    };
-
-                    await this.accountRepository.AddAsync(newAccount);
-                    await this.accountRepository.AddRoleAsync(newAccount.Id, StandardUserRoleName);
-                }
-
-                this.sessionContext.Populate(newAccount, StandardUserRoleName);
-
-                return ServiceResult<bool>.Ok(true);
-            }
-            catch (Exception ex)
-            {
-                return ServiceResult<bool>.Fail($"Database Error|{ex.Message}");
-            }
+                Id = Guid.NewGuid(), DisplayName = registrationRequest.DisplayName, Username = registrationRequest.Username,
+                Email = registrationRequest.Email, PasswordHash = PasswordHasher.HashPassword(registrationRequest.Password),
+                PhoneNumber = registrationRequest.PhoneNumber ?? string.Empty,
+                AvatarUrl = string.Empty,
+                Country = registrationRequest.Country ?? string.Empty,
+                City = registrationRequest.City ?? string.Empty,
+                StreetName = registrationRequest.StreetName ?? string.Empty,
+                StreetNumber = registrationRequest.StreetNumber ?? string.Empty,
+                CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, IsSuspended = false
+            };
+            await accountRepository.AddAsync(newAccount);
+            await accountRepository.AddRoleAsync(newAccount.Id, StandardUserRoleName);
+            sessionContext.Populate(newAccount, StandardUserRoleName);
+            return ServiceResult<bool>.Ok(true);
         }
         public async Task<ServiceResult<AccountProfileDataTransferObject>> LoginAsync(LoginDataTransferObject loginRequest)
         {
-            try
+            var account = await accountRepository.GetByUsernameAsync(loginRequest.UsernameOrEmail)
+                       ?? await accountRepository.GetByEmailAsync(loginRequest.UsernameOrEmail);
+            if (account == null)
             {
-                using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
-                {
-                    await unitOfWork.OpenAsync();
-                    this.accountRepository.SetUnitOfWork(unitOfWork);
-                    this.failedLoginRepository.SetUnitOfWork(unitOfWork);
-
-                    Account accountEntity = await this.accountRepository.GetByUsernameAsync(loginRequest.UsernameOrEmail);
-                    if (accountEntity == null)
-                    {
-                        accountEntity = await this.accountRepository.GetByEmailAsync(loginRequest.UsernameOrEmail);
-                    }
-
-                    if (accountEntity == null)
-                    {
-                        return ServiceResult<AccountProfileDataTransferObject>.Fail("Invalid username or password.");
-                    }
-
-                    if (accountEntity.IsSuspended)
-                    {
-                        return ServiceResult<AccountProfileDataTransferObject>.Fail("This account has been suspended.");
-                    }
-
-                    FailedLoginAttempt failedAttempt = await this.failedLoginRepository.GetByAccountIdAsync(accountEntity.Id);
-                    if (failedAttempt?.LockedUntil.HasValue == true && failedAttempt.LockedUntil.Value > DateTime.UtcNow)
-                    {
-                        TimeSpan lockoutTimeRemaining = failedAttempt.LockedUntil.Value - DateTime.UtcNow;
-                        int remainingMinutes = (int)Math.Ceiling(lockoutTimeRemaining.TotalMinutes);
-                        return ServiceResult<AccountProfileDataTransferObject>.Fail(
-                            $"Your account is temporarily locked. Try again in {remainingMinutes} minute(s).");
-                    }
-
-                    if (!PasswordHasher.VerifyPassword(loginRequest.Password, accountEntity.PasswordHash))
-                    {
-                        await this.failedLoginRepository.IncrementAsync(accountEntity.Id);
-                        return ServiceResult<AccountProfileDataTransferObject>.Fail("Invalid username or password.");
-                    }
-
-                    await this.failedLoginRepository.ResetAsync(accountEntity.Id);
-
-                    if (accountEntity.PamUserId == null)
-                    {
-                        int lazilyCreatedPamUserId = await this.accountRepository.CreatePamUserAsync(accountEntity.DisplayName);
-                        await this.accountRepository.SetPamUserIdAsync(accountEntity.Id, lazilyCreatedPamUserId);
-                        accountEntity.PamUserId = lazilyCreatedPamUserId;
-                    }
-
-                    if (!accountEntity.PamUserId.HasValue || accountEntity.PamUserId.Value <= 0)
-                    {
-                        return ServiceResult<AccountProfileDataTransferObject>.Fail("Login failed due to invalid account session state.");
-                    }
-
-                    string primaryRole = accountEntity.Roles?.FirstOrDefault()?.Name ?? StandardUserRoleName;
-                    this.sessionContext.Populate(accountEntity, primaryRole);
-
-                    AccountProfileDataTransferObject profileDto = new AccountProfileDataTransferObject
-                    {
-                        Id = accountEntity.Id,
-                        Username = accountEntity.Username,
-                        DisplayName = accountEntity.DisplayName,
-                        Email = accountEntity.Email,
-
-                        PhoneNumber = accountEntity.PhoneNumber,
-                        Country = accountEntity.Country,
-                        City = accountEntity.City,
-                        StreetName = accountEntity.StreetName,
-                        StreetNumber = accountEntity.StreetNumber,
-                        AvatarUrl = accountEntity.AvatarUrl,
-
-                        Role = new RoleDataTransferObject { Name = primaryRole },
-                    };
-
-                    return ServiceResult<AccountProfileDataTransferObject>.Ok(profileDto);
-                }
+                return ServiceResult<AccountProfileDataTransferObject>.Fail("Invalid username or password.");
             }
-            catch
+            if (account.IsSuspended)
             {
-                return ServiceResult<AccountProfileDataTransferObject>.Fail("Login failed due to a temporary system error.");
+                return ServiceResult<AccountProfileDataTransferObject>.Fail("This account has been suspended.");
             }
+            if (!PasswordHasher.VerifyPassword(loginRequest.Password, account.PasswordHash))
+            {
+                await failedLoginRepository.IncrementAsync(account.Id);
+                return ServiceResult<AccountProfileDataTransferObject>.Fail("Invalid username or password.");
+            }
+            await failedLoginRepository.ResetAsync(account.Id);
+            string primaryRole = account.Roles?.FirstOrDefault()?.Name ?? StandardUserRoleName;
+            sessionContext.Populate(account, primaryRole);
+            return ServiceResult<AccountProfileDataTransferObject>.Ok(new AccountProfileDataTransferObject
+            {
+                Id = account.Id, Username = account.Username, DisplayName = account.DisplayName,
+                Email = account.Email, Role = new RoleDataTransferObject { Name = primaryRole }
+            });
         }
-
         public Task<ServiceResult<bool>> LogoutAsync()
         {
-            this.sessionContext.Clear();
+            sessionContext.Clear();
             return Task.FromResult(ServiceResult<bool>.Ok(true));
         }
-
-        public Task<ServiceResult<string>> ForgotPasswordAsync()
-        {
-            return Task.FromResult(ServiceResult<string>.Ok("Please contact the Administrator at admin@boardrent.com."));
-        }
+        public Task<ServiceResult<string>> ForgotPasswordAsync() =>
+            Task.FromResult(ServiceResult<string>.Ok("Please contact the Administrator at admin@boardrent.com."));
     }
 }

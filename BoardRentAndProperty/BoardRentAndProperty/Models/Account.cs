@@ -1,18 +1,11 @@
+using System;
+using System.Collections.Generic;
+using BoardRentAndProperty.Mappers;
 namespace BoardRentAndProperty.Models
 {
-    using System;
-    using System.Collections.Generic;
-    using BoardRentAndProperty.Mappers;
-
-    public class Account : IEntity
+    public class Account : IEntity<Guid>
     {
         public Guid Id { get; set; }
-
-        int IEntity.Id
-        {
-            get => PamUserId ?? 0;
-            set => PamUserId = value;
-        }
 
         public string DisplayName { get; set; }
 
@@ -39,8 +32,6 @@ namespace BoardRentAndProperty.Models
         public string StreetName { get; set; }
 
         public string StreetNumber { get; set; }
-
-        public int? PamUserId { get; set; }
 
         public List<Role> Roles { get; set; } = new List<Role>();
     }

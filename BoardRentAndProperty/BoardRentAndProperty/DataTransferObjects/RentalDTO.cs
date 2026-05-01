@@ -4,7 +4,7 @@ using BoardRentAndProperty.Models;
 
 namespace BoardRentAndProperty.DataTransferObjects
 {
-    public class RentalDTO : IDTO<Rental>
+    public class RentalDTO : IDTO<Rental, int>
     {
         private const string ShortDateDisplayFormat = "dd/MM";
         private const string LongDateDisplayFormat = "dd/MM/yyyy";
@@ -13,8 +13,8 @@ namespace BoardRentAndProperty.DataTransferObjects
 
         public int Id { get; set; }
         public GameDTO Game { get; set; }
-        public Account Renter { get; set; }
-        public Account Owner { get; set; }
+        public UserDTO? Renter { get; set; }
+        public UserDTO? Owner { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
 

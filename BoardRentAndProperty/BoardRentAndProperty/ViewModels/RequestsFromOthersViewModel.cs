@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using System.Linq;
 using BoardRentAndProperty.DataTransferObjects;
@@ -11,7 +12,7 @@ namespace BoardRentAndProperty.ViewModels
         private readonly IRequestService rentalRequestService;
         private readonly ICurrentUserContext currentUserContext;
 
-        public int CurrentGameOwnerUserId { get; private set; }
+        public Guid CurrentGameOwnerUserId { get; private set; }
 
         public RequestsFromOthersViewModel(IRequestService rentalRequestService, ICurrentUserContext currentUserContext)
         {

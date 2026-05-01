@@ -3,7 +3,7 @@ using BoardRentAndProperty.Mappers;
 
 namespace BoardRentAndProperty.Models
 {
-    public class Request : IEntity
+    public class Request : IEntity<int>
     {
         public int Id { get; set; }
         public Game Game { get; set; }
@@ -12,23 +12,23 @@ namespace BoardRentAndProperty.Models
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public RequestStatus Status { get; set; } = RequestStatus.Open;
-        public Account? OfferingAccount { get; set; }
+        public Account? OfferingUser { get; set; }
 
         public Request()
         {
         }
 
-        public Request(int id, Game requestedGame, Account renterUser, Account ownerUser, DateTime startDate, DateTime endDate,
-                       RequestStatus status = RequestStatus.Open, Account? offeringAccount = null)
+        public Request(int id, Game requestedGame, Account renterAccount, Account ownerAccount, DateTime startDate, DateTime endDate,
+                       RequestStatus status = RequestStatus.Open, Account? offeringUser = null)
         {
             this.Id = id;
             Game = requestedGame;
-            Renter = renterUser;
-            Owner = ownerUser;
+            Renter = renterAccount;
+            Owner = ownerAccount;
             StartDate = startDate;
             EndDate = endDate;
             Status = status;
-            OfferingAccount = offeringAccount;
+            OfferingUser = offeringUser;
         }
     }
 }

@@ -1,8 +1,10 @@
+using System;
+
 namespace BoardRentAndProperty.Mappers
 {
-    public interface IDTO<TDomainModel>
-        where TDomainModel : IEntity
+    public interface IDTO<TDomainModel, TId>
+        where TDomainModel : IEntity<TId>
     {
-        int Id { get; set; }
+        TId Id { get; set; }
     }
 }

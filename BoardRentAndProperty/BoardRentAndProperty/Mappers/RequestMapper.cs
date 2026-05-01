@@ -1,55 +1,58 @@
+using System;
 using BoardRentAndProperty.DataTransferObjects;
-using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Models;
 
 namespace BoardRentAndProperty.Mappers
 {
-    public class RequestMapper : IMapper<Request, RequestDTO>
+    public class RequestMapper : IMapper<Request, RequestDTO, int>
     {
-        private readonly IMapper<Game, GameDTO> requestedGameMapper;
+        private readonly IMapper<Game, GameDTO, int> gameMapper;
+        private readonly IMapper<Account, UserDTO, Guid> participantMapper;
 
-        public RequestMapper(IMapper<Game, GameDTO> gameMapper)
+        public RequestMapper(IMapper<Game, GameDTO, int> gameMapper, IMapper<Account, UserDTO, Guid> participantMapper)
         {
-            this.requestedGameMapper = gameMapper;
+            this.gameMapper = gameMapper;
+            this.participantMapper = participantMapper;
         }
 
-        public RequestDTO ToDTO(Request requestModel)
+        public RequestDTO ToDTO(Request model)
         {
-            if (requestModel == null)
+            if (model == null)
             {
                 return null;
             }
-
             return new RequestDTO
             {
-                Id = requestModel.Id,
-                Game = requestedGameMapper.ToDTO(requestModel.Game),
-                Renter = requestModel.Renter,
-                Owner = requestModel.Owner,
-                StartDate = requestModel.StartDate,
-                EndDate = requestModel.EndDate,
-                Status = requestModel.Status,
-                OfferingAccount = requestModel.OfferingAccount
+                Id = model.Id,
+                Game = gameMapper.ToDTO(model.Game),
+                Renter = participantMapper.ToDTO(model.Renter),
+                Owner = participantMapper.ToDTO(model.Owner),
+                StartDate = model.StartDate,
+                EndDate = model.EndDate,
+                Status = model.Status,
+                OfferingUser = model.OfferingUser != null ? participantMapper.ToDTO(model.OfferingUser) : null
             };
         }
 
-        public Request ToModel(RequestDTO requestDto)
+        public Request ToModel(RequestDTO dto)
         {
-            if (requestDto == null)
+            if (dto == null)
             {
                 return null;
             }
-
+            var renter = participantMapper.ToModel(dto.Renter);
+            var owner = participantMapper.ToModel(dto.Owner);
+            var offering = dto.OfferingUser != null ? participantMapper.ToModel(dto.OfferingUser) : null;
             return new Request
             {
-                Id = requestDto.Id,
-                Game = requestedGameMapper.ToModel(requestDto.Game),
-                Renter = requestDto.Renter,
-                Owner = requestDto.Owner,
-                StartDate = requestDto.StartDate,
-                EndDate = requestDto.EndDate,
-                Status = requestDto.Status,
-                OfferingAccount = requestDto.OfferingAccount
+                Id = dto.Id,
+                Game = gameMapper.ToModel(dto.Game),
+                Renter = renter,
+                Owner = owner,
+                StartDate = dto.StartDate,
+                EndDate = dto.EndDate,
+                Status = dto.Status,
+                OfferingUser = offering
             };
         }
     }

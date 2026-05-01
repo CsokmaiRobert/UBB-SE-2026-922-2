@@ -14,10 +14,10 @@ namespace BoardRentAndProperty.ViewModels
 
         private readonly IGameService gameListingService;
         private readonly IRentalService rentalCreationService;
-        private readonly IDirectoryService userLookupService;
+        private readonly IUserService userService;
         private readonly ICurrentUserContext currentUserContext;
 
-        public int CurrentUserId => currentUserContext.CurrentUserId;
+        public Guid CurrentUserId => currentUserContext.CurrentUserId;
 
         public ObservableCollection<GameDTO> OwnedActiveGames { get; set; } = new();
         public ObservableCollection<UserDTO> AvailableRenters { get; set; } = new();
@@ -33,7 +33,7 @@ namespace BoardRentAndProperty.ViewModels
             }
         }
 
-        private UserDTO selectedRenterUser;
+        private UserDTO selectedRenter;
         public UserDTO SelectedRenter
         {
             get => selectedRenterUser;
@@ -67,11 +67,11 @@ namespace BoardRentAndProperty.ViewModels
         }
 
         public CreateRentalViewModel(IGameService gameListingService, IRentalService rentalCreationService,
-                                     IDirectoryService userLookupService, ICurrentUserContext currentUserContext)
+                                     IUserService userService, ICurrentUserContext currentUserContext)
         {
             this.gameListingService = gameListingService;
             this.rentalCreationService = rentalCreationService;
-            this.userLookupService = userLookupService;
+            this.userService = userService;
             this.currentUserContext = currentUserContext;
             LoadRentalFormData();
         }
@@ -85,10 +85,12 @@ namespace BoardRentAndProperty.ViewModels
             }
 
             AvailableRenters.Clear();
-            foreach (var potentialRenter in userLookupService.GetUsersExcept(CurrentUserId))
+            foreach (var potentialRenter in userService.GetUsersExcept(CurrentUserId))
             {
                 AvailableRenters.Add(potentialRenter);
             }
+
+            await System.Threading.Tasks.Task.CompletedTask;
         }
 
         public bool ValidateRentalInputs()

@@ -4,73 +4,56 @@ namespace BoardRentAndProperty.Repositories
     using System.Threading.Tasks;
     using BoardRentAndProperty.Data;
     using BoardRentAndProperty.Models;
-    using Microsoft.Data.SqlClient;
+    using Microsoft.EntityFrameworkCore;
+
     public class FailedLoginRepository : IFailedLoginRepository
     {
-        private IUnitOfWork unitOfWork;
-        private SqlConnection Connection => this.unitOfWork.Connection;
-        public void SetUnitOfWork(IUnitOfWork unitOfWork)
+        private readonly IDbContextFactory<AppDbContext> dbContextFactory;
+
+        public FailedLoginRepository(IDbContextFactory<AppDbContext> dbContextFactory)
         {
-            this.unitOfWork = unitOfWork;
+            this.dbContextFactory = dbContextFactory;
         }
+
         public async Task<FailedLoginAttempt?> GetByAccountIdAsync(Guid accountId)
         {
-            using (var command = this.Connection.CreateCommand())
-            {
-                command.CommandText = "SELECT * FROM FailedLoginAttempt WHERE AccountId = @AccountId";
-                command.Parameters.AddWithValue("@AccountId", accountId);
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            return await dbContext.FailedLoginAttempts.FirstOrDefaultAsync(failedLogin => failedLogin.AccountId == accountId);
+        }
 
-                using (var reader = await command.ExecuteReaderAsync())
+        public async Task IncrementAsync(Guid accountId)
+        {
+            const int lockThreshold = 5;
+            const int lockMinutes = 15;
+
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            var attempt = await dbContext.FailedLoginAttempts.FirstOrDefaultAsync(failedLogin => failedLogin.AccountId == accountId);
+            if (attempt == null)
+            {
+                dbContext.FailedLoginAttempts.Add(new FailedLoginAttempt { AccountId = accountId, FailedAttempts = 1, LockedUntil = null });
+            }
+            else
+            {
+                attempt.FailedAttempts++;
+                if (attempt.FailedAttempts >= lockThreshold)
                 {
-                    if (await reader.ReadAsync())
-                    {
-                        return this.MapFailedLoginAttempt(reader);
-                    }
+                    attempt.LockedUntil = DateTime.UtcNow.AddMinutes(lockMinutes);
                 }
             }
 
-            return null;
+            await dbContext.SaveChangesAsync();
         }
-        public async Task IncrementAsync(Guid accountId)
-        {
-            using (var command = this.Connection.CreateCommand())
-            {
-                command.CommandText = @"
-                    IF EXISTS (SELECT 1 FROM FailedLoginAttempt WHERE AccountId = @AccountId)
-                        UPDATE FailedLoginAttempt
-                        SET FailedAttempts = FailedAttempts + 1,
-                            LockedUntil = CASE WHEN FailedAttempts + 1 >= 5 THEN DATEADD(minute, 15, GETUTCDATE()) ELSE NULL END
-                        WHERE AccountId = @AccountId
-                    ELSE
-                        INSERT INTO FailedLoginAttempt (AccountId, FailedAttempts, LockedUntil) VALUES (@AccountId, 1, NULL)";
 
-                command.Parameters.AddWithValue("@AccountId", accountId);
-
-                await command.ExecuteNonQueryAsync();
-            }
-        }
         public async Task ResetAsync(Guid accountId)
         {
-            using (var command = this.Connection.CreateCommand())
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            var attempt = await dbContext.FailedLoginAttempts.FirstOrDefaultAsync(failedLogin => failedLogin.AccountId == accountId);
+            if (attempt != null)
             {
-                command.CommandText = @"
-                    UPDATE FailedLoginAttempt
-                    SET FailedAttempts = 0, LockedUntil = NULL
-                    WHERE AccountId = @AccountId";
-
-                command.Parameters.AddWithValue("@AccountId", accountId);
-
-                await command.ExecuteNonQueryAsync();
+                attempt.FailedAttempts = 0;
+                attempt.LockedUntil = null;
+                await dbContext.SaveChangesAsync();
             }
-        }
-        private FailedLoginAttempt MapFailedLoginAttempt(SqlDataReader reader)
-        {
-            return new FailedLoginAttempt
-            {
-                AccountId = reader.GetGuid(reader.GetOrdinal("AccountId")),
-                FailedAttempts = reader.GetInt32(reader.GetOrdinal("FailedAttempts")),
-                LockedUntil = reader.IsDBNull(reader.GetOrdinal("LockedUntil")) ? null : reader.GetDateTime(reader.GetOrdinal("LockedUntil"))
-            };
         }
     }
 }

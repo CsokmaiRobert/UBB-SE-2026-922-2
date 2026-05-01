@@ -1,170 +1,124 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using Microsoft.Data.SqlClient;
-using BoardRentAndProperty.Mappers;
-using BoardRentAndProperty.Services;
+using System.Linq;
+using BoardRentAndProperty.Data;
 using BoardRentAndProperty.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace BoardRentAndProperty.Repositories
 {
     public class GameRepository : IGameRepository
     {
-        private const int MissingForeignKeyId = 0;
-        private const int VarBinaryMaxLength = -1;
+        private readonly IDbContextFactory<AppDbContext> dbContextFactory;
 
-        private readonly string boardRentConnectionString =
-            System.Configuration.ConfigurationManager.ConnectionStrings["BoardRent"]?.ConnectionString ?? string.Empty;
+        public GameRepository(IDbContextFactory<AppDbContext> dbContextFactory)
+        {
+            this.dbContextFactory = dbContextFactory;
+        }
+
+        private static IQueryable<Game> GamesWithOwner(AppDbContext dbContext) =>
+            dbContext.Games.Include(game => game.Owner);
 
         public ImmutableList<Game> GetAll()
         {
-            var retrievedGames = new List<Game>();
-            using (var connection = new SqlConnection(boardRentConnectionString))
-            {
-                connection.Open();
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText = "SELECT g.*, u.display_name AS owner_display_name FROM Games g LEFT JOIN Users u ON u.id = g.owner_id";
-                    using (var reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            var ownerDisplayName = reader["owner_display_name"] as string ?? string.Empty;
-                            var gameOwner = new Account { PamUserId = (int)reader["owner_id"], DisplayName = ownerDisplayName };
-                            var mappedGame = new Game((int)reader["game_id"], gameOwner, (string)reader["name"], Convert.ToDecimal(reader["price"]), (int)reader["minimum_player_number"], (int)reader["maximum_player_number"], (string)reader["description"], reader["image"] as byte[], Convert.ToBoolean(reader["is_active"]));
-                            retrievedGames.Add(mappedGame);
-                        }
-                    }
-                }
-            }
-            return retrievedGames.ToImmutableList();
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            return GamesWithOwner(dbContext).ToImmutableList();
         }
 
-        public void Add(Game gameToInsert)
+        public void Add(Game game)
         {
-            using (var connection = new SqlConnection(boardRentConnectionString))
-            {
-                connection.Open();
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText = "INSERT INTO Games(owner_id, name, price, minimum_player_number, maximum_player_number, description, image, is_active) VALUES(@owner_id, @name, @price, @min_players, @max_players, @description, @image, @is_active); SELECT SCOPE_IDENTITY();";
-                    command.Parameters.AddWithValue("@owner_id", gameToInsert.Owner?.PamUserId ?? MissingForeignKeyId);
-                    command.Parameters.AddWithValue("@name", gameToInsert.Name ?? string.Empty);
-                    command.Parameters.AddWithValue("@price", gameToInsert.Price);
-                    command.Parameters.AddWithValue("@min_players", gameToInsert.MinimumPlayerNumber);
-                    command.Parameters.AddWithValue("@max_players", gameToInsert.MaximumPlayerNumber);
-                    command.Parameters.AddWithValue("@description", gameToInsert.Description ?? string.Empty);
-                    command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@image", System.Data.SqlDbType.VarBinary, VarBinaryMaxLength)
-                    {
-                        Value = (object)gameToInsert.Image ?? DBNull.Value
-                    });
-                    command.Parameters.AddWithValue("@is_active", gameToInsert.IsActive);
+            using var dbContext = this.dbContextFactory.CreateDbContext();
 
-                    gameToInsert.Id = Convert.ToInt32(command.ExecuteScalar());
-                }
+            game.Owner = ResolveAccount(dbContext, game.Owner);
+            dbContext.Games.Add(game);
+            dbContext.SaveChanges();
+
+            var saved = GamesWithOwner(dbContext).FirstOrDefault(savedGame => savedGame.Id == game.Id);
+            if (saved != null)
+            {
+                game.Owner = saved.Owner;
             }
         }
 
-        public ImmutableList<Game> GetGamesByOwner(int ownerUserId)
+        public ImmutableList<Game> GetGamesByOwner(Guid ownerAccountId)
         {
-            var retrievedGames = new List<Game>();
-            using (var connection = new SqlConnection(boardRentConnectionString))
-            {
-                connection.Open();
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText = "SELECT g.*, u.display_name AS owner_display_name FROM Games g LEFT JOIN Users u ON u.id = g.owner_id WHERE g.owner_id = @owner_id";
-                    command.Parameters.AddWithValue("@owner_id", ownerUserId);
-                    using (var reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            var ownerDisplayName = reader["owner_display_name"] as string ?? string.Empty;
-                            var gameOwner = new Account { PamUserId = (int)reader["owner_id"], DisplayName = ownerDisplayName };
-                            var mappedGame = new Game((int)reader["game_id"], gameOwner, (string)reader["name"], Convert.ToDecimal(reader["price"]), (int)reader["minimum_player_number"], (int)reader["maximum_player_number"], (string)reader["description"], reader["image"] as byte[], Convert.ToBoolean(reader["is_active"]));
-                            retrievedGames.Add(mappedGame);
-                        }
-                    }
-                }
-            }
-            return retrievedGames.ToImmutableList();
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            return GamesWithOwner(dbContext)
+                .Where(game => game.Owner.Id == ownerAccountId)
+                .ToImmutableList();
         }
 
-        public void Update(int gameIdToUpdate, Game gameDataToUpdate)
+        public void Update(int id, Game updated)
         {
-            using (var connection = new SqlConnection(boardRentConnectionString))
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            var existing = GamesWithOwner(dbContext).FirstOrDefault(game => game.Id == id);
+            if (existing == null)
             {
-                connection.Open();
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText = "UPDATE Games SET owner_id = @owner_id, name = @name, price = @price, minimum_player_number = @min_players, maximum_player_number = @max_players, description = @description, image = @image, is_active = @is_active WHERE game_id = @id";
-                    command.Parameters.AddWithValue("@id", gameIdToUpdate);
-                    command.Parameters.AddWithValue("@owner_id", gameDataToUpdate.Owner?.PamUserId ?? MissingForeignKeyId);
-                    command.Parameters.AddWithValue("@name", gameDataToUpdate.Name ?? string.Empty);
-                    command.Parameters.AddWithValue("@price", gameDataToUpdate.Price);
-                    command.Parameters.AddWithValue("@min_players", gameDataToUpdate.MinimumPlayerNumber);
-                    command.Parameters.AddWithValue("@max_players", gameDataToUpdate.MaximumPlayerNumber);
-                    command.Parameters.AddWithValue("@description", gameDataToUpdate.Description ?? string.Empty);
-                    command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@image", System.Data.SqlDbType.VarBinary, VarBinaryMaxLength)
-                    {
-                        Value = (object)gameDataToUpdate.Image ?? DBNull.Value
-                    });
-                    command.Parameters.AddWithValue("@is_active", gameDataToUpdate.IsActive);
-                    command.ExecuteNonQuery();
-                }
+                return;
             }
+
+            if (updated.Owner != null)
+            {
+                existing.Owner = ResolveAccount(dbContext, updated.Owner);
+            }
+
+            existing.Name = updated.Name;
+            existing.Price = updated.Price;
+            existing.MinimumPlayerNumber = updated.MinimumPlayerNumber;
+            existing.MaximumPlayerNumber = updated.MaximumPlayerNumber;
+            existing.Description = updated.Description;
+            existing.Image = updated.Image;
+            existing.IsActive = updated.IsActive;
+
+            dbContext.SaveChanges();
         }
 
-        public Game Get(int gameIdToFind)
+        public Game Get(int id)
         {
-            using (var connection = new SqlConnection(boardRentConnectionString))
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            var game = GamesWithOwner(dbContext).FirstOrDefault(repositoryGame => repositoryGame.Id == id);
+            if (game == null)
             {
-                connection.Open();
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText = "SELECT g.*, u.display_name AS owner_display_name FROM Games g LEFT JOIN Users u ON u.id = g.owner_id WHERE g.game_id = @id";
-                    command.Parameters.AddWithValue("@id", gameIdToFind);
-                    using (var reader = command.ExecuteReader())
-                    {
-                        if (reader.Read())
-                        {
-                            var ownerDisplayName = reader["owner_display_name"] as string ?? string.Empty;
-                            var gameOwner = new Account { PamUserId = (int)reader["owner_id"], DisplayName = ownerDisplayName };
-                            return new Game((int)reader["game_id"], gameOwner, (string)reader["name"], Convert.ToDecimal(reader["price"]), (int)reader["minimum_player_number"], (int)reader["maximum_player_number"], (string)reader["description"], reader["image"] as byte[], Convert.ToBoolean(reader["is_active"]));
-                        }
-                    }
-                }
+                throw new KeyNotFoundException();
             }
-            throw new KeyNotFoundException();
+
+            return game;
         }
 
-        public Game Delete(int gameIdToRemove)
+        public Game Delete(int id)
         {
-            using (var connection = new SqlConnection(boardRentConnectionString))
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+            var game = GamesWithOwner(dbContext).FirstOrDefault(repositoryGame => repositoryGame.Id == id);
+            if (game == null)
             {
-                connection.Open();
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText =
-                        "DELETE g OUTPUT deleted.game_id, deleted.owner_id, deleted.name, deleted.price, " +
-                        "deleted.minimum_player_number, deleted.maximum_player_number, deleted.description, " +
-                        "deleted.image, deleted.is_active, u.display_name AS owner_display_name " +
-                        "FROM Games g LEFT JOIN Users u ON u.id = g.owner_id WHERE g.game_id = @id";
-                    command.Parameters.AddWithValue("@id", gameIdToRemove);
-                    using (var reader = command.ExecuteReader())
-                    {
-                        if (reader.Read())
-                        {
-                            var deletedGameOwner = new Account { PamUserId = (int)reader["owner_id"], DisplayName = reader["owner_display_name"] as string ?? string.Empty };
-                            return new Game((int)reader["game_id"], deletedGameOwner, (string)reader["name"],
-                                Convert.ToDecimal(reader["price"]), (int)reader["minimum_player_number"],
-                                (int)reader["maximum_player_number"], (string)reader["description"],
-                                reader["image"] as byte[], Convert.ToBoolean(reader["is_active"]));
-                        }
-                    }
-                }
+                throw new KeyNotFoundException();
             }
-            throw new KeyNotFoundException();
+
+            dbContext.Games.Remove(game);
+            dbContext.SaveChanges();
+            return game;
+        }
+
+        private static Account ResolveAccount(AppDbContext dbContext, Account? account)
+        {
+            if (account == null)
+            {
+                return null;
+            }
+
+            var cached = dbContext.Accounts.Local.FirstOrDefault(cachedAccount => cachedAccount.Id == account.Id);
+            if (cached != null)
+            {
+                return cached;
+            }
+
+            if (dbContext.Entry(account).State == EntityState.Detached)
+            {
+                dbContext.Attach(account);
+            }
+
+            return account;
         }
     }
 }

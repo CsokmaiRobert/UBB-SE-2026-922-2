@@ -20,7 +20,7 @@ namespace BoardRentAndProperty.Views
             this.ViewModel = Ioc.Default.GetService<AdminViewModel>();
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         public AdminViewModel ViewModel { get; }
 
