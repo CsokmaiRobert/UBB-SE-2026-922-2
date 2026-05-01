@@ -1,8 +1,3 @@
-// This file lives in `BoardRentAndProperty.Resources` (rather than the natural
-// `BoardRentAndProperty.Constants`) to avoid a name collision with the
-// `BoardRentAndProperty.Constants.DomainConstants` static class. Consumer code
-// continues to access these constants via the `BoardRentAndProperty.Constants`
-// namespace through `ConstantsBridge.cs`.
 using System;
 using System.Collections.Generic;
 using System.Linq;
