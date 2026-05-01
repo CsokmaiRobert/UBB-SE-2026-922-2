@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using BoardRentAndProperty.Constants;
-using BoardRentAndProperty.DataTransferObjects;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
 
 namespace BoardRentAndProperty.ViewModels

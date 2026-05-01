@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Immutable;
-using BoardRentAndProperty.DataTransferObjects;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
 
 namespace BoardRentAndProperty.ViewModels

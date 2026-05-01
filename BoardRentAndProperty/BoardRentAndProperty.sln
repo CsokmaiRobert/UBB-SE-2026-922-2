@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.5.11716.220 stable
+VisualStudioVersion = 18.5.11716.220
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServerCommunication", "ServerCommunication\ServerCommunication.csproj", "{D530BC7B-F02E-42B7-A2E3-8A9387A32B34}"
 EndProject
@@ -10,6 +10,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BoardRentAndProperty", "BoardRentAndProperty\BoardRentAndProperty.csproj", "{1E96395E-D697-492C-AA44-E722B3476620}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BoardRentAndProperty.Tests", "BoardRentAndProperty.Tests\BoardRentAndProperty.Tests.csproj", "{C5644BB7-F038-4523-A9E3-85E3CD425A94}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BoardRentAndProperty.Contracts", "BoardRentAndProperty.Contracts\BoardRentAndProperty.Contracts.csproj", "{64F46D0B-750B-4B7B-990B-FFBFE4378C33}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BoardRentAndProperty.Api", "BoardRentAndProperty.Api\BoardRentAndProperty.Api.csproj", "{1D47974C-3695-4944-8291-8459E7BA9E8F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -69,6 +73,30 @@ Global
 		{C5644BB7-F038-4523-A9E3-85E3CD425A94}.Release|x64.Build.0 = Release|x64
 		{C5644BB7-F038-4523-A9E3-85E3CD425A94}.Release|x86.ActiveCfg = Release|x64
 		{C5644BB7-F038-4523-A9E3-85E3CD425A94}.Release|x86.Build.0 = Release|x64
+		{64F46D0B-750B-4B7B-990B-FFBFE4378C33}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{64F46D0B-750B-4B7B-990B-FFBFE4378C33}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{64F46D0B-750B-4B7B-990B-FFBFE4378C33}.Debug|x64.ActiveCfg = Debug|x64
+		{64F46D0B-750B-4B7B-990B-FFBFE4378C33}.Debug|x64.Build.0 = Debug|x64
+		{64F46D0B-750B-4B7B-990B-FFBFE4378C33}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{64F46D0B-750B-4B7B-990B-FFBFE4378C33}.Debug|x86.Build.0 = Debug|Any CPU
+		{64F46D0B-750B-4B7B-990B-FFBFE4378C33}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{64F46D0B-750B-4B7B-990B-FFBFE4378C33}.Release|Any CPU.Build.0 = Release|Any CPU
+		{64F46D0B-750B-4B7B-990B-FFBFE4378C33}.Release|x64.ActiveCfg = Release|x64
+		{64F46D0B-750B-4B7B-990B-FFBFE4378C33}.Release|x64.Build.0 = Release|x64
+		{64F46D0B-750B-4B7B-990B-FFBFE4378C33}.Release|x86.ActiveCfg = Release|Any CPU
+		{64F46D0B-750B-4B7B-990B-FFBFE4378C33}.Release|x86.Build.0 = Release|Any CPU
+		{1D47974C-3695-4944-8291-8459E7BA9E8F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1D47974C-3695-4944-8291-8459E7BA9E8F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1D47974C-3695-4944-8291-8459E7BA9E8F}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{1D47974C-3695-4944-8291-8459E7BA9E8F}.Debug|x64.Build.0 = Debug|Any CPU
+		{1D47974C-3695-4944-8291-8459E7BA9E8F}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{1D47974C-3695-4944-8291-8459E7BA9E8F}.Debug|x86.Build.0 = Debug|Any CPU
+		{1D47974C-3695-4944-8291-8459E7BA9E8F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1D47974C-3695-4944-8291-8459E7BA9E8F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1D47974C-3695-4944-8291-8459E7BA9E8F}.Release|x64.ActiveCfg = Release|Any CPU
+		{1D47974C-3695-4944-8291-8459E7BA9E8F}.Release|x64.Build.0 = Release|Any CPU
+		{1D47974C-3695-4944-8291-8459E7BA9E8F}.Release|x86.ActiveCfg = Release|Any CPU
+		{1D47974C-3695-4944-8291-8459E7BA9E8F}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

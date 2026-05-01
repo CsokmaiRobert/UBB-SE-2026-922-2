@@ -1,37 +1,44 @@
 namespace BoardRentAndProperty.Utilities
 {
     using System;
-    using BoardRentAndProperty.Models;
+    using BoardRentAndProperty.Contracts.DataTransferObjects;
+
     public class SessionContext : ISessionContext
     {
+        private const string StandardUserRoleName = "Standard User";
+
         public Guid AccountId { get; private set; }
-        public string Username { get; private set; }
-        public string DisplayName { get; private set; }
-        public string Email { get; private set; }
-        public string PhoneNumber { get; private set; }
-        public string Country { get; private set; }
-        public string City { get; private set; }
-        public string StreetName { get; private set; }
-        public string StreetNumber { get; private set; }
-        public string Role { get; private set; }
+        public string Username { get; private set; } = string.Empty;
+        public string DisplayName { get; private set; } = string.Empty;
+        public string Email { get; private set; } = string.Empty;
+        public string PhoneNumber { get; private set; } = string.Empty;
+        public string Country { get; private set; } = string.Empty;
+        public string City { get; private set; } = string.Empty;
+        public string StreetName { get; private set; } = string.Empty;
+        public string StreetNumber { get; private set; } = string.Empty;
+        public string Role { get; private set; } = string.Empty;
         public bool IsLoggedIn { get; private set; }
-        public void Populate(Account account, string roleName)
+
+        public void Populate(AccountProfileDataTransferObject profile)
         {
-            if (account != null)
+            if (profile == null)
             {
-                AccountId = account.Id;
-                Username = account.Username;
-                DisplayName = account.DisplayName;
-                Email = account.Email;
-                PhoneNumber = account.PhoneNumber;
-                Country = account.Country;
-                City = account.City;
-                StreetName = account.StreetName;
-                StreetNumber = account.StreetNumber;
-                Role = roleName;
-                IsLoggedIn = true;
+                return;
             }
+
+            AccountId = profile.Id;
+            Username = profile.Username ?? string.Empty;
+            DisplayName = profile.DisplayName ?? string.Empty;
+            Email = profile.Email ?? string.Empty;
+            PhoneNumber = profile.PhoneNumber ?? string.Empty;
+            Country = profile.Country ?? string.Empty;
+            City = profile.City ?? string.Empty;
+            StreetName = profile.StreetName ?? string.Empty;
+            StreetNumber = profile.StreetNumber ?? string.Empty;
+            Role = profile.Role?.Name ?? StandardUserRoleName;
+            IsLoggedIn = true;
         }
+
         public void Clear()
         {
             AccountId = Guid.Empty;

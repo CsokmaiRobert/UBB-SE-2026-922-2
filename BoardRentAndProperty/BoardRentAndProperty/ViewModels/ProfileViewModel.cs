@@ -5,7 +5,7 @@ namespace BoardRentAndProperty.ViewModels
     using System.Threading.Tasks;
     using System.Windows.Input;
     using BoardRentAndProperty.Constants;
-    using BoardRentAndProperty.DataTransferObjects;
+    using BoardRentAndProperty.Contracts.DataTransferObjects;
     using BoardRentAndProperty.Services;
     using BoardRentAndProperty.Utilities;
     using CommunityToolkit.Mvvm.Input;

@@ -1,5 +1,5 @@
 using System.Threading.Tasks;
-using BoardRentAndProperty.DataTransferObjects;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Utilities;
 
 namespace BoardRentAndProperty.Services

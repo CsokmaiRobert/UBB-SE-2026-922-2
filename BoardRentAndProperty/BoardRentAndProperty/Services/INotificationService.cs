@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Immutable;
-using BoardRentAndProperty.DataTransferObjects;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
 namespace BoardRentAndProperty.Services
 {
     public interface INotificationService : IObservable<NotificationDTO>
@@ -13,7 +13,6 @@ namespace BoardRentAndProperty.Services
         void SubscribeToServer(Guid accountId);
         void StartListening();
         void StopListening();
-        void ScheduleUpcomingRentalReminder(Guid renterAccountId, Guid ownerAccountId, string gameName, DateTime rentalStartDate);
         void DeleteNotificationsLinkedToRequest(int relatedRequestId);
     }
 }

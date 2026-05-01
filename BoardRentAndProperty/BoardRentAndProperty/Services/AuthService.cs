@@ -1,80 +1,98 @@
+using System;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Threading.Tasks;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
+using BoardRentAndProperty.Utilities;
+
 namespace BoardRentAndProperty.Services
 {
-    using System;
-    using System.Linq;
-    using System.Threading.Tasks;
-    using BoardRentAndProperty.DataTransferObjects;
-    using BoardRentAndProperty.Models;
-    using BoardRentAndProperty.Repositories;
-    using BoardRentAndProperty.Utilities;
     public class AuthService : IAuthService
     {
-        private const string StandardUserRoleName = "Standard User";
-        private readonly IAccountRepository accountRepository;
-        private readonly IFailedLoginRepository failedLoginRepository;
+        private readonly HttpClient httpClient;
         private readonly ISessionContext sessionContext;
-        public AuthService(IAccountRepository accountRepository, IFailedLoginRepository failedLoginRepository, ISessionContext sessionContext)
+
+        public AuthService(HttpClient httpClient, ISessionContext sessionContext)
         {
-            this.accountRepository = accountRepository;
-            this.failedLoginRepository = failedLoginRepository;
+            this.httpClient = httpClient;
             this.sessionContext = sessionContext;
         }
+
         public async Task<ServiceResult<bool>> RegisterAsync(RegisterDataTransferObject registrationRequest)
         {
-            var existingByUsername = await accountRepository.GetByUsernameAsync(registrationRequest.Username);
-            if (existingByUsername != null)
+            var registerResponse = await this.httpClient.PostAsJsonAsync("api/auth/register", registrationRequest);
+            if (!registerResponse.IsSuccessStatusCode)
             {
-                return ServiceResult<bool>.Fail("Username|Username is already taken.");
+                return ServiceResult<bool>.Fail(await ReadErrorAsync(registerResponse));
             }
-            var newAccount = new Account
+
+            var loginAttempt = await this.LoginAsync(new LoginDataTransferObject
             {
-                Id = Guid.NewGuid(), DisplayName = registrationRequest.DisplayName, Username = registrationRequest.Username,
-                Email = registrationRequest.Email, PasswordHash = PasswordHasher.HashPassword(registrationRequest.Password),
-                PhoneNumber = registrationRequest.PhoneNumber ?? string.Empty,
-                AvatarUrl = string.Empty,
-                Country = registrationRequest.Country ?? string.Empty,
-                City = registrationRequest.City ?? string.Empty,
-                StreetName = registrationRequest.StreetName ?? string.Empty,
-                StreetNumber = registrationRequest.StreetNumber ?? string.Empty,
-                CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, IsSuspended = false
-            };
-            await accountRepository.AddAsync(newAccount);
-            await accountRepository.AddRoleAsync(newAccount.Id, StandardUserRoleName);
-            sessionContext.Populate(newAccount, StandardUserRoleName);
-            return ServiceResult<bool>.Ok(true);
+                UsernameOrEmail = registrationRequest.Username,
+                Password = registrationRequest.Password,
+            });
+
+            return loginAttempt.Success ? ServiceResult<bool>.Ok(true) : ServiceResult<bool>.Fail(loginAttempt.Error ?? "Registration succeeded but auto-login failed.");
         }
+
         public async Task<ServiceResult<AccountProfileDataTransferObject>> LoginAsync(LoginDataTransferObject loginRequest)
         {
-            var account = await accountRepository.GetByUsernameAsync(loginRequest.UsernameOrEmail)
-                       ?? await accountRepository.GetByEmailAsync(loginRequest.UsernameOrEmail);
-            if (account == null)
+            var loginResponse = await this.httpClient.PostAsJsonAsync("api/auth/login", loginRequest);
+            if (!loginResponse.IsSuccessStatusCode)
             {
-                return ServiceResult<AccountProfileDataTransferObject>.Fail("Invalid username or password.");
+                return ServiceResult<AccountProfileDataTransferObject>.Fail(await ReadErrorAsync(loginResponse));
             }
-            if (account.IsSuspended)
+
+            var profile = await loginResponse.Content.ReadFromJsonAsync<AccountProfileDataTransferObject>();
+            if (profile == null)
             {
-                return ServiceResult<AccountProfileDataTransferObject>.Fail("This account has been suspended.");
+                return ServiceResult<AccountProfileDataTransferObject>.Fail("Login response was empty.");
             }
-            if (!PasswordHasher.VerifyPassword(loginRequest.Password, account.PasswordHash))
-            {
-                await failedLoginRepository.IncrementAsync(account.Id);
-                return ServiceResult<AccountProfileDataTransferObject>.Fail("Invalid username or password.");
-            }
-            await failedLoginRepository.ResetAsync(account.Id);
-            string primaryRole = account.Roles?.FirstOrDefault()?.Name ?? StandardUserRoleName;
-            sessionContext.Populate(account, primaryRole);
-            return ServiceResult<AccountProfileDataTransferObject>.Ok(new AccountProfileDataTransferObject
-            {
-                Id = account.Id, Username = account.Username, DisplayName = account.DisplayName,
-                Email = account.Email, Role = new RoleDataTransferObject { Name = primaryRole }
-            });
+
+            ApiUrlHelper.RebaseAvatarUrl(this.httpClient.BaseAddress!, profile);
+            this.sessionContext.Populate(profile);
+            return ServiceResult<AccountProfileDataTransferObject>.Ok(profile);
         }
-        public Task<ServiceResult<bool>> LogoutAsync()
+
+        public async Task<ServiceResult<bool>> LogoutAsync()
         {
-            sessionContext.Clear();
-            return Task.FromResult(ServiceResult<bool>.Ok(true));
+            this.sessionContext.Clear();
+            await this.httpClient.PostAsync("api/auth/logout", content: null);
+            return ServiceResult<bool>.Ok(true);
         }
-        public Task<ServiceResult<string>> ForgotPasswordAsync() =>
-            Task.FromResult(ServiceResult<string>.Ok("Please contact the Administrator at admin@boardrent.com."));
+
+        public async Task<ServiceResult<string>> ForgotPasswordAsync()
+        {
+            var forgotResponse = await this.httpClient.GetAsync("api/auth/forgot-password");
+            if (!forgotResponse.IsSuccessStatusCode)
+            {
+                return ServiceResult<string>.Fail(await ReadErrorAsync(forgotResponse));
+            }
+
+            string? message = await forgotResponse.Content.ReadFromJsonAsync<string>();
+            return ServiceResult<string>.Ok(message ?? string.Empty);
+        }
+
+        private static async Task<string> ReadErrorAsync(HttpResponseMessage response)
+        {
+            try
+            {
+                var errorEnvelope = await response.Content.ReadFromJsonAsync<ErrorEnvelope>();
+                if (!string.IsNullOrEmpty(errorEnvelope?.Error))
+                {
+                    return errorEnvelope!.Error!;
+                }
+            }
+            catch
+            {
+            }
+
+            return $"Server returned status {(int)response.StatusCode}.";
+        }
+
+        private sealed class ErrorEnvelope
+        {
+            public string? Error { get; set; }
+        }
     }
 }

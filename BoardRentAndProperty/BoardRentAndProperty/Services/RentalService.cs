@@ -1,57 +1,93 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
-using BoardRentAndProperty.Constants;
-using BoardRentAndProperty.DataTransferObjects;
-using BoardRentAndProperty.Mappers;
-using BoardRentAndProperty.Models;
-using BoardRentAndProperty.Repositories;
+using System.Net.Http;
+using System.Net.Http.Json;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
+
 namespace BoardRentAndProperty.Services
 {
     public class RentalService : IRentalService
     {
-        private readonly IRentalRepository rentalDataRepository;
-        private readonly IGameRepository gameLookupRepository;
-        private readonly IMapper<Rental, RentalDTO, int> rentalDtoMapper;
-        private const int NewRentalId = 0;
-        public RentalService(IRentalRepository rentalRepository, IGameRepository gameRepository, IMapper<Rental, RentalDTO, int> rentalMapper)
+        private readonly HttpClient httpClient;
+
+        public RentalService(HttpClient httpClient)
         {
-            rentalDataRepository = rentalRepository;
-            gameLookupRepository = gameRepository;
-            rentalDtoMapper = rentalMapper;
+            this.httpClient = httpClient;
         }
+
+        public ImmutableList<RentalDTO> GetRentalsForRenter(Guid renterAccountId) =>
+            FetchList($"api/rentals/renter/{renterAccountId}");
+
+        public ImmutableList<RentalDTO> GetRentalsForOwner(Guid ownerAccountId) =>
+            FetchList($"api/rentals/owner/{ownerAccountId}");
+
         public bool IsSlotAvailable(int gameId, DateTime startDate, DateTime endDate)
         {
-            foreach (var r in rentalDataRepository.GetRentalsByGame(gameId))
+            var query = $"api/rentals/games/{gameId}/availability?startDate={Uri.EscapeDataString(startDate.ToString("o"))}&endDate={Uri.EscapeDataString(endDate.ToString("o"))}";
+            var response = this.httpClient.GetAsync(query).GetAwaiter().GetResult();
+            if (!response.IsSuccessStatusCode)
             {
-                if (startDate < r.EndDate.AddHours(DomainConstants.RentalBufferHours) && endDate > r.StartDate.AddHours(-DomainConstants.RentalBufferHours))
-                {
-                    return false;
-                }
+                return false;
             }
-            return true;
+
+            return response.Content.ReadFromJsonAsync<bool>().GetAwaiter().GetResult();
         }
+
         public void CreateConfirmedRental(int gameId, Guid renterAccountId, Guid ownerAccountId, DateTime startDate, DateTime endDate)
         {
-            if (!DateRangeValidationHelper.HasValidFutureDateRange(startDate, endDate))
+            var body = new CreateRentalDataTransferObject
             {
-                throw new ArgumentException("Start date must be before end date and not in the past.");
-            }
-            var game = gameLookupRepository.Get(gameId);
-            if (game.Owner?.Id != ownerAccountId)
+                GameId = gameId,
+                RenterAccountId = renterAccountId,
+                OwnerAccountId = ownerAccountId,
+                StartDate = startDate,
+                EndDate = endDate,
+            };
+
+            var response = this.httpClient.PostAsJsonAsync("api/rentals", body).GetAwaiter().GetResult();
+            if (response.IsSuccessStatusCode)
             {
-                throw new InvalidOperationException("Seller ID must match Game Owner ID [ENT-REN-04].");
+                return;
             }
-            if (!IsSlotAvailable(gameId, startDate, endDate))
+
+            string errorMessage = ReadErrorEnvelope(response);
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
             {
-                throw new InvalidOperationException($"Selected dates fall within the mandatory {DomainConstants.RentalBufferHours}-hour buffer of another rental.");
+                throw new InvalidOperationException(string.IsNullOrEmpty(errorMessage) ? "Rental conflict." : errorMessage);
             }
-           var rental = new Rental(NewRentalId, new Game { Id = gameId }, new Account { Id = renterAccountId }, new Account { Id = ownerAccountId }, startDate, endDate);
-            rentalDataRepository.AddConfirmed(rental);
+
+            throw new ArgumentException(string.IsNullOrEmpty(errorMessage) ? "Rental creation failed." : errorMessage);
         }
-        public ImmutableList<RentalDTO> GetRentalsForRenter(Guid renterAccountId) =>
-            rentalDataRepository.GetRentalsByRenter(renterAccountId).Select(r => rentalDtoMapper.ToDTO(r)).ToImmutableList();
-        public ImmutableList<RentalDTO> GetRentalsForOwner(Guid ownerAccountId) =>
-            rentalDataRepository.GetRentalsByOwner(ownerAccountId).Select(r => rentalDtoMapper.ToDTO(r)).ToImmutableList();
+
+        private ImmutableList<RentalDTO> FetchList(string requestPath)
+        {
+            var response = this.httpClient.GetAsync(requestPath).GetAwaiter().GetResult();
+            if (!response.IsSuccessStatusCode)
+            {
+                return ImmutableList<RentalDTO>.Empty;
+            }
+
+            var list = response.Content.ReadFromJsonAsync<List<RentalDTO>>().GetAwaiter().GetResult() ?? new List<RentalDTO>();
+            return list.ToImmutableList();
+        }
+
+        private static string ReadErrorEnvelope(HttpResponseMessage response)
+        {
+            try
+            {
+                var envelope = response.Content.ReadFromJsonAsync<ErrorEnvelope>().GetAwaiter().GetResult();
+                return envelope?.Error ?? string.Empty;
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        private sealed class ErrorEnvelope
+        {
+            public string? Error { get; set; }
+        }
     }
 }

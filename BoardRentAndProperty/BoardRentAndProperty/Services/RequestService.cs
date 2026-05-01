@@ -2,271 +2,212 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using BoardRentAndProperty.Constants;
-using BoardRentAndProperty.DataTransferObjects;
-using BoardRentAndProperty.Mappers;
-using BoardRentAndProperty.Models;
-using BoardRentAndProperty.Repositories;
-using BoardRentAndProperty.Utilities;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Json;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
+
 namespace BoardRentAndProperty.Services
 {
     public class RequestService : IRequestService
     {
-        private const int NewRequestId = 0;
-        private const int MissingForeignKeyId = 0;
-        private const int MissingOptionalDatePart = 0;
-        private const int AvailabilityWindowMonths = 1;
-        private readonly IRequestRepository requestDataRepository;
-        private readonly IRentalRepository rentalConflictRepository;
-        private readonly INotificationService requestNotificationService;
-        private readonly IGameRepository gameValidationRepository;
-        private readonly IMapper<Request, RequestDTO, int> requestDtoMapper;
-        public RequestService(IRequestRepository requestRepository, IRentalRepository rentalRepository, IGameRepository gameRepository,
-            INotificationService notificationService, IMapper<Request, RequestDTO, int> requestMapper)
+        private readonly HttpClient httpClient;
+
+        public RequestService(HttpClient httpClient)
         {
-            requestDataRepository = requestRepository;
-            rentalConflictRepository = rentalRepository;
-            gameValidationRepository = gameRepository;
-            requestNotificationService = notificationService;
-            requestDtoMapper = requestMapper;
+            this.httpClient = httpClient;
         }
+
         public ImmutableList<RequestDTO> GetRequestsForRenter(Guid renterAccountId) =>
-            requestDataRepository.GetRequestsByRenter(renterAccountId).Select(r => requestDtoMapper.ToDTO(r)).ToImmutableList();
+            FetchList($"api/requests/renter/{renterAccountId}");
+
         public ImmutableList<RequestDTO> GetRequestsForOwner(Guid ownerAccountId) =>
-            requestDataRepository.GetRequestsByOwner(ownerAccountId).Select(r => requestDtoMapper.ToDTO(r)).ToImmutableList();
+            FetchList($"api/requests/owner/{ownerAccountId}");
+
         public ImmutableList<RequestDTO> GetOpenRequestsForOwner(Guid ownerAccountId) =>
-            GetRequestsForOwner(ownerAccountId).Where(r => r.Status == RequestStatus.Open).ToImmutableList();
+            FetchList($"api/requests/owner/{ownerAccountId}/open");
+
         public Result<int, CreateRequestError> CreateRequest(int gameId, Guid renterAccountId, Guid ownerAccountId, DateTime startDate, DateTime endDate)
         {
-            if (!DateRangeValidationHelper.HasValidFutureDateRange(startDate, endDate))
+            var body = new CreateRequestDataTransferObject
             {
-                return Result<int, CreateRequestError>.Failure(CreateRequestError.InvalidDateRange);
-            }
-            Game game;
-            try
+                GameId = gameId,
+                RenterAccountId = renterAccountId,
+                OwnerAccountId = ownerAccountId,
+                StartDate = startDate,
+                EndDate = endDate,
+            };
+
+            var response = this.httpClient.PostAsJsonAsync("api/requests", body).GetAwaiter().GetResult();
+            if (response.IsSuccessStatusCode)
             {
-                game = gameValidationRepository.Get(gameId);
-            }
-            catch (KeyNotFoundException)
-            {
-                return Result<int, CreateRequestError>.Failure(CreateRequestError.GameDoesNotExist);
+                var payload = response.Content.ReadFromJsonAsync<IdEnvelope>().GetAwaiter().GetResult();
+                return Result<int, CreateRequestError>.Success(payload?.Id ?? 0);
             }
 
-            var effectiveOwnerId = game.Owner?.Id ?? ownerAccountId;
-            if (renterAccountId == effectiveOwnerId)
-            {
-                return Result<int, CreateRequestError>.Failure(CreateRequestError.OwnerCannotRent);
-            }
-            if (!CheckAvailability(gameId, startDate, endDate))
-            {
-                return Result<int, CreateRequestError>.Failure(CreateRequestError.DatesUnavailable);
-            }
-
-            var newRequest = new Request(NewRequestId, new Game { Id = gameId }, new Account { Id = renterAccountId }, new Account { Id = effectiveOwnerId }, startDate, endDate);
-            requestDataRepository.Add(newRequest);
-            return Result<int, CreateRequestError>.Success(newRequest.Id);
+            string errorCode = ReadErrorEnvelope(response);
+            return Result<int, CreateRequestError>.Failure(ParseEnum(errorCode, CreateRequestError.InvalidDateRange));
         }
+
         public Result<int, ApproveRequestError> ApproveRequest(int requestId, Guid ownerAccountId)
         {
-            Request req;
-            try
+            var body = new RequestActionDataTransferObject { AccountId = ownerAccountId };
+            var response = this.httpClient.PutAsJsonAsync($"api/requests/{requestId}/approve", body).GetAwaiter().GetResult();
+            if (response.IsSuccessStatusCode)
             {
-                req = requestDataRepository.Get(requestId);
-            }
-            catch (KeyNotFoundException)
-            {
-                return Result<int, ApproveRequestError>.Failure(ApproveRequestError.NotFound);
-            }
-            if (req.Owner?.Id != ownerAccountId)
-            {
-                return Result<int, ApproveRequestError>.Failure(ApproveRequestError.Unauthorized);
+                var payload = response.Content.ReadFromJsonAsync<RentalIdEnvelope>().GetAwaiter().GetResult();
+                return Result<int, ApproveRequestError>.Success(payload?.RentalId ?? 0);
             }
 
-            if (req.Status != RequestStatus.Open)
-            {
-                return Result<int, ApproveRequestError>.Failure(ApproveRequestError.NotFound);
-            }
-            if (!TryApproveOpenRequestAndNotify(req, out var rentalId))
-            {
-                return Result<int, ApproveRequestError>.Failure(ApproveRequestError.TransactionFailed);
-            }
-            return Result<int, ApproveRequestError>.Success(rentalId);
+            return Result<int, ApproveRequestError>.Failure(MapApproveStatus(response.StatusCode));
         }
+
         public Result<int, DenyRequestError> DenyRequest(int requestId, Guid ownerAccountId, string denialReason)
         {
-            Request req;
-            try
+            var body = new RequestActionDataTransferObject { AccountId = ownerAccountId, Reason = denialReason };
+            var response = this.httpClient.PutAsJsonAsync($"api/requests/{requestId}/deny", body).GetAwaiter().GetResult();
+            if (response.IsSuccessStatusCode)
             {
-                req = requestDataRepository.Get(requestId);
-            }
-            catch (KeyNotFoundException)
-            {
-                return Result<int, DenyRequestError>.Failure(DenyRequestError.NotFound);
-            }
-            if (req.Owner?.Id != ownerAccountId)
-            {
-                return Result<int, DenyRequestError>.Failure(DenyRequestError.Unauthorized);
+                return Result<int, DenyRequestError>.Success(requestId);
             }
 
-            var reason = string.IsNullOrWhiteSpace(denialReason?.Trim()) ? Constants.DialogMessages.NoReasonProvided : denialReason.Trim();
-            requestNotificationService.DeleteNotificationsLinkedToRequest(requestId);
-            requestDataRepository.Delete(requestId);
-            var renterId = req.Renter?.Id ?? Guid.Empty;
-            var gameName = req.Game?.Name ?? "the selected game";
-            SendNotificationToAccount(renterId, Constants.NotificationTitles.RentalRequestDeclined,
-                $"Your request for {gameName} {FormatPeriod(req.StartDate, req.EndDate)} was declined. Reason: {reason}");
-            return Result<int, DenyRequestError>.Success(requestId);
+            return Result<int, DenyRequestError>.Failure(MapDenyStatus(response.StatusCode));
         }
+
         public Result<int, CancelRequestError> CancelRequest(int requestId, Guid cancellingAccountId)
         {
-            Request req;
-            try
+            var body = new RequestActionDataTransferObject { AccountId = cancellingAccountId };
+            var response = this.httpClient.PutAsJsonAsync($"api/requests/{requestId}/cancel", body).GetAwaiter().GetResult();
+            if (response.IsSuccessStatusCode)
             {
-                req = requestDataRepository.Get(requestId);
-            }
-            catch (KeyNotFoundException)
-            {
-                return Result<int, CancelRequestError>.Failure(CancelRequestError.NotFound);
-            }
-            if (req.Renter?.Id != cancellingAccountId)
-            {
-                return Result<int, CancelRequestError>.Failure(CancelRequestError.Unauthorized);
-            }
-            requestNotificationService.DeleteNotificationsLinkedToRequest(requestId);
-            try
-            {
-                requestDataRepository.Delete(requestId);
-            }
-            catch (KeyNotFoundException)
-            {
-                return Result<int, CancelRequestError>.Failure(CancelRequestError.NotFound);
-            }
-            return Result<int, CancelRequestError>.Success(requestId);
-        }
-        public void OnGameDeactivated(int deactivatedGameId)
-        {
-            var pending = requestDataRepository.GetRequestsByGame(deactivatedGameId)
-                .Where(r => r.Status == RequestStatus.Open || r.Status == RequestStatus.OfferPending).ToImmutableList();
-            foreach (var r in pending)
-            {
-                requestNotificationService.DeleteNotificationsLinkedToRequest(r.Id);
-                requestDataRepository.Delete(r.Id);
-                var renterId = r.Renter?.Id ?? Guid.Empty;
-                var gameName = r.Game?.Name ?? "the selected game";
-                SendNotificationToAccount(renterId, Constants.NotificationTitles.RentalRequestCancelled,
-                    $"Your request for {gameName} {FormatPeriod(r.StartDate, r.EndDate)} has been cancelled because the game is no longer available.");
-            }
-        }
-        public ImmutableList<(DateTime StartDate, DateTime EndDate)> GetBookedDates(int gameId, int month = MissingOptionalDatePart, int year = MissingOptionalDatePart)
-        {
-            if (month == MissingOptionalDatePart)
-            {
-                month = DateTime.UtcNow.Month;
-            }
-            if (year == MissingOptionalDatePart)
-            {
-                year = DateTime.UtcNow.Year;
-            }
-            return requestDataRepository.GetRequestsByGame(gameId)
-                .Where(r => r.StartDate.Month == month && r.StartDate.Year == year)
-                .OrderBy(r => r.StartDate)
-                .Select(r => (r.StartDate, r.EndDate.AddHours(DomainConstants.RentalBufferHours)))
-                .ToImmutableList();
-        }
-        public bool CheckAvailability(int gameId, DateTime startDate, DateTime endDate)
-        {
-            if (startDate > DateTime.UtcNow.AddMonths(AvailabilityWindowMonths) || endDate > DateTime.UtcNow.AddMonths(AvailabilityWindowMonths))
-            {
-                return false;
-            }
-            Game game;
-            try
-            {
-                game = gameValidationRepository.Get(gameId);
-            }
-            catch (KeyNotFoundException)
-            {
-                return false;
+                return Result<int, CancelRequestError>.Success(requestId);
             }
 
-            if (!game.IsActive)
-            {
-                return false;
-            }
-
-            bool rentalConflict = rentalConflictRepository.GetRentalsByGame(gameId)
-                .Any(r => startDate < r.EndDate.AddHours(DomainConstants.RentalBufferHours) && endDate > r.StartDate.AddHours(-DomainConstants.RentalBufferHours));
-            if (rentalConflict)
-            {
-                return false;
-            }
-            return !requestDataRepository.GetRequestsByGame(gameId)
-                .Any(r => r.StartDate.AddHours(-DomainConstants.RentalBufferHours) < endDate && r.EndDate.AddHours(DomainConstants.RentalBufferHours) > startDate);
+            return Result<int, CancelRequestError>.Failure(MapCancelStatus(response.StatusCode));
         }
+
         public Result<int, OfferError> OfferGame(int requestId, Guid offeringOwnerAccountId)
         {
-            Request req;
+            var body = new RequestActionDataTransferObject { AccountId = offeringOwnerAccountId };
+            var response = this.httpClient.PutAsJsonAsync($"api/requests/{requestId}/offer", body).GetAwaiter().GetResult();
+            if (response.IsSuccessStatusCode)
+            {
+                var payload = response.Content.ReadFromJsonAsync<RentalIdEnvelope>().GetAwaiter().GetResult();
+                return Result<int, OfferError>.Success(payload?.RentalId ?? 0);
+            }
+
+            return Result<int, OfferError>.Failure(MapOfferStatus(response.StatusCode));
+        }
+
+        public void OnGameDeactivated(int gameId)
+        {
+        }
+
+        public bool CheckAvailability(int gameId, DateTime startDate, DateTime endDate)
+        {
+            var query = $"api/requests/games/{gameId}/availability?startDate={Uri.EscapeDataString(startDate.ToString("o"))}&endDate={Uri.EscapeDataString(endDate.ToString("o"))}";
+            var response = this.httpClient.GetAsync(query).GetAwaiter().GetResult();
+            if (!response.IsSuccessStatusCode)
+            {
+                return false;
+            }
+
+            return response.Content.ReadFromJsonAsync<bool>().GetAwaiter().GetResult();
+        }
+
+        public ImmutableList<(DateTime StartDate, DateTime EndDate)> GetBookedDates(int gameId, int calendarMonth, int calendarYear)
+        {
+            var query = $"api/requests/games/{gameId}/booked-dates?month={calendarMonth}&year={calendarYear}";
+            var response = this.httpClient.GetAsync(query).GetAwaiter().GetResult();
+            if (!response.IsSuccessStatusCode)
+            {
+                return ImmutableList<(DateTime StartDate, DateTime EndDate)>.Empty;
+            }
+
+            var list = response.Content.ReadFromJsonAsync<List<BookedDateRangeDataTransferObject>>().GetAwaiter().GetResult() ?? new List<BookedDateRangeDataTransferObject>();
+            return list.Select(range => (range.StartDate, range.EndDate)).ToImmutableList();
+        }
+
+        private ImmutableList<RequestDTO> FetchList(string requestPath)
+        {
+            var response = this.httpClient.GetAsync(requestPath).GetAwaiter().GetResult();
+            if (!response.IsSuccessStatusCode)
+            {
+                return ImmutableList<RequestDTO>.Empty;
+            }
+
+            var list = response.Content.ReadFromJsonAsync<List<RequestDTO>>().GetAwaiter().GetResult() ?? new List<RequestDTO>();
+            return list.ToImmutableList();
+        }
+
+        private static ApproveRequestError MapApproveStatus(HttpStatusCode statusCode) =>
+            statusCode switch
+            {
+                HttpStatusCode.NotFound => ApproveRequestError.NotFound,
+                HttpStatusCode.Forbidden => ApproveRequestError.Unauthorized,
+                _ => ApproveRequestError.TransactionFailed,
+            };
+
+        private static DenyRequestError MapDenyStatus(HttpStatusCode statusCode) =>
+            statusCode switch
+            {
+                HttpStatusCode.NotFound => DenyRequestError.NotFound,
+                HttpStatusCode.Forbidden => DenyRequestError.Unauthorized,
+                _ => DenyRequestError.NotFound,
+            };
+
+        private static CancelRequestError MapCancelStatus(HttpStatusCode statusCode) =>
+            statusCode switch
+            {
+                HttpStatusCode.NotFound => CancelRequestError.NotFound,
+                HttpStatusCode.Forbidden => CancelRequestError.Unauthorized,
+                _ => CancelRequestError.NotFound,
+            };
+
+        private static OfferError MapOfferStatus(HttpStatusCode statusCode) =>
+            statusCode switch
+            {
+                HttpStatusCode.NotFound => OfferError.NotFound,
+                HttpStatusCode.Forbidden => OfferError.NotOwner,
+                _ => OfferError.TransactionFailed,
+            };
+
+        private static TEnum ParseEnum<TEnum>(string value, TEnum fallback) where TEnum : struct, Enum
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return fallback;
+            }
+
+            return Enum.TryParse<TEnum>(value, out var parsed) ? parsed : fallback;
+        }
+
+        private static string ReadErrorEnvelope(HttpResponseMessage response)
+        {
             try
             {
-                req = requestDataRepository.Get(requestId);
-            }
-            catch (KeyNotFoundException)
-            {
-                return Result<int, OfferError>.Failure(OfferError.NotFound);
-            }
-            if (req.Owner?.Id != offeringOwnerAccountId)
-            {
-                return Result<int, OfferError>.Failure(OfferError.NotOwner);
-            }
-            if (req.Status != RequestStatus.Open)
-            {
-                return Result<int, OfferError>.Failure(OfferError.RequestNotOpen);
-            }
-            if (!TryApproveOpenRequestAndNotify(req, out var rentalId))
-            {
-                return Result<int, OfferError>.Failure(OfferError.TransactionFailed);
-            }
-            return Result<int, OfferError>.Success(rentalId);
-        }
-        private void SendNotificationToAccount(Guid accountId, string title, string body, NotificationType type = default, int? relatedRequestId = null)
-        {
-            if (accountId == Guid.Empty)
-            {
-                return;
-            }
-            requestNotificationService.SendNotificationToUser(accountId, new NotificationDTO
-            {
-                Id = NewRequestId, Recipient = new UserDTO { Id = accountId }, Timestamp = DateTime.UtcNow,
-                Title = title, Body = body, Type = type, RelatedRequestId = relatedRequestId
-            });
-        }
-        private bool TryApproveOpenRequestAndNotify(Request req, out int rentalId)
-        {
-            var buffStart = req.StartDate.AddHours(-DomainConstants.RentalBufferHours);
-            var buffEnd = req.EndDate.AddHours(DomainConstants.RentalBufferHours);
-            var conflicts = requestDataRepository.GetOverlappingRequests(req.Game?.Id ?? MissingForeignKeyId, req.Id, buffStart, buffEnd);
-            try
-            {
-                rentalId = requestDataRepository.ApproveAtomically(req, conflicts);
+                var envelope = response.Content.ReadFromJsonAsync<ErrorEnvelope>().GetAwaiter().GetResult();
+                return envelope?.Error ?? string.Empty;
             }
             catch
             {
-                rentalId = MissingForeignKeyId;
-                return false;
+                return string.Empty;
             }
-            var gameName = req.Game?.Name ?? "the selected game";
-            foreach (var c in conflicts)
-            {
-                var cRenterId = c.Renter?.Id ?? Guid.Empty;
-                SendNotificationToAccount(cRenterId, Constants.NotificationTitles.BookingUnavailable,
-                    $"Your request for {gameName} {FormatPeriod(c.StartDate, c.EndDate)} was declined because the game is no longer available in that period.");
-            }
-            var renterId = req.Renter?.Id ?? Guid.Empty;
-            SendNotificationToAccount(renterId, Constants.NotificationTitles.RentalRequestApproved,
-                $"Your request for {gameName} {FormatPeriod(req.StartDate, req.EndDate)} was approved.");
-            requestNotificationService.ScheduleUpcomingRentalReminder(renterId, req.Owner?.Id ?? Guid.Empty, req.Game?.Name ?? "your game", req.StartDate);
-            return true;
         }
-        private static string FormatPeriod(DateTime start, DateTime end) => $"({start:d}-{end:d})";
+
+        private sealed class ErrorEnvelope
+        {
+            public string? Error { get; set; }
+        }
+
+        private sealed class IdEnvelope
+        {
+            public int Id { get; set; }
+        }
+
+        private sealed class RentalIdEnvelope
+        {
+            public int RentalId { get; set; }
+        }
     }
 }

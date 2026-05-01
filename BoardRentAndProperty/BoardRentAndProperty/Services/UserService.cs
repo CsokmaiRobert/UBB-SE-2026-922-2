@@ -1,28 +1,31 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
-using BoardRentAndProperty.DataTransferObjects;
-using BoardRentAndProperty.Mappers;
-using BoardRentAndProperty.Repositories;
-using BoardRentAndProperty.Models;
+using System.Net.Http;
+using System.Net.Http.Json;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
+
 namespace BoardRentAndProperty.Services
 {
     public class UserService : IUserService
     {
-        private readonly IAccountRepository accountRepository;
-        private readonly IMapper<Account, UserDTO, Guid> accountMapper;
-        public UserService(IAccountRepository accountRepository, IMapper<Account, UserDTO, Guid> accountMapper)
+        private readonly HttpClient httpClient;
+
+        public UserService(HttpClient httpClient)
         {
-            this.accountRepository = accountRepository;
-            this.accountMapper = accountMapper;
+            this.httpClient = httpClient;
         }
+
         public ImmutableList<UserDTO> GetUsersExcept(Guid excludeAccountId)
         {
-            var allAccounts = accountRepository.GetAllAsync(1, int.MaxValue).GetAwaiter().GetResult();
-            return allAccounts
-                .Where(accounts => accounts.Id != excludeAccountId)
-                .Select(accounts => accountMapper.ToDTO(accounts))
-                .ToImmutableList();
+            var response = this.httpClient.GetAsync($"api/users/except/{excludeAccountId}").GetAwaiter().GetResult();
+            if (!response.IsSuccessStatusCode)
+            {
+                return ImmutableList<UserDTO>.Empty;
+            }
+
+            var list = response.Content.ReadFromJsonAsync<List<UserDTO>>().GetAwaiter().GetResult() ?? new List<UserDTO>();
+            return list.ToImmutableList();
         }
     }
 }

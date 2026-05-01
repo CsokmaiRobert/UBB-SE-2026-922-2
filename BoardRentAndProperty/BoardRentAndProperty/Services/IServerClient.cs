@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
-using BoardRentAndProperty.DataTransferObjects;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
 
 namespace BoardRentAndProperty.Services
 {

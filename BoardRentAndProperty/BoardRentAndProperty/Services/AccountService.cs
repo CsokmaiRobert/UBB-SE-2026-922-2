@@ -1,179 +1,145 @@
+using System;
+using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Threading.Tasks;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
+using BoardRentAndProperty.Utilities;
+
 namespace BoardRentAndProperty.Services
 {
-    using System;
-    using System.Collections.Generic;
-    using System.IO;
-    using System.Linq;
-    using System.Threading.Tasks;
-    using BoardRentAndProperty.DataTransferObjects;
-    using BoardRentAndProperty.Mappers;
-    using BoardRentAndProperty.Models;
-    using BoardRentAndProperty.Repositories;
-    using BoardRentAndProperty.Utilities;
-
     public class AccountService : IAccountService
     {
-        private const int MinimumDisplayNameLength = 2;
-        private const int MaximumDisplayNameLength = 50;
-        private const int MaximumStreetNumberLength = 10;
-        private const string AvatarFolderName = "Avatars";
-        private const string ApplicationName = "BoardRent";
-
-        private readonly IAccountRepository accountRepository;
+        private readonly HttpClient httpClient;
         private readonly ISessionContext sessionContext;
-        private readonly AccountProfileMapper accountProfileMapper;
 
-        public AccountService(IAccountRepository accountRepository, ISessionContext sessionContext, AccountProfileMapper accountProfileMapper)
+        public AccountService(HttpClient httpClient, ISessionContext sessionContext)
         {
-            this.accountRepository = accountRepository;
+            this.httpClient = httpClient;
             this.sessionContext = sessionContext;
-            this.accountProfileMapper = accountProfileMapper;
         }
 
         public async Task<ServiceResult<AccountProfileDataTransferObject>> GetProfileAsync(Guid accountId)
         {
-            var accountEntity = await this.accountRepository.GetByIdAsync(accountId);
-            if (accountEntity == null)
+            var response = await this.httpClient.GetAsync($"api/accounts/{accountId}");
+            if (!response.IsSuccessStatusCode)
             {
-                return ServiceResult<AccountProfileDataTransferObject>.Fail("Account not found.");
+                return ServiceResult<AccountProfileDataTransferObject>.Fail(await ReadErrorAsync(response));
             }
 
-            return ServiceResult<AccountProfileDataTransferObject>.Ok(this.accountProfileMapper.ToDataTransferObject(accountEntity));
+            var profile = await response.Content.ReadFromJsonAsync<AccountProfileDataTransferObject>();
+            if (profile == null)
+            {
+                return ServiceResult<AccountProfileDataTransferObject>.Fail("Profile response was empty.");
+            }
+
+            ApiUrlHelper.RebaseAvatarUrl(this.httpClient.BaseAddress!, profile);
+            return ServiceResult<AccountProfileDataTransferObject>.Ok(profile);
         }
 
         public async Task<ServiceResult<bool>> UpdateProfileAsync(Guid accountId, AccountProfileDataTransferObject profileUpdateData)
         {
-            var accountEntity = await this.accountRepository.GetByIdAsync(accountId);
-            if (accountEntity == null)
+            var response = await this.httpClient.PutAsJsonAsync($"api/accounts/{accountId}", profileUpdateData);
+            if (!response.IsSuccessStatusCode)
             {
-                return ServiceResult<bool>.Fail("Account not found.");
+                return ServiceResult<bool>.Fail(await ReadErrorAsync(response));
             }
 
-            var validationErrors = this.ValidateProfileDetails(profileUpdateData);
-
-            if (!string.IsNullOrWhiteSpace(profileUpdateData.Email) && profileUpdateData.Email != accountEntity.Email)
+            if (this.sessionContext.AccountId == accountId)
             {
-                var accountWithDuplicateEmail = await this.accountRepository.GetByEmailAsync(profileUpdateData.Email);
-                if (accountWithDuplicateEmail != null && accountWithDuplicateEmail.Id != accountId)
+                var refreshed = await this.GetProfileAsync(accountId);
+                if (refreshed.Success && refreshed.Data != null)
                 {
-                    validationErrors.Add("Email|This email address is already taken by another account.");
+                    this.sessionContext.Populate(refreshed.Data);
                 }
             }
-
-            if (validationErrors.Any())
-            {
-                return ServiceResult<bool>.Fail(string.Join(";", validationErrors));
-            }
-
-            this.accountProfileMapper.ApplyToEntity(accountEntity, profileUpdateData);
-            await this.accountRepository.UpdateAsync(accountEntity);
-            RefreshSessionContext(accountEntity);
 
             return ServiceResult<bool>.Ok(true);
         }
 
         public async Task<ServiceResult<bool>> ChangePasswordAsync(Guid accountId, string currentPassword, string newPassword)
         {
-            var accountEntity = await this.accountRepository.GetByIdAsync(accountId);
-            if (accountEntity == null)
+            var body = new ChangePasswordDataTransferObject
             {
-                return ServiceResult<bool>.Fail("Account not found.");
+                CurrentPassword = currentPassword,
+                NewPassword = newPassword,
+                ConfirmPassword = newPassword,
+            };
+
+            var response = await this.httpClient.PutAsJsonAsync($"api/accounts/{accountId}/password", body);
+            if (!response.IsSuccessStatusCode)
+            {
+                return ServiceResult<bool>.Fail(await ReadErrorAsync(response));
             }
 
-            if (!PasswordHasher.VerifyPassword(currentPassword, accountEntity.PasswordHash))
-            {
-                return ServiceResult<bool>.Fail("Current password is incorrect.");
-            }
-
-            var (isPasswordValid, passwordErrorMessage) = PasswordValidator.Validate(newPassword);
-            if (!isPasswordValid)
-            {
-                return ServiceResult<bool>.Fail(passwordErrorMessage);
-            }
-
-            accountEntity.PasswordHash = PasswordHasher.HashPassword(newPassword);
-            accountEntity.UpdatedAt = DateTime.UtcNow;
-
-            await this.accountRepository.UpdateAsync(accountEntity);
             this.sessionContext.Clear();
-
             return ServiceResult<bool>.Ok(true);
         }
 
         public async Task<string> UploadAvatarAsync(Guid accountId, string sourceFilePath)
         {
-            var accountEntity = await this.accountRepository.GetByIdAsync(accountId);
-            if (accountEntity == null)
+            using var multipartContent = new MultipartFormDataContent();
+            byte[] fileBytes = await File.ReadAllBytesAsync(sourceFilePath);
+            var byteContent = new ByteArrayContent(fileBytes);
+            byteContent.Headers.ContentType = new MediaTypeHeaderValue(GuessContentType(sourceFilePath));
+            multipartContent.Add(byteContent, "file", Path.GetFileName(sourceFilePath));
+
+            var response = await this.httpClient.PostAsync($"api/accounts/{accountId}/avatar", multipartContent);
+            if (!response.IsSuccessStatusCode)
             {
-                throw new InvalidOperationException("Account not found.");
+                throw new InvalidOperationException(await ReadErrorAsync(response));
             }
 
-            string fileName = $"{accountId}_{Path.GetFileName(sourceFilePath)}";
-            string localApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string saveFolderPath = Path.Combine(localApplicationData, ApplicationName, AvatarFolderName);
-
-            Directory.CreateDirectory(saveFolderPath);
-            string destinationPath = Path.Combine(saveFolderPath, fileName);
-
-            File.Copy(sourceFilePath, destinationPath, true);
-
-            accountEntity.AvatarUrl = destinationPath;
-            accountEntity.UpdatedAt = DateTime.UtcNow;
-
-            await this.accountRepository.UpdateAsync(accountEntity);
-            RefreshSessionContext(accountEntity);
-
-            return destinationPath;
+            var payload = await response.Content.ReadFromJsonAsync<AvatarUploadResponseDataTransferObject>();
+            string relativeUrl = payload?.AvatarUrl ?? string.Empty;
+            return ApiUrlHelper.ToAbsoluteUrl(this.httpClient.BaseAddress!, relativeUrl);
         }
 
         public async Task RemoveAvatarAsync(Guid accountId)
         {
-            var accountEntity = await this.accountRepository.GetByIdAsync(accountId);
-            if (accountEntity == null)
+            var response = await this.httpClient.DeleteAsync($"api/accounts/{accountId}/avatar");
+            if (!response.IsSuccessStatusCode)
             {
-                throw new InvalidOperationException("Account not found.");
+                throw new InvalidOperationException(await ReadErrorAsync(response));
             }
-
-            accountEntity.AvatarUrl = null;
-            accountEntity.UpdatedAt = DateTime.UtcNow;
-
-            await this.accountRepository.UpdateAsync(accountEntity);
-            RefreshSessionContext(accountEntity);
         }
 
-        private List<string> ValidateProfileDetails(AccountProfileDataTransferObject profileData)
+        private static string GuessContentType(string filePath)
         {
-            var errors = new List<string>();
-
-            if (string.IsNullOrWhiteSpace(profileData.DisplayName) ||
-                profileData.DisplayName.Length < MinimumDisplayNameLength ||
-                profileData.DisplayName.Length > MaximumDisplayNameLength)
+            string extension = Path.GetExtension(filePath).ToLowerInvariant();
+            return extension switch
             {
-                errors.Add("DisplayName|Display name must be between 2 and 50 characters long.");
-            }
+                ".png" => "image/png",
+                ".jpg" => "image/jpeg",
+                ".jpeg" => "image/jpeg",
+                ".gif" => "image/gif",
+                ".bmp" => "image/bmp",
+                ".webp" => "image/webp",
+                _ => "application/octet-stream",
+            };
+        }
 
-            if (!string.IsNullOrWhiteSpace(profileData.PhoneNumber))
+        private static async Task<string> ReadErrorAsync(HttpResponseMessage response)
+        {
+            try
             {
-                if (!System.Text.RegularExpressions.Regex.IsMatch(profileData.PhoneNumber, @"^\+?\d{7,15}$"))
+                var errorEnvelope = await response.Content.ReadFromJsonAsync<ErrorEnvelope>();
+                if (!string.IsNullOrEmpty(errorEnvelope?.Error))
                 {
-                    errors.Add("PhoneNumber|Phone number format is invalid.");
+                    return errorEnvelope!.Error!;
                 }
             }
-
-            if (!string.IsNullOrWhiteSpace(profileData.StreetNumber) && profileData.StreetNumber.Length > MaximumStreetNumberLength)
+            catch
             {
-                errors.Add("StreetNumber|Street number must be a valid value.");
             }
 
-            return errors;
+            return $"Server returned status {(int)response.StatusCode}.";
         }
 
-        private void RefreshSessionContext(Account accountEntity)
+        private sealed class ErrorEnvelope
         {
-            if (this.sessionContext.AccountId == accountEntity.Id && this.sessionContext.IsLoggedIn)
-            {
-                this.sessionContext.Populate(accountEntity, this.sessionContext.Role);
-            }
+            public string? Error { get; set; }
         }
     }
 }

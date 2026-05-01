@@ -4,11 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using BoardRentAndProperty.Data;
-using BoardRentAndProperty.DataTransferObjects;
-using BoardRentAndProperty.Mappers;
-using BoardRentAndProperty.Models;
-using BoardRentAndProperty.Repositories;
+using System.Configuration;
+using System.Net.Http;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Services.Listeners;
 using BoardRentAndProperty.Utilities;
@@ -16,7 +14,6 @@ using BoardRentAndProperty.ViewModels;
 using BoardRentAndProperty.Views;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using H.NotifyIcon;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -58,9 +55,7 @@ namespace BoardRentAndProperty
 
         private Window? mainWindow;
         private readonly bool shouldLaunchSecondClient;
-        private INotificationRepository? notificationRepository;
         private INotificationService? notificationService;
-        private IGameRepository? gameRepository;
         private IGameService? gameService;
         private readonly NotificationManager notificationManager;
 
@@ -82,11 +77,6 @@ namespace BoardRentAndProperty
 
             ConfigureServices();
 
-            using (var databaseContext = Services.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext())
-            {
-                databaseContext.Database.Migrate();
-            }
-
             InitializeServices();
 
             InitializeComponent();
@@ -96,32 +86,29 @@ namespace BoardRentAndProperty
         {
             var serviceCollection = new ServiceCollection();
 
-            // mappers
-            serviceCollection.AddSingleton<IMapper<Account, UserDTO, Guid>, UserMapper>();
-            serviceCollection.AddSingleton<IMapper<Game, GameDTO, int>, GameMapper>();
-            serviceCollection.AddSingleton<IMapper<Notification, NotificationDTO, int>, NotificationMapper>();
-            serviceCollection.AddSingleton<IMapper<Rental, RentalDTO, int>, RentalMapper>();
-            serviceCollection.AddSingleton<IMapper<Request, RequestDTO, int>, RequestMapper>();
+            string apiBaseUrl = ConfigurationManager.AppSettings["ApiBaseUrl"]
+                ?? "http://localhost:5114";
+            var apiBaseAddress = new Uri(apiBaseUrl, UriKind.Absolute);
 
-            // PaM cross-cutting
+            serviceCollection.AddHttpClient(string.Empty, client => client.BaseAddress = apiBaseAddress);
+            serviceCollection.AddTransient(serviceProvider =>
+                serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient());
+
+            serviceCollection.AddSingleton<ISessionContext, SessionContext>();
             serviceCollection.AddSingleton<ICurrentUserContext, CurrentUserContext>();
             serviceCollection.AddSingleton<IToastNotificationService, ToastNotificationService>();
             serviceCollection.AddSingleton<IServerClient, NotificationClient>();
+            serviceCollection.AddSingleton<IFilePickerService, FilePickerService>();
 
-            // repositories
-            serviceCollection.AddSingleton<IGameRepository, GameRepository>();
-            serviceCollection.AddSingleton<IRequestRepository, RequestRepository>();
-            serviceCollection.AddSingleton<IRentalRepository, RentalRepository>();
-            serviceCollection.AddSingleton<INotificationRepository, NotificationRepository>();
-
-            // PaM services
             serviceCollection.AddSingleton<IUserService, UserService>();
             serviceCollection.AddSingleton<IGameService, GameService>();
             serviceCollection.AddSingleton<IRentalService, RentalService>();
             serviceCollection.AddSingleton<INotificationService, NotificationService>();
             serviceCollection.AddSingleton<IRequestService, RequestService>();
+            serviceCollection.AddSingleton<IAuthService, AuthService>();
+            serviceCollection.AddSingleton<IAccountService, AccountService>();
+            serviceCollection.AddSingleton<IAdminService, AdminService>();
 
-            // PaM view models
             serviceCollection.AddSingleton<NotificationsViewModel>();
             serviceCollection.AddSingleton<MenuBarViewModel>();
             serviceCollection.AddTransient(serviceProvider => new ListingsViewModel(
@@ -135,26 +122,6 @@ namespace BoardRentAndProperty
             serviceCollection.AddTransient<RequestsToOthersViewModel>();
             serviceCollection.AddTransient<RentalsFromOthersViewModel>();
             serviceCollection.AddTransient<RentalsToOthersViewModel>();
-
-            // data layer
-            serviceCollection.AddDbContextFactory<AppDbContext>(options =>
-                options.UseSqlServer(AppDbContext.GetConnectionString()));
-
-            // account domain repositories
-            serviceCollection.AddSingleton<IAccountRepository, AccountRepository>();
-            serviceCollection.AddSingleton<IFailedLoginRepository, FailedLoginRepository>();
-
-            // BoardRent services
-            serviceCollection.AddSingleton<IAuthService, AuthService>();
-            serviceCollection.AddSingleton<IAccountService, AccountService>();
-            serviceCollection.AddSingleton<IAdminService, AdminService>();
-            serviceCollection.AddSingleton<IFilePickerService, FilePickerService>();
-            serviceCollection.AddSingleton<ISessionContext, SessionContext>();
-
-            // BoardRent mappers (uniformity rule)
-            serviceCollection.AddSingleton<AccountProfileMapper>();
-
-            // BoardRent view models
             serviceCollection.AddTransient<LoginViewModel>();
             serviceCollection.AddTransient<RegisterViewModel>();
             serviceCollection.AddTransient<ProfileViewModel>();
@@ -427,17 +394,10 @@ namespace BoardRentAndProperty
         {
             RootFrame = new Frame();
 
-            notificationRepository = Services.GetRequiredService<INotificationRepository>();
             notificationService = Services.GetRequiredService<INotificationService>();
-            gameRepository = Services.GetRequiredService<IGameRepository>();
             gameService = Services.GetRequiredService<IGameService>();
             NotificationsViewModel = Services.GetRequiredService<NotificationsViewModel>();
 
-            _ = notificationRepository;
-            _ = gameRepository;
-
-            // Listen continuously from app start; subscribing to a specific user is
-            // deferred to OnUserLoggedIn so the server gets the right AccountId.
             notificationService.StartListening();
         }
 

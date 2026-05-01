@@ -1,7 +1,8 @@
 namespace BoardRentAndProperty.Utilities
 {
     using System;
-    using BoardRentAndProperty.Models;
+    using BoardRentAndProperty.Contracts.DataTransferObjects;
+
     public interface ISessionContext
     {
         Guid AccountId { get; }
@@ -15,7 +16,7 @@ namespace BoardRentAndProperty.Utilities
         string StreetNumber { get; }
         string Role { get; }
         bool IsLoggedIn { get; }
-        void Populate(Account account, string roleName);
+        void Populate(AccountProfileDataTransferObject profile);
         void Clear();
     }
 }
