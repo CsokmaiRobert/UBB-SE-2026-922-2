@@ -58,14 +58,22 @@ namespace BoardRentAndProperty.Services
 
         public ImmutableList<NotificationDTO> GetNotificationsForUser(Guid accountId)
         {
-            var response = this.httpClient.GetAsync($"api/notifications/user/{accountId}").GetAwaiter().GetResult();
-            if (!response.IsSuccessStatusCode)
+            try
             {
+                var response = this.httpClient.GetAsync($"api/notifications/user/{accountId}").GetAwaiter().GetResult();
+                if (!response.IsSuccessStatusCode)
+                {
+                    return ImmutableList<NotificationDTO>.Empty;
+                }
+
+                var list = response.Content.ReadFromJsonAsync<List<NotificationDTO>>().GetAwaiter().GetResult() ?? new List<NotificationDTO>();
+                return list.ToImmutableList();
+            }
+            catch (HttpRequestException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to get notifications for user {accountId}: {ex.Message}");
                 return ImmutableList<NotificationDTO>.Empty;
             }
-
-            var list = response.Content.ReadFromJsonAsync<List<NotificationDTO>>().GetAwaiter().GetResult() ?? new List<NotificationDTO>();
-            return list.ToImmutableList();
         }
 
         public void SendNotificationToUser(Guid recipientAccountId, NotificationDTO notificationToSend)
@@ -92,6 +100,8 @@ namespace BoardRentAndProperty.Services
             if (this.currentUserContext.CurrentUserId == recipientAccountId)
             {
                 NotifyAllSubscribers(payload);
+                this.toastAlertService.Show(notificationToSend.Title, notificationToSend.Body);
+                return;
             }
 
             this.serverNotificationClient.SendNotification(ToServerInt(recipientAccountId), notificationToSend.Title, notificationToSend.Body);
@@ -99,6 +109,8 @@ namespace BoardRentAndProperty.Services
 
         public void DeleteNotificationsLinkedToRequest(int linkedRequestId)
         {
+            var response = this.httpClient.DeleteAsync($"api/notifications/request/{linkedRequestId}").GetAwaiter().GetResult();
+            response.EnsureSuccessStatusCode();
         }
 
         public void StartListening() =>
@@ -108,9 +120,13 @@ namespace BoardRentAndProperty.Services
                 {
                     await this.serverNotificationClient.ListenAsync();
                 }
-                catch (Exception ex)
+                catch (System.Net.Sockets.SocketException ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"NotificationService: listen loop terminated - {ex}");
+                    System.Diagnostics.Debug.WriteLine($"NotificationService: listen loop terminated due to socket exception - {ex}");
+                }
+                catch (InvalidOperationException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"NotificationService: listen loop terminated due to invalid operation - {ex}");
                 }
             });
 

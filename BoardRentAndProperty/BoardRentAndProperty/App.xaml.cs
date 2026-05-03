@@ -376,8 +376,8 @@ namespace BoardRentAndProperty
                 {
                     mainWindow?.Activate();
 
-                    if (args.Arguments.ContainsKey(NotificationNavigationArgumentKey)
-                        && args.Arguments[NotificationNavigationArgumentKey] == nameof(NotificationsPage))
+                    if (args.ContainsKey(NotificationNavigationArgumentKey)
+                        && args[NotificationNavigationArgumentKey] == nameof(NotificationsPage))
                     {
                         ActivateWindow();
                         NavigateToNotificationsWithinShell();

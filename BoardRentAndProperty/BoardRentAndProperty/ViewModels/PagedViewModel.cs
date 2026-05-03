@@ -9,7 +9,7 @@ namespace BoardRentAndProperty.ViewModels
 {
     public abstract class PagedViewModel<T> : INotifyPropertyChanged
     {
-        protected const int DefaultPageSize = 3;
+        protected const int DefaultPageSize = 10;
         protected const int FirstPageNumber = 1;
         protected const int PageStep = 1;
         private const int NoItemsCount = 0;
