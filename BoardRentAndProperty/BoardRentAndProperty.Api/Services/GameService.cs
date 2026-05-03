@@ -69,7 +69,7 @@ namespace BoardRentAndProperty.Api.Services
         {
             var gameRentals = this.gameRentalRepository.GetRentalsByGame(gameId);
             var now = DateTime.Now;
-            var activeCount = gameRentals.Count(r => r.EndDate >= now);
+            var activeCount = gameRentals.Count(rental => rental.EndDate >= now);
             if (activeCount > NoActiveOrUpcomingRentals)
             {
                 var word = activeCount == SingularRentalCount ? "rental" : "rentals";

@@ -1,16 +1,14 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-#pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
+#pragma warning disable CA1814
 
 namespace BoardRentAndProperty.Api.Migrations
 {
-    /// <inheritdoc />
     public partial class InitialCreate : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
@@ -34,7 +32,7 @@ namespace BoardRentAndProperty.Api.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Account", x => x.Id);
+                    table.PrimaryKey("PK_Account", entity => entity.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -46,7 +44,7 @@ namespace BoardRentAndProperty.Api.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Role", x => x.Id);
+                    table.PrimaryKey("PK_Role", entity => entity.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -59,10 +57,10 @@ namespace BoardRentAndProperty.Api.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_FailedLoginAttempt", x => x.AccountId);
+                    table.PrimaryKey("PK_FailedLoginAttempt", entity => entity.AccountId);
                     table.ForeignKey(
                         name: "FK_FailedLoginAttempt_Account_AccountId",
-                        column: x => x.AccountId,
+                        column: entity => entity.AccountId,
                         principalTable: "Account",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -85,10 +83,10 @@ namespace BoardRentAndProperty.Api.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Games", x => x.Id);
+                    table.PrimaryKey("PK_Games", entity => entity.Id);
                     table.ForeignKey(
                         name: "FK_Games_Account_OwnerId",
-                        column: x => x.OwnerId,
+                        column: entity => entity.OwnerId,
                         principalTable: "Account",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
@@ -103,16 +101,16 @@ namespace BoardRentAndProperty.Api.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AccountRoles", x => new { x.AccountId, x.RoleId });
+                    table.PrimaryKey("PK_AccountRoles", entity => new { entity.AccountId, entity.RoleId });
                     table.ForeignKey(
                         name: "FK_AccountRoles_Account_AccountId",
-                        column: x => x.AccountId,
+                        column: entity => entity.AccountId,
                         principalTable: "Account",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_AccountRoles_Role_RoleId",
-                        column: x => x.RoleId,
+                        column: entity => entity.RoleId,
                         principalTable: "Role",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -132,22 +130,22 @@ namespace BoardRentAndProperty.Api.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Rentals", x => x.Id);
+                    table.PrimaryKey("PK_Rentals", entity => entity.Id);
                     table.ForeignKey(
                         name: "FK_Rentals_Account_OwnerId",
-                        column: x => x.OwnerId,
+                        column: entity => entity.OwnerId,
                         principalTable: "Account",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Rentals_Account_RenterId",
-                        column: x => x.RenterId,
+                        column: entity => entity.RenterId,
                         principalTable: "Account",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Rentals_Games_GameId",
-                        column: x => x.GameId,
+                        column: entity => entity.GameId,
                         principalTable: "Games",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
@@ -169,28 +167,28 @@ namespace BoardRentAndProperty.Api.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Requests", x => x.Id);
+                    table.PrimaryKey("PK_Requests", entity => entity.Id);
                     table.ForeignKey(
                         name: "FK_Requests_Account_OfferingUserId",
-                        column: x => x.OfferingUserId,
+                        column: entity => entity.OfferingUserId,
                         principalTable: "Account",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_Requests_Account_OwnerId",
-                        column: x => x.OwnerId,
+                        column: entity => entity.OwnerId,
                         principalTable: "Account",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Requests_Account_RenterId",
-                        column: x => x.RenterId,
+                        column: entity => entity.RenterId,
                         principalTable: "Account",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Requests_Games_GameId",
-                        column: x => x.GameId,
+                        column: entity => entity.GameId,
                         principalTable: "Games",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
@@ -211,16 +209,16 @@ namespace BoardRentAndProperty.Api.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Notifications", x => x.Id);
+                    table.PrimaryKey("PK_Notifications", entity => entity.Id);
                     table.ForeignKey(
                         name: "FK_Notifications_Account_RecipientId",
-                        column: x => x.RecipientId,
+                        column: entity => entity.RecipientId,
                         principalTable: "Account",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Notifications_Requests_RelatedRequestId",
-                        column: x => x.RelatedRequestId,
+                        column: entity => entity.RelatedRequestId,
                         principalTable: "Requests",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.SetNull);
@@ -329,7 +327,6 @@ namespace BoardRentAndProperty.Api.Migrations
                 unique: true);
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(

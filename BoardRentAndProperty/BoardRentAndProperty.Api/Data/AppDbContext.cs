@@ -13,8 +13,6 @@ namespace BoardRentAndProperty.Api.Data
         private static readonly Guid DariusAccountId = new Guid("00000000-0000-0000-0000-000000000011");
         private static readonly Guid MihaiAccountId = new Guid("00000000-0000-0000-0000-000000000012");
 
-        // Seeded data in HasData must be fully deterministic, otherwise EF thinks
-        // the model changed every time the app starts.
         private const string SeedDevPasswordHash = "uDsZUEmrma0uYI3Jszc4zA==:VX158vwbXUFhq/hkFoNOvOYZJgS5od0LYCbwn1dYF+8=";
 
         public DbSet<Account> Accounts { get; set; } = default!;

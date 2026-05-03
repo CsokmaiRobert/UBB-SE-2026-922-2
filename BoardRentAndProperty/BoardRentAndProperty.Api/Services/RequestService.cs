@@ -38,13 +38,13 @@ namespace BoardRentAndProperty.Api.Services
         }
 
         public ImmutableList<RequestDTO> GetRequestsForRenter(Guid renterAccountId) =>
-            this.requestDataRepository.GetRequestsByRenter(renterAccountId).Select(r => this.requestDtoMapper.ToDTO(r)!).ToImmutableList();
+            this.requestDataRepository.GetRequestsByRenter(renterAccountId).Select(request => this.requestDtoMapper.ToDTO(request)!).ToImmutableList();
 
         public ImmutableList<RequestDTO> GetRequestsForOwner(Guid ownerAccountId) =>
-            this.requestDataRepository.GetRequestsByOwner(ownerAccountId).Select(r => this.requestDtoMapper.ToDTO(r)!).ToImmutableList();
+            this.requestDataRepository.GetRequestsByOwner(ownerAccountId).Select(request => this.requestDtoMapper.ToDTO(request)!).ToImmutableList();
 
         public ImmutableList<RequestDTO> GetOpenRequestsForOwner(Guid ownerAccountId) =>
-            GetRequestsForOwner(ownerAccountId).Where(r => r.Status == RequestStatus.Open).ToImmutableList();
+            GetRequestsForOwner(ownerAccountId).Where(request => request.Status == RequestStatus.Open).ToImmutableList();
 
         public Result<int, CreateRequestError> CreateRequest(int gameId, Guid renterAccountId, Guid ownerAccountId, DateTime startDate, DateTime endDate)
         {
@@ -171,17 +171,17 @@ namespace BoardRentAndProperty.Api.Services
         public void OnGameDeactivated(int deactivatedGameId)
         {
             var pending = this.requestDataRepository.GetRequestsByGame(deactivatedGameId)
-                .Where(r => r.Status == RequestStatus.Open || r.Status == RequestStatus.OfferPending).ToImmutableList();
+                .Where(request => request.Status == RequestStatus.Open || request.Status == RequestStatus.OfferPending).ToImmutableList();
 
-            foreach (var r in pending)
+            foreach (var pendingRequest in pending)
             {
-                this.requestNotificationService.DeleteNotificationsLinkedToRequest(r.Id);
-                this.requestDataRepository.Delete(r.Id);
+                this.requestNotificationService.DeleteNotificationsLinkedToRequest(pendingRequest.Id);
+                this.requestDataRepository.Delete(pendingRequest.Id);
 
-                var renterId = r.Renter?.Id ?? Guid.Empty;
-                var gameName = r.Game?.Name ?? "the selected game";
+                var renterId = pendingRequest.Renter?.Id ?? Guid.Empty;
+                var gameName = pendingRequest.Game?.Name ?? "the selected game";
                 SendNotificationToAccount(renterId, NotificationTitles.RentalRequestCancelled,
-                    $"Your request for {gameName} {FormatPeriod(r.StartDate, r.EndDate)} has been cancelled because the game is no longer available.");
+                    $"Your request for {gameName} {FormatPeriod(pendingRequest.StartDate, pendingRequest.EndDate)} has been cancelled because the game is no longer available.");
             }
         }
 
@@ -198,12 +198,12 @@ namespace BoardRentAndProperty.Api.Services
             }
 
             return this.requestDataRepository.GetRequestsByGame(gameId)
-                .Where(r => r.StartDate.Month == month && r.StartDate.Year == year)
-                .OrderBy(r => r.StartDate)
-                .Select(r => new BookedDateRange
+                .Where(request => request.StartDate.Month == month && request.StartDate.Year == year)
+                .OrderBy(request => request.StartDate)
+                .Select(request => new BookedDateRange
                 {
-                    StartDate = r.StartDate,
-                    EndDate = r.EndDate.AddHours(DomainConstants.RentalBufferHours),
+                    StartDate = request.StartDate,
+                    EndDate = request.EndDate.AddHours(DomainConstants.RentalBufferHours),
                 })
                 .ToImmutableList();
         }
@@ -231,14 +231,14 @@ namespace BoardRentAndProperty.Api.Services
             }
 
             bool rentalConflict = this.rentalConflictRepository.GetRentalsByGame(gameId)
-                .Any(r => startDate < r.EndDate.AddHours(DomainConstants.RentalBufferHours) && endDate > r.StartDate.AddHours(-DomainConstants.RentalBufferHours));
+                .Any(rental => startDate < rental.EndDate.AddHours(DomainConstants.RentalBufferHours) && endDate > rental.StartDate.AddHours(-DomainConstants.RentalBufferHours));
             if (rentalConflict)
             {
                 return false;
             }
 
             return !this.requestDataRepository.GetRequestsByGame(gameId)
-                .Any(r => r.StartDate.AddHours(-DomainConstants.RentalBufferHours) < endDate && r.EndDate.AddHours(DomainConstants.RentalBufferHours) > startDate);
+                .Any(request => request.StartDate.AddHours(-DomainConstants.RentalBufferHours) < endDate && request.EndDate.AddHours(DomainConstants.RentalBufferHours) > startDate);
         }
 
         public Result<int, OfferError> OfferGame(int requestId, Guid offeringOwnerAccountId)

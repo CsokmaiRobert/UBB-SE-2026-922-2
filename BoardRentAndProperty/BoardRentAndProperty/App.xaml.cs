@@ -130,7 +130,6 @@ namespace BoardRentAndProperty
             Ioc.Default.ConfigureServices(Services);
         }
 
-        // Static helpers used by BoardRent view models that call App.NavigateTo / App.NavigateBack.
         public static void NavigateTo(Type pageType, object? parameter = null, bool clearBackStack = false)
         {
             if (Application.Current is not App appInstance)
@@ -174,8 +173,6 @@ namespace BoardRentAndProperty
 
             return DefaultProcessSlot;
         }
-
-        #region Two-window dev mode
 
         private static string? FindRepoRoot()
         {
@@ -285,15 +282,12 @@ namespace BoardRentAndProperty
             }
             catch (UnauthorizedAccessException)
             {
-                // insufficient permissions to start process - ignore in dev helper
             }
             catch (System.ComponentModel.Win32Exception)
             {
-                // file not found or process couldn't be started - ignore in dev helper
             }
             catch (IOException)
             {
-                // I/O error while attempting to find files - ignore in dev helper
             }
         }
 
@@ -317,11 +311,9 @@ namespace BoardRentAndProperty
             }
             catch (UnauthorizedAccessException)
             {
-                // insufficient permissions to start process - ignore in dev helper
             }
             catch (System.ComponentModel.Win32Exception)
             {
-                // process couldn't be started - ignore in dev helper
             }
         }
 
@@ -350,15 +342,11 @@ namespace BoardRentAndProperty
             }
             catch (InvalidOperationException)
             {
-                // process already exited - ignore
             }
             catch (System.ComponentModel.Win32Exception)
             {
-                // insufficient permissions or process couldn't be terminated - ignore
             }
         }
-
-        #endregion
 
         private void SetupNotificationManager()
         {
