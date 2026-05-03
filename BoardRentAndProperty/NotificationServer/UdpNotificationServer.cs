@@ -89,9 +89,17 @@ namespace NotificationServer
                         throw new InvalidDataException(receivedMessageWrapper.Type);
                 }
             }
-            catch (Exception caughtServerException)
+            catch (InvalidDataException caughtServerException)
             {
-                Console.WriteLine($"Received exception while handling message: {caughtServerException.Message}");
+                Console.WriteLine($"Received invalid data while handling message: {caughtServerException.Message}");
+            }
+            catch (InvalidCastException caughtServerException)
+            {
+                Console.WriteLine($"Message deserialization failed: {caughtServerException.Message}");
+            }
+            catch (IOException caughtServerException)
+            {
+                Console.WriteLine($"I/O error while handling message: {caughtServerException.Message}");
             }
         }
 
@@ -102,9 +110,24 @@ namespace NotificationServer
                 notificationServerUdpClient = new UdpClient(udpListenPortNumber);
                 Console.WriteLine($"UDP server listening on port {udpListenPortNumber}");
             }
-            catch (Exception caughtServerException)
+            catch (SocketException sockEx)
             {
-                Console.WriteLine($"ERROR: {caughtServerException.Message}");
+                Console.WriteLine($"ERROR: {sockEx.Message}");
+                Environment.Exit((int)ServerErrors.FailedToInitializeServer);
+            }
+            catch (ArgumentOutOfRangeException argEx)
+            {
+                Console.WriteLine($"ERROR: {argEx.Message}");
+                Environment.Exit((int)ServerErrors.FailedToInitializeServer);
+            }
+            catch (System.Security.SecurityException secEx)
+            {
+                Console.WriteLine($"ERROR: {secEx.Message}");
+                Environment.Exit((int)ServerErrors.FailedToInitializeServer);
+            }
+            catch (IOException ioEx)
+            {
+                Console.WriteLine($"ERROR: {ioEx.Message}");
                 Environment.Exit((int)ServerErrors.FailedToInitializeServer);
             }
 
@@ -134,6 +157,14 @@ namespace NotificationServer
             catch (ObjectDisposedException)
             {
                 Console.WriteLine("UDP server socket closed");
+            }
+            catch (SocketException sockEx)
+            {
+                Console.WriteLine($"Socket error in UDP listener: {sockEx.Message}");
+            }
+            catch (IOException ioEx)
+            {
+                Console.WriteLine($"I/O error in UDP listener: {ioEx.Message}");
             }
             finally
             {

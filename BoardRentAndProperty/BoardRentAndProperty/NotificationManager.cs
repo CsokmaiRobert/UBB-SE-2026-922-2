@@ -1,54 +1,38 @@
 using System;
-using Microsoft.Windows.AppNotifications;
+using System.Collections.Generic;
+using Microsoft.Toolkit.Uwp.Notifications;
 
 namespace BoardRentAndProperty
 {
     internal class NotificationManager
     {
-        public event EventHandler<AppNotificationActivatedEventArgs>? NotificationClicked;
-
-        private bool isRegistered;
-
-        public NotificationManager()
-        {
-            isRegistered = false;
-        }
+        public event EventHandler<IDictionary<string, string>>? NotificationClicked;
 
         public void Init()
         {
-            AppNotificationManager appNotificationManagerInstance = AppNotificationManager.Default;
-
-            appNotificationManagerInstance.NotificationInvoked += OnNotificationInvoked;
-
-            try
-            {
-                appNotificationManagerInstance.Register();
-                isRegistered = true;
-            }
-            catch (Exception registrationException)
-            {
-                System.Diagnostics.Debug.WriteLine($"Toast manager failed to register: {registrationException.Message}");
-            }
+            ToastNotificationManagerCompat.OnActivated += OnToastActivated;
         }
 
         public void Unregister()
         {
-            if (isRegistered)
+            ToastNotificationManagerCompat.OnActivated -= OnToastActivated;
+        }
+
+        private void OnToastActivated(ToastNotificationActivatedEventArgsCompat args)
+        {
+            var toastArgs = ToastArguments.Parse(args.Argument);
+            var arguments = new Dictionary<string, string>();
+            foreach (var arg in toastArgs)
             {
-                AppNotificationManager.Default.NotificationInvoked -= OnNotificationInvoked;
-                AppNotificationManager.Default.Unregister();
-                isRegistered = false;
+                arguments[arg.Key] = arg.Value ?? string.Empty;
             }
+
+            NotificationClicked?.Invoke(this, arguments);
         }
 
-        private void OnNotificationInvoked(AppNotificationManager notificationManagerSender, AppNotificationActivatedEventArgs notificationActivationArgs)
+        public void ProcessLaunchActivationArgs(IDictionary<string, string> arguments)
         {
-            NotificationClicked?.Invoke(this, notificationActivationArgs);
-        }
-
-        public void ProcessLaunchActivationArgs(AppNotificationActivatedEventArgs notificationActivationArgs)
-        {
-            NotificationClicked?.Invoke(this, notificationActivationArgs);
+            NotificationClicked?.Invoke(this, arguments);
         }
     }
 }

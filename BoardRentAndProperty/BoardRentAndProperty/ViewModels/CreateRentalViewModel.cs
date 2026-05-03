@@ -133,7 +133,11 @@ namespace BoardRentAndProperty.ViewModels
                     Constants.DialogTitles.ValidationError,
                     Constants.DialogMessages.CreateRentalValidationError);
             }
-            catch (Exception rentalCreationException)
+            catch (InvalidOperationException rentalCreationException)
+            {
+                return ViewOperationResult.Failure(Constants.DialogTitles.RentalFailed, rentalCreationException.Message);
+            }
+            catch (System.Net.Http.HttpRequestException rentalCreationException)
             {
                 return ViewOperationResult.Failure(Constants.DialogTitles.RentalFailed, rentalCreationException.Message);
             }

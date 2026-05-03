@@ -61,7 +61,26 @@ namespace BoardRentAndProperty.Api.Repositories
         public async Task UpdateAsync(Account account)
         {
             using var dbContext = this.dbContextFactory.CreateDbContext();
-            dbContext.Accounts.Update(account);
+            var existing = await dbContext.Accounts.FindAsync(account.Id);
+            if (existing == null)
+            {
+                return;
+            }
+
+            existing.DisplayName = account.DisplayName;
+            existing.Username = account.Username;
+            existing.Email = account.Email;
+            existing.PasswordHash = account.PasswordHash;
+            existing.PhoneNumber = account.PhoneNumber;
+            existing.AvatarUrl = account.AvatarUrl;
+            existing.IsSuspended = account.IsSuspended;
+            existing.CreatedAt = account.CreatedAt;
+            existing.UpdatedAt = account.UpdatedAt;
+            existing.Country = account.Country;
+            existing.City = account.City;
+            existing.StreetName = account.StreetName;
+            existing.StreetNumber = account.StreetNumber;
+
             await dbContext.SaveChangesAsync();
         }
 

@@ -240,8 +240,17 @@ namespace BoardRentAndProperty
                     }
                 }
             }
-            catch
+            catch (IOException)
             {
+                return false;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false;
+            }
+            catch (System.Security.SecurityException)
+            {
+                return false;
             }
             return false;
         }
@@ -275,8 +284,17 @@ namespace BoardRentAndProperty
                     WindowStyle = ProcessWindowStyle.Minimized,
                 });
             }
-            catch
+            catch (UnauthorizedAccessException)
             {
+                // insufficient permissions to start process - ignore in dev helper
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                // file not found or process couldn't be started - ignore in dev helper
+            }
+            catch (IOException)
+            {
+                // I/O error while attempting to find files - ignore in dev helper
             }
         }
 
@@ -298,8 +316,13 @@ namespace BoardRentAndProperty
                     WorkingDirectory = Path.GetDirectoryName(currentExe),
                 });
             }
-            catch
+            catch (UnauthorizedAccessException)
             {
+                // insufficient permissions to start process - ignore in dev helper
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                // process couldn't be started - ignore in dev helper
             }
         }
 
@@ -312,9 +335,12 @@ namespace BoardRentAndProperty
                     secondClientProcess.Kill(entireProcessTree: true);
                 }
             }
-            catch
+            catch (InvalidOperationException)
             {
             }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                  }
 
             try
             {
@@ -323,8 +349,13 @@ namespace BoardRentAndProperty
                     notificationServerProcess.Kill(entireProcessTree: true);
                 }
             }
-            catch
+            catch (InvalidOperationException)
             {
+                // process already exited - ignore
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                // insufficient permissions or process couldn't be terminated - ignore
             }
         }
 
@@ -345,8 +376,8 @@ namespace BoardRentAndProperty
                 {
                     mainWindow?.Activate();
 
-                    if (args.Arguments.ContainsKey(NotificationNavigationArgumentKey)
-                        && args.Arguments[NotificationNavigationArgumentKey] == nameof(NotificationsPage))
+                    if (args.ContainsKey(NotificationNavigationArgumentKey)
+                        && args[NotificationNavigationArgumentKey] == nameof(NotificationsPage))
                     {
                         ActivateWindow();
                         NavigateToNotificationsWithinShell();
