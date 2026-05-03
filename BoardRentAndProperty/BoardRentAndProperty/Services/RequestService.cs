@@ -172,7 +172,8 @@ namespace BoardRentAndProperty.Services
                 _ => OfferError.TransactionFailed,
             };
 
-        private static TEnum ParseEnum<TEnum>(string value, TEnum fallback) where TEnum : struct, Enum
+        private static TEnum ParseEnum<TEnum>(string value, TEnum fallback)
+            where TEnum : struct, Enum
         {
             if (string.IsNullOrEmpty(value))
             {
@@ -189,7 +190,19 @@ namespace BoardRentAndProperty.Services
                 var envelope = response.Content.ReadFromJsonAsync<ErrorEnvelope>().GetAwaiter().GetResult();
                 return envelope?.Error ?? string.Empty;
             }
-            catch
+            catch (System.Text.Json.JsonException)
+            {
+                return string.Empty;
+            }
+            catch (NotSupportedException)
+            {
+                return string.Empty;
+            }
+            catch (InvalidOperationException)
+            {
+                return string.Empty;
+            }
+            catch (HttpRequestException)
             {
                 return string.Empty;
             }

@@ -79,7 +79,19 @@ namespace BoardRentAndProperty.Services
                 var envelope = response.Content.ReadFromJsonAsync<ErrorEnvelope>().GetAwaiter().GetResult();
                 return envelope?.Error ?? string.Empty;
             }
-            catch
+            catch (System.Text.Json.JsonException)
+            {
+                return string.Empty;
+            }
+            catch (NotSupportedException)
+            {
+                return string.Empty;
+            }
+            catch (InvalidOperationException)
+            {
+                return string.Empty;
+            }
+            catch (HttpRequestException)
             {
                 return string.Empty;
             }
