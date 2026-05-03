@@ -10,12 +10,14 @@
     <UseWinUI>false</UseWinUI>
     <LangVersion>latest</LangVersion>
     <CodeAnalysisRuleSet>..\SE.ruleset</CodeAnalysisRuleSet>
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
     <PackageReference Include="NUnit" Version="4.1.0" />
     <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
+    <PackageReference Include="FluentAssertions" Version="6.12.1" />
     <PackageReference Include="Moq" Version="4.20.70" />
     <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556">
       <PrivateAssets>all</PrivateAssets>
@@ -24,6 +26,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BoardRentAndProperty\BoardRentAndProperty.csproj" />
+    <ProjectReference Include="..\BoardRentAndProperty\BoardRentAndProperty.csproj">
+      <IsTestProject>true</IsTestProject>
+      <PreserveCompilationContext>false</PreserveCompilationContext>
+      <AdditionalProperties>SkipNotificationServerBuild=true</AdditionalProperties>
+    </ProjectReference>
+    <ProjectReference Include="..\BoardRentAndProperty.Api\BoardRentAndProperty.Api.csproj" />
+    <ProjectReference Include="..\BoardRentAndProperty.Contracts\BoardRentAndProperty.Contracts.csproj" />
   </ItemGroup>
 </Project>

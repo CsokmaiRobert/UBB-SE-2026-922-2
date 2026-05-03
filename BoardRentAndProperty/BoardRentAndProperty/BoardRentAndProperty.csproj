@@ -42,7 +42,7 @@
 
   <Target Name="CleanAndBuildNotificationServer"
           AfterTargets="Build"
-          Condition="'$(DesignTimeBuild)' != 'true' and '$(BuildingSolutionFile)' != 'true'">
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(BuildingSolutionFile)' != 'true' and '$(IsTestProject)' != 'true' and '$(SkipNotificationServerBuild)' != 'true'">
     <!--<Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;$notificationServerProcesses = Get-Process NotificationServer -ErrorAction SilentlyContinue; if ($notificationServerProcesses) { $notificationServerProcesses | Stop-Process -Force }; exit 0&quot;" />-->
     <MSBuild Projects="..\NotificationServer\NotificationServer.csproj"
              Targets="Build"
