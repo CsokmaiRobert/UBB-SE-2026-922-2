@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using BoardRentAndProperty.Api.Services;
+using BoardRentAndProperty.Api.Utilities;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using Microsoft.AspNetCore.Mvc;
 
@@ -32,15 +33,22 @@ namespace BoardRentAndProperty.Api.Controllers
             }
             catch (KeyNotFoundException)
             {
-                return NotFound();
+                return this.ApiNotFound("Notification not found.", "notification_not_found");
             }
         }
 
         [HttpPut("{notificationId:int}")]
         public IActionResult Update(int notificationId, [FromBody] NotificationDTO body)
         {
-            this.notificationService.UpdateNotificationByIdentifier(notificationId, body);
-            return NoContent();
+            try
+            {
+                this.notificationService.UpdateNotificationByIdentifier(notificationId, body);
+                return NoContent();
+            }
+            catch (KeyNotFoundException)
+            {
+                return this.ApiNotFound("Notification not found.", "notification_not_found");
+            }
         }
 
         [HttpDelete("{notificationId:int}")]
@@ -52,7 +60,7 @@ namespace BoardRentAndProperty.Api.Controllers
             }
             catch (KeyNotFoundException)
             {
-                return NotFound();
+                return this.ApiNotFound("Notification not found.", "notification_not_found");
             }
         }
     }

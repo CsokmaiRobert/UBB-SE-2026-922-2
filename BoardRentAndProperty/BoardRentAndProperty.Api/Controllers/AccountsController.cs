@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using BoardRentAndProperty.Api.Services;
+using BoardRentAndProperty.Api.Utilities;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -29,7 +30,7 @@ namespace BoardRentAndProperty.Api.Controllers
             var result = await this.accountService.GetProfileAsync(accountId);
             if (!result.Success)
             {
-                return NotFound(new { result.Error });
+                return this.FromServiceError(result.Error);
             }
 
             return Ok(result.Data);
@@ -41,7 +42,7 @@ namespace BoardRentAndProperty.Api.Controllers
             var result = await this.accountService.UpdateProfileAsync(accountId, body);
             if (!result.Success)
             {
-                return BadRequest(new { result.Error });
+                return this.FromServiceError(result.Error);
             }
 
             return NoContent();
@@ -53,7 +54,7 @@ namespace BoardRentAndProperty.Api.Controllers
             var result = await this.accountService.ChangePasswordAsync(accountId, body.CurrentPassword, body.NewPassword);
             if (!result.Success)
             {
-                return BadRequest(new { result.Error });
+                return this.FromServiceError(result.Error);
             }
 
             return NoContent();
@@ -65,7 +66,7 @@ namespace BoardRentAndProperty.Api.Controllers
         {
             if (file == null || file.Length == 0)
             {
-                return BadRequest(new { Error = "File is required." });
+                return this.ApiValidation("File is required.", "avatar_file_required");
             }
 
             string extension = Path.GetExtension(file.FileName);
@@ -79,7 +80,7 @@ namespace BoardRentAndProperty.Api.Controllers
             if (!result.Success)
             {
                 this.avatarStorageService.Delete(relativeUrl);
-                return BadRequest(new { result.Error });
+                return this.FromServiceError(result.Error);
             }
 
             return Ok(new AvatarUploadResponseDataTransferObject { AvatarUrl = relativeUrl });
@@ -91,7 +92,7 @@ namespace BoardRentAndProperty.Api.Controllers
             var result = await this.accountService.RemoveAvatarAsync(accountId);
             if (!result.Success)
             {
-                return BadRequest(new { result.Error });
+                return this.FromServiceError(result.Error);
             }
 
             return NoContent();

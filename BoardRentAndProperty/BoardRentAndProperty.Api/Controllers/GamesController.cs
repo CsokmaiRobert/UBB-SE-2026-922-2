@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using BoardRentAndProperty.Api.Services;
+using BoardRentAndProperty.Api.Utilities;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using Microsoft.AspNetCore.Mvc;
 
@@ -33,7 +34,7 @@ namespace BoardRentAndProperty.Api.Controllers
             }
             catch (KeyNotFoundException)
             {
-                return NotFound();
+                return this.ApiNotFound("Game not found.", "game_not_found");
             }
         }
 
@@ -65,7 +66,7 @@ namespace BoardRentAndProperty.Api.Controllers
             }
             catch (ArgumentException exception)
             {
-                return BadRequest(new { Error = exception.Message });
+                return this.ApiValidation(exception.Message, "game_validation_failed");
             }
         }
 
@@ -79,7 +80,11 @@ namespace BoardRentAndProperty.Api.Controllers
             }
             catch (ArgumentException exception)
             {
-                return BadRequest(new { Error = exception.Message });
+                return this.ApiValidation(exception.Message, "game_validation_failed");
+            }
+            catch (KeyNotFoundException)
+            {
+                return this.ApiNotFound("Game not found.", "game_not_found");
             }
         }
 
@@ -92,11 +97,11 @@ namespace BoardRentAndProperty.Api.Controllers
             }
             catch (InvalidOperationException exception)
             {
-                return Conflict(new { Error = exception.Message });
+                return this.ApiConflict(exception.Message, "game_delete_conflict");
             }
             catch (KeyNotFoundException)
             {
-                return NotFound();
+                return this.ApiNotFound("Game not found.", "game_not_found");
             }
         }
     }

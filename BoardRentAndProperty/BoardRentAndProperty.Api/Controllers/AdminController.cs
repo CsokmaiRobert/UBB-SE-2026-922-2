@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using BoardRentAndProperty.Api.Services;
+using BoardRentAndProperty.Api.Utilities;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using Microsoft.AspNetCore.Mvc;
 
@@ -29,7 +30,7 @@ namespace BoardRentAndProperty.Api.Controllers
             var result = await this.adminService.GetAllAccountsAsync(page, pageSize);
             if (!result.Success)
             {
-                return BadRequest(new { result.Error });
+                return this.FromServiceError(result.Error);
             }
 
             return Ok(result.Data);
@@ -41,7 +42,7 @@ namespace BoardRentAndProperty.Api.Controllers
             var result = await this.adminService.SuspendAccountAsync(accountId);
             if (!result.Success)
             {
-                return BadRequest(new { result.Error });
+                return this.FromServiceError(result.Error);
             }
 
             return NoContent();
@@ -53,7 +54,7 @@ namespace BoardRentAndProperty.Api.Controllers
             var result = await this.adminService.UnsuspendAccountAsync(accountId);
             if (!result.Success)
             {
-                return BadRequest(new { result.Error });
+                return this.FromServiceError(result.Error);
             }
 
             return NoContent();
@@ -65,7 +66,7 @@ namespace BoardRentAndProperty.Api.Controllers
             var result = await this.adminService.ResetPasswordAsync(accountId, body.NewPassword);
             if (!result.Success)
             {
-                return BadRequest(new { result.Error });
+                return this.FromServiceError(result.Error);
             }
 
             return NoContent();
@@ -77,7 +78,7 @@ namespace BoardRentAndProperty.Api.Controllers
             var result = await this.adminService.UnlockAccountAsync(accountId);
             if (!result.Success)
             {
-                return BadRequest(new { result.Error });
+                return this.FromServiceError(result.Error);
             }
 
             return NoContent();
