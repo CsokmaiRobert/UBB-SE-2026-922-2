@@ -13,7 +13,9 @@ namespace BoardRentAndProperty.Api.Data
         private static readonly Guid DariusAccountId = new Guid("00000000-0000-0000-0000-000000000011");
         private static readonly Guid MihaiAccountId = new Guid("00000000-0000-0000-0000-000000000012");
 
-        private const string SeedDevPassword = "password123";
+        // Seeded data in HasData must be fully deterministic, otherwise EF thinks
+        // the model changed every time the app starts.
+        private const string SeedDevPasswordHash = "uDsZUEmrma0uYI3Jszc4zA==:VX158vwbXUFhq/hkFoNOvOYZJgS5od0LYCbwn1dYF+8=";
 
         public DbSet<Account> Accounts { get; set; } = default!;
         public DbSet<Role> Roles { get; set; } = default!;
@@ -139,7 +141,6 @@ namespace BoardRentAndProperty.Api.Data
                     Name = "Standard User",
                 });
 
-            var seedHash = PasswordHasher.HashPassword(SeedDevPassword);
             modelBuilder.Entity<Account>().HasData(
                 new Account
                 {
@@ -147,7 +148,7 @@ namespace BoardRentAndProperty.Api.Data
                     Username = "admin",
                     DisplayName = "Administrator",
                     Email = "admin@boardrent.com",
-                    PasswordHash = seedHash,
+                    PasswordHash = SeedDevPasswordHash,
                     PhoneNumber = string.Empty,
                     AvatarUrl = string.Empty,
                     Country = string.Empty,
@@ -164,7 +165,7 @@ namespace BoardRentAndProperty.Api.Data
                     Username = "darius",
                     DisplayName = "Darius Turcu",
                     Email = "darius@boardrent.com",
-                    PasswordHash = seedHash,
+                    PasswordHash = SeedDevPasswordHash,
                     PhoneNumber = string.Empty,
                     AvatarUrl = string.Empty,
                     Country = string.Empty,
@@ -181,7 +182,7 @@ namespace BoardRentAndProperty.Api.Data
                     Username = "mihai",
                     DisplayName = "Mihai Tira",
                     Email = "mihai@boardrent.com",
-                    PasswordHash = seedHash,
+                    PasswordHash = SeedDevPasswordHash,
                     PhoneNumber = string.Empty,
                     AvatarUrl = string.Empty,
                     Country = string.Empty,
