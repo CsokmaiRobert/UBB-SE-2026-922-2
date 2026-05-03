@@ -64,7 +64,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             PopulateWithValidSelections(viewModel);
             Assert.That(viewModel.ValidateRequestInputs(), Is.True);
 
-            AssertInvalidRequestInputs(viewModel, model => model.SelectedGame = null);
+            AssertInvalidRequestInputs(viewModel, model => model.SelectedGame = null!);
             AssertInvalidRequestInputs(viewModel, model => model.StartDate = null);
             AssertInvalidRequestInputs(viewModel, model => model.EndDate = null);
         }

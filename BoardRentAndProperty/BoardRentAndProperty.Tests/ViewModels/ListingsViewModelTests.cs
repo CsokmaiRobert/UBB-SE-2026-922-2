@@ -193,15 +193,16 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void PagedItems_MoreGamesThanPageSize_ShowsOnlyFirstPage()
         {
-            var games = Enumerable.Range(1, 5).Select(BuildGame).ToImmutableList();
+            int pageSize = PagedViewModel<GameDTO>.PageSize;
+            var games = Enumerable.Range(1, pageSize + 2).Select(BuildGame).ToImmutableList();
             this.gameServiceMock
                 .Setup(service => service.GetGamesForOwner(this.ownerUserId))
                 .Returns(games);
 
             var viewModel = BuildViewModel();
 
-            Assert.That(viewModel.TotalCount, Is.EqualTo(5));
-            Assert.That(viewModel.PagedItems.Count, Is.LessThanOrEqualTo(3));
+            Assert.That(viewModel.TotalCount, Is.EqualTo(pageSize + 2));
+            Assert.That(viewModel.PagedItems.Count, Is.LessThanOrEqualTo(pageSize));
         }
 
         [Test]

@@ -80,8 +80,8 @@ namespace BoardRentAndProperty.Tests.ViewModels
             PopulateWithValidSelections(viewModel);
             Assert.That(viewModel.ValidateRentalInputs(), Is.True);
 
-            AssertInvalidRentalInputs(viewModel, model => model.SelectedGameToRent = null);
-            AssertInvalidRentalInputs(viewModel, model => model.SelectedRenter = null);
+            AssertInvalidRentalInputs(viewModel, model => model.SelectedGameToRent = null!);
+            AssertInvalidRentalInputs(viewModel, model => model.SelectedRenter = null!);
             AssertInvalidRentalInputs(viewModel, model => model.StartDate = null);
             AssertInvalidRentalInputs(viewModel, model => model.EndDate = null);
         }
@@ -166,11 +166,11 @@ namespace BoardRentAndProperty.Tests.ViewModels
             var successfulViewModel = BuildViewModel();
             PopulateWithValidSelections(successfulViewModel);
 
-            string validationMessage = successfulViewModel.SaveRental();
+            string? validationMessage = successfulViewModel.SaveRental();
             Assert.That(validationMessage, Is.Null);
 
             var invalidViewModel = BuildViewModel();
-            string invalidResult = invalidViewModel.SaveRental();
+            string? invalidResult = invalidViewModel.SaveRental();
             Assert.That(invalidResult, Is.EqualTo("Validation failed."));
 
             this.rentalServiceMock
@@ -185,7 +185,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             var failingViewModel = BuildViewModel();
             PopulateWithValidSelections(failingViewModel);
 
-            string exceptionMessage = failingViewModel.SaveRental();
+            string? exceptionMessage = failingViewModel.SaveRental();
             Assert.That(exceptionMessage, Is.EqualTo("Database connection lost."));
         }
 
@@ -219,9 +219,9 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 this.currentUserContextMock.Object);
         }
 
-        private static void AssertInvalidRentalInputs(CreateRentalViewModel viewModel, Action<CreateRentalViewModel> invalidate)
+        private void AssertInvalidRentalInputs(CreateRentalViewModel viewModel, Action<CreateRentalViewModel> invalidate)
         {
-            PopulateWithValidSelections(viewModel);
+            this.PopulateWithValidSelections(viewModel);
             invalidate(viewModel);
             Assert.That(viewModel.ValidateRentalInputs(), Is.False);
         }

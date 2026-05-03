@@ -5,6 +5,7 @@ using BoardRentAndProperty.Api.Data;
 using BoardRentAndProperty.Api.Models;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.Api.Repository

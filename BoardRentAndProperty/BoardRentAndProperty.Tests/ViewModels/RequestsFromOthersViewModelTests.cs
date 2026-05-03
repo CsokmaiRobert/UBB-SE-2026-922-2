@@ -43,7 +43,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 .Returns(Result<int, ApproveRequestError>.Success(500));
             this.requestServiceMock.Invocations.Clear();
 
-            string errorMessage = this.viewModel.TryApproveRequest(42);
+            string? errorMessage = this.viewModel.TryApproveRequest(42);
 
             errorMessage.Should().BeNull();
         }
@@ -58,7 +58,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
                     It.IsAny<string>()))
                 .Returns(Result<int, DenyRequestError>.Failure(DenyRequestError.Unauthorized));
 
-            string errorMessage = this.viewModel.TryDenyRequest(42, "unavailable");
+            string? errorMessage = this.viewModel.TryDenyRequest(42, "unavailable");
 
             errorMessage.Should().NotBeNull();
         }

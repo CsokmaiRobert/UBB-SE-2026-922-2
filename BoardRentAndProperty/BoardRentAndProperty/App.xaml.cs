@@ -86,8 +86,7 @@ namespace BoardRentAndProperty
         {
             var serviceCollection = new ServiceCollection();
 
-            string apiBaseUrl = ConfigurationManager.AppSettings["ApiBaseUrl"]
-                ?? "http://localhost:5114";
+            string apiBaseUrl = "http://172.30.254.241";
             var apiBaseAddress = new Uri(apiBaseUrl, UriKind.Absolute);
 
             serviceCollection.AddHttpClient(string.Empty, client => client.BaseAddress = apiBaseAddress);
