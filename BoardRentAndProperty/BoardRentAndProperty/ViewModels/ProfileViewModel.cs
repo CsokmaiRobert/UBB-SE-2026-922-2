@@ -2,6 +2,7 @@ namespace BoardRentAndProperty.ViewModels
 {
     using System;
     using System.Collections.Generic;
+    using System.Collections.ObjectModel;
     using System.Threading.Tasks;
     using System.Windows.Input;
     using BoardRentAndProperty.Constants;
@@ -9,7 +10,8 @@ namespace BoardRentAndProperty.ViewModels
     using BoardRentAndProperty.Services;
     using BoardRentAndProperty.Utilities;
     using CommunityToolkit.Mvvm.Input;
-    using Microsoft.UI.Xaml;
+    using Microsoft.UI.Xaml.Media;
+    using Microsoft.UI.Xaml.Media.Imaging;
 
     public partial class ProfileViewModel : BaseViewModel
     {
@@ -40,11 +42,6 @@ namespace BoardRentAndProperty.ViewModels
         private string currentPasswordError = string.Empty;
         private string newPasswordError = string.Empty;
 
-        public string EmailError { get => this.emailError; set => this.SetProperty(ref this.emailError, value); }
-        public string DisplayNameError { get => this.displayNameError; set => this.SetProperty(ref this.displayNameError, value); }
-        public string PhoneError { get => this.phoneError; set => this.SetProperty(ref this.phoneError, value); }
-        public string StreetNumberError { get => this.streetNumberError; set => this.SetProperty(ref this.streetNumberError, value); }
-
         public ProfileViewModel(
             IAccountService accountService,
             IAuthService authService,
@@ -58,9 +55,9 @@ namespace BoardRentAndProperty.ViewModels
 
             this.AvailableCountries.Clear();
 
-            foreach (var country in DomainConstants.CountryList)
+            foreach (var currentCountry in DomainConstants.CountryList)
             {
-                this.AvailableCountries.Add(country);
+                this.AvailableCountries.Add(currentCountry);
             }
 
             this.SaveProfileCommand = new AsyncRelayCommand(this.SaveProfileAsync);
@@ -72,7 +69,7 @@ namespace BoardRentAndProperty.ViewModels
 
         public Action OnSignOutSuccess { get; set; }
 
-        public System.Collections.ObjectModel.ObservableCollection<string> AvailableCountries { get; } = new();
+        public ObservableCollection<string> AvailableCountries { get; } = new();
 
         public string Username { get => this.username; set => this.SetProperty(ref this.username, value); }
         public string DisplayName { get => this.displayName; set => this.SetProperty(ref this.displayName, value); }
@@ -82,7 +79,6 @@ namespace BoardRentAndProperty.ViewModels
         public string City { get => this.city; set => this.SetProperty(ref this.city, value); }
         public string StreetName { get => this.streetName; set => this.SetProperty(ref this.streetName, value); }
         public string StreetNumber { get => this.streetNumber; set => this.SetProperty(ref this.streetNumber, value); }
-        public string AvatarUrl { get => this.avatarUrl; set => this.SetProperty(ref this.avatarUrl, value); }
         public string CurrentPassword { get => this.currentPassword; set => this.SetProperty(ref this.currentPassword, value); }
         public string NewPassword { get => this.newPassword; set => this.SetProperty(ref this.newPassword, value); }
         public string ConfirmPassword { get => this.confirmPassword; set => this.SetProperty(ref this.confirmPassword, value); }
@@ -90,6 +86,10 @@ namespace BoardRentAndProperty.ViewModels
         public string ConfirmPasswordError { get => this.confirmPasswordError; set => this.SetProperty(ref this.confirmPasswordError, value); }
         public string CurrentPasswordError { get => this.currentPasswordError; set => this.SetProperty(ref this.currentPasswordError, value); }
         public string NewPasswordError { get => this.newPasswordError; set => this.SetProperty(ref this.newPasswordError, value); }
+        public string EmailError { get => this.emailError; set => this.SetProperty(ref this.emailError, value); }
+        public string DisplayNameError { get => this.displayNameError; set => this.SetProperty(ref this.displayNameError, value); }
+        public string PhoneError { get => this.phoneError; set => this.SetProperty(ref this.phoneError, value); }
+        public string StreetNumberError { get => this.streetNumberError; set => this.SetProperty(ref this.streetNumberError, value); }
 
         public IEnumerable<string> Countries => DomainConstants.CountryList;
 
@@ -99,15 +99,41 @@ namespace BoardRentAndProperty.ViewModels
         public ICommand SaveNewPasswordCommand { get; }
         public ICommand SignOutCommand { get; }
 
+        public string AvatarUrl
+        {
+            get => this.avatarUrl;
+            set
+            {
+                if (this.SetProperty(ref this.avatarUrl, value))
+                {
+                    this.OnPropertyChanged(nameof(this.ProfileImage));
+                }
+            }
+        }
+
+        public ImageSource ProfileImage
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(this.AvatarUrl))
+                {
+                    return null;
+                }
+
+                try
+                {
+                    return new BitmapImage(new Uri(this.AvatarUrl));
+                }
+                catch (UriFormatException)
+                {
+                    return null;
+                }
+            }
+        }
+
         public async Task LoadProfileAsync()
         {
             this.IsLoading = true;
-
-            this.PhoneNumber = this.sessionContext.PhoneNumber;
-            this.City = this.sessionContext.City;
-            this.Country = this.sessionContext.Country;
-            this.StreetName = this.sessionContext.StreetName;
-            this.StreetNumber = this.sessionContext.StreetNumber;
 
             this.Username = this.sessionContext.Username;
             this.DisplayName = this.sessionContext.DisplayName;
@@ -118,7 +144,7 @@ namespace BoardRentAndProperty.ViewModels
             this.StreetName = this.sessionContext.StreetName;
             this.StreetNumber = this.sessionContext.StreetNumber;
 
-            this.OnPropertyChanged(nameof(ProfileImage));
+            this.OnPropertyChanged(nameof(this.ProfileImage));
 
             Guid currentAccountId = this.sessionContext.AccountId;
             ServiceResult<AccountProfileDataTransferObject> profileResult = await this.accountService.GetProfileAsync(currentAccountId);
@@ -138,6 +164,7 @@ namespace BoardRentAndProperty.ViewModels
 
             this.IsLoading = false;
         }
+
         private async Task SaveProfileAsync()
         {
             this.IsLoading = true;
@@ -178,19 +205,42 @@ namespace BoardRentAndProperty.ViewModels
 
         private async Task SelectAvatarAsync()
         {
-            string selectedFilePath = await this.filePickerService.PickImageFileAsync();
-            if (selectedFilePath != null)
+            try
             {
-                this.pendingAvatarPath = selectedFilePath;
-                this.AvatarUrl = selectedFilePath;
+                string selectedFilePath = await this.filePickerService.PickImageFileAsync();
+
+                if (selectedFilePath != null)
+                {
+                    this.pendingAvatarPath = selectedFilePath;
+                    this.AvatarUrl = selectedFilePath;
+                }
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                this.ErrorMessage = "Access to the file was denied: " + ex.Message;
+            }
+            catch (InvalidOperationException ex)
+            {
+                this.ErrorMessage = ex.Message;
             }
         }
 
         private async Task RemoveAvatarAsync()
         {
-            await this.accountService.RemoveAvatarAsync(this.sessionContext.AccountId);
-            this.AvatarUrl = string.Empty;
-            this.pendingAvatarPath = string.Empty;
+            try
+            {
+                await this.accountService.RemoveAvatarAsync(this.sessionContext.AccountId);
+                this.AvatarUrl = string.Empty;
+                this.pendingAvatarPath = string.Empty;
+            }
+            catch (System.Net.Http.HttpRequestException ex)
+            {
+                this.ErrorMessage = "Network error: " + ex.Message;
+            }
+            catch (InvalidOperationException ex)
+            {
+                this.ErrorMessage = ex.Message;
+            }
         }
 
         private async Task SaveNewPasswordAsync()
@@ -271,25 +321,6 @@ namespace BoardRentAndProperty.ViewModels
                     default:
                         this.ErrorMessage = parts[1];
                         break;
-                }
-            }
-        }
-
-        public Microsoft.UI.Xaml.Media.ImageSource ProfileImage
-        {
-            get
-            {
-                if (string.IsNullOrEmpty(this.AvatarUrl))
-                {
-                    return null;
-                }
-                try
-                {
-                    return new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(this.AvatarUrl));
-                }
-                catch
-                {
-                    return null;
                 }
             }
         }
