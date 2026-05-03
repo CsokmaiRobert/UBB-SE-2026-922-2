@@ -18,7 +18,8 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void PageCount_ItemsFillExactlyThreePages_ReturnsThree()
         {
-            var viewModel = new FakePagedViewModel(BuildItems(9));
+            int pageSize = PagedViewModel<string>.PageSize;
+            var viewModel = new FakePagedViewModel(BuildItems(pageSize * 3));
 
             Assert.That(viewModel.PageCount, Is.EqualTo(3));
         }
@@ -26,7 +27,8 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void PageCount_OneExtraItemBeyondFullPage_RoundsUp()
         {
-            var viewModel = new FakePagedViewModel(BuildItems(10));
+            int pageSize = PagedViewModel<string>.PageSize;
+            var viewModel = new FakePagedViewModel(BuildItems((pageSize * 3) + 1));
 
             Assert.That(viewModel.PageCount, Is.EqualTo(4));
         }
@@ -34,7 +36,8 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void NextPage_AlreadyOnLastPage_StaysOnLastPage()
         {
-            var viewModel = new FakePagedViewModel(BuildItems(3));
+            int pageSize = PagedViewModel<string>.PageSize;
+            var viewModel = new FakePagedViewModel(BuildItems(pageSize));
 
             viewModel.NextPage();
 
@@ -44,7 +47,8 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void PrevPage_AlreadyOnFirstPage_StaysOnFirstPage()
         {
-            var viewModel = new FakePagedViewModel(BuildItems(9));
+            int pageSize = PagedViewModel<string>.PageSize;
+            var viewModel = new FakePagedViewModel(BuildItems(pageSize * 3));
 
             viewModel.PrevPage();
 
@@ -54,7 +58,8 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void PrevPage_OnMiddlePage_GoesBackOne()
         {
-            var viewModel = new FakePagedViewModel(BuildItems(9)) { CurrentPage = 2 };
+            int pageSize = PagedViewModel<string>.PageSize;
+            var viewModel = new FakePagedViewModel(BuildItems(pageSize * 3)) { CurrentPage = 2 };
 
             viewModel.PrevPage();
 
@@ -64,11 +69,12 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void Reload_FirstPage_ExposesPageSizeItems()
         {
-            var viewModel = new FakePagedViewModel(BuildItems(9)) { CurrentPage = 1 };
+            int pageSize = PagedViewModel<string>.PageSize;
+            var viewModel = new FakePagedViewModel(BuildItems(pageSize * 3)) { CurrentPage = 1 };
 
             viewModel.TriggerReload();
 
-            Assert.That(viewModel.PagedItems, Has.Count.EqualTo(3));
+            Assert.That(viewModel.PagedItems, Has.Count.EqualTo(pageSize));
         }
 
         private static ImmutableList<string> BuildItems(int count)

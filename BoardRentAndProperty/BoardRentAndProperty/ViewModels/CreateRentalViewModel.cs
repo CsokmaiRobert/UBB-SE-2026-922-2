@@ -141,6 +141,14 @@ namespace BoardRentAndProperty.ViewModels
             {
                 return ViewOperationResult.Failure(Constants.DialogTitles.RentalFailed, rentalCreationException.Message);
             }
+            catch (Exception rentalCreationException)
+            {
+                return ViewOperationResult.Failure(
+                    Constants.DialogTitles.RentalFailed,
+                    string.IsNullOrWhiteSpace(rentalCreationException.Message)
+                        ? Constants.DialogMessages.UnexpectedErrorOccurred
+                        : rentalCreationException.Message);
+            }
         }
 
         public string? SaveRental()

@@ -57,7 +57,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 .Setup(service => service.CancelRequest(requestIdToCancel, currentUserId))
                 .Returns(Result<int, CancelRequestError>.Success(requestIdToCancel));
 
-            string cancellationErrorMessage = viewModel.TryCancelRequest(requestIdToCancel);
+            string? cancellationErrorMessage = viewModel.TryCancelRequest(requestIdToCancel);
 
             Assert.That(cancellationErrorMessage, Is.Null);
         }
@@ -81,7 +81,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 .Setup(service => service.CancelRequest(requestIdToCancel, currentUserId))
                 .Returns(Result<int, CancelRequestError>.Failure(CancelRequestError.NotFound));
 
-            string cancellationErrorMessage = viewModel.TryCancelRequest(requestIdToCancel);
+            string? cancellationErrorMessage = viewModel.TryCancelRequest(requestIdToCancel);
 
             Assert.That(cancellationErrorMessage, Is.EqualTo("Request not found."));
         }

@@ -10,6 +10,7 @@
     <UseWinUI>false</UseWinUI>
     <LangVersion>latest</LangVersion>
     <CodeAnalysisRuleSet>..\SE.ruleset</CodeAnalysisRuleSet>
+    <BuildInParallel>false</BuildInParallel>
     <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
   </PropertyGroup>
 

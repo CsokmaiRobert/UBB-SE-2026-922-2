@@ -30,6 +30,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public async Task LoadAccountsAsync_ServiceReturnsData_PopulatesPagedItems()
         {
+            int pageSize = PagedViewModel<AccountProfileDataTransferObject>.PageSize;
             var accounts = new List<AccountProfileDataTransferObject>
             {
                 new AccountProfileDataTransferObject { Username = "user1", DisplayName = "User One" },
@@ -37,7 +38,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             };
 
             this.adminServiceMock
-                .Setup(service => service.GetAllAccountsAsync(1, 3))
+                .Setup(service => service.GetAllAccountsAsync(1, pageSize))
                 .ReturnsAsync(ServiceResult<List<AccountProfileDataTransferObject>>.Ok(accounts));
 
             await this.systemUnderTest.LoadAccountsAsync();
@@ -62,6 +63,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public async Task SuspendAccountAsync_SelectedAccount_CallsServiceAndReloadsAccounts()
         {
+            int pageSize = PagedViewModel<AccountProfileDataTransferObject>.PageSize;
             Guid accountId = Guid.NewGuid();
             this.systemUnderTest.SelectedAccount = new AccountProfileDataTransferObject { Id = accountId, Username = "victim" };
 
@@ -72,22 +74,21 @@ namespace BoardRentAndProperty.Tests.ViewModels
             await this.systemUnderTest.SuspendAccountCommand.ExecuteAsync(null);
 
             this.adminServiceMock.Verify(service => service.SuspendAccountAsync(accountId), Times.Once);
-            this.adminServiceMock.Verify(service => service.GetAllAccountsAsync(1, 3), Times.Once);
+            this.adminServiceMock.Verify(service => service.GetAllAccountsAsync(1, pageSize), Times.Once);
         }
 
         [Test]
         public async Task NextPageCommand_WhenMultiplePagesExist_AdvancesCurrentPage()
         {
-            var accounts = new List<AccountProfileDataTransferObject>
+            int pageSize = PagedViewModel<AccountProfileDataTransferObject>.PageSize;
+            var accounts = new List<AccountProfileDataTransferObject>();
+            for (int accountIndex = 1; accountIndex <= pageSize + 1; accountIndex++)
             {
-                new AccountProfileDataTransferObject { Username = "user1" },
-                new AccountProfileDataTransferObject { Username = "user2" },
-                new AccountProfileDataTransferObject { Username = "user3" },
-                new AccountProfileDataTransferObject { Username = "user4" },
-            };
+                accounts.Add(new AccountProfileDataTransferObject { Username = $"user{accountIndex}" });
+            }
 
             this.adminServiceMock
-                .Setup(service => service.GetAllAccountsAsync(1, 3))
+                .Setup(service => service.GetAllAccountsAsync(1, pageSize))
                 .ReturnsAsync(ServiceResult<List<AccountProfileDataTransferObject>>.Ok(accounts));
 
             await this.systemUnderTest.LoadAccountsAsync();
@@ -95,7 +96,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
 
             Assert.That(this.systemUnderTest.CurrentPage, Is.EqualTo(2));
             Assert.That(this.systemUnderTest.PagedItems.Count, Is.EqualTo(1));
-            Assert.That(this.systemUnderTest.PagedItems[0].Username, Is.EqualTo("user4"));
+            Assert.That(this.systemUnderTest.PagedItems[0].Username, Is.EqualTo($"user{pageSize + 1}"));
         }
 
         [Test]
