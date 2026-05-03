@@ -56,7 +56,11 @@ namespace BoardRentAndProperty.ViewModels
             }
 
             this.serverClient.ConnectionStatusChanged += this.OnConnectionStatusChanged;
-            LoadNotificationsForUser(currentUserContext.CurrentUserId);
+
+            if (currentUserContext.CurrentUserId != InvalidOrUnknownUserId)
+            {
+                LoadNotificationsForUser(currentUserContext.CurrentUserId);
+            }
 
             notificationSubscription = notificationLookupService.Subscribe(this);
         }
@@ -74,6 +78,12 @@ namespace BoardRentAndProperty.ViewModels
 
         protected override void Reload()
         {
+            if (CurrentUserId == InvalidOrUnknownUserId)
+            {
+                SetAllItems(ImmutableList<NotificationDTO>.Empty);
+                return;
+            }
+
             var userNotificationsSortedByNewest = notificationLookupService
                 .GetNotificationsForUser(CurrentUserId)
                 .OrderByDescending(notification => notification.Id)

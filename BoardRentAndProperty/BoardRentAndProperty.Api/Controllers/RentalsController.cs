@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using BoardRentAndProperty.Api.Services;
+using BoardRentAndProperty.Api.Utilities;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using Microsoft.AspNetCore.Mvc;
 
@@ -39,15 +40,15 @@ namespace BoardRentAndProperty.Api.Controllers
             }
             catch (ArgumentException exception)
             {
-                return BadRequest(new { Error = exception.Message });
+                return this.ApiValidation(exception.Message, "rental_validation_failed");
             }
             catch (InvalidOperationException exception)
             {
-                return Conflict(new { Error = exception.Message });
+                return this.ApiConflict(exception.Message, "rental_conflict");
             }
             catch (KeyNotFoundException)
             {
-                return NotFound();
+                return this.ApiNotFound("Game not found.", "game_not_found");
             }
         }
 

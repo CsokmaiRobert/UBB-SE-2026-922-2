@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using BoardRentAndProperty.Api.Services;
+using BoardRentAndProperty.Api.Utilities;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using Microsoft.AspNetCore.Mvc;
 
@@ -42,7 +43,7 @@ namespace BoardRentAndProperty.Api.Controllers
             var result = this.requestService.CreateRequest(body.GameId, body.RenterAccountId, body.OwnerAccountId, body.StartDate, body.EndDate);
             if (!result.IsSuccess)
             {
-                return BadRequest(new { Error = result.Error.ToString() });
+                return MapCreateError(result.Error);
             }
 
             return Ok(new { Id = result.Value });
@@ -118,33 +119,44 @@ namespace BoardRentAndProperty.Api.Controllers
         private ActionResult MapApproveError(ApproveRequestError error) =>
             error switch
             {
-                ApproveRequestError.NotFound => NotFound(),
-                ApproveRequestError.Unauthorized => Forbid(),
-                _ => BadRequest(new { Error = error.ToString() }),
+                ApproveRequestError.NotFound => this.ApiNotFound("Request not found.", "request_not_found"),
+                ApproveRequestError.Unauthorized => this.ApiForbidden("You are not allowed to approve this request.", "request_forbidden"),
+                _ => this.ApiConflict("The request could not be approved because the underlying data changed.", "request_conflict"),
             };
 
         private ActionResult MapDenyError(DenyRequestError error) =>
             error switch
             {
-                DenyRequestError.NotFound => NotFound(),
-                DenyRequestError.Unauthorized => Forbid(),
-                _ => BadRequest(new { Error = error.ToString() }),
+                DenyRequestError.NotFound => this.ApiNotFound("Request not found.", "request_not_found"),
+                DenyRequestError.Unauthorized => this.ApiForbidden("You are not allowed to deny this request.", "request_forbidden"),
+                _ => this.ApiBadRequest(error.ToString()),
             };
 
         private ActionResult MapCancelError(CancelRequestError error) =>
             error switch
             {
-                CancelRequestError.NotFound => NotFound(),
-                CancelRequestError.Unauthorized => Forbid(),
-                _ => BadRequest(new { Error = error.ToString() }),
+                CancelRequestError.NotFound => this.ApiNotFound("Request not found.", "request_not_found"),
+                CancelRequestError.Unauthorized => this.ApiForbidden("You are not allowed to cancel this request.", "request_forbidden"),
+                _ => this.ApiBadRequest(error.ToString()),
             };
 
         private ActionResult MapOfferError(OfferError error) =>
             error switch
             {
-                OfferError.NotFound => NotFound(),
-                OfferError.NotOwner => Forbid(),
-                _ => BadRequest(new { Error = error.ToString() }),
+                OfferError.NotFound => this.ApiNotFound("Request not found.", "request_not_found"),
+                OfferError.NotOwner => this.ApiForbidden("You are not allowed to offer for this request.", "request_forbidden"),
+                OfferError.RequestNotOpen => this.ApiConflict("The request is no longer open.", "request_not_open"),
+                _ => this.ApiConflict("The offer could not be completed because the underlying data changed.", "request_conflict"),
+            };
+
+        private ActionResult MapCreateError(CreateRequestError error) =>
+            error switch
+            {
+                CreateRequestError.InvalidDateRange => this.ApiValidation("The provided date range is invalid.", "invalid_date_range"),
+                CreateRequestError.GameDoesNotExist => this.ApiNotFound("Game not found.", "game_not_found"),
+                CreateRequestError.OwnerCannotRent => this.ApiBadRequest("Owner cannot rent their own game.", "owner_cannot_rent"),
+                CreateRequestError.DatesUnavailable => this.ApiConflict("The selected dates are unavailable.", "dates_unavailable"),
+                _ => this.ApiBadRequest(error.ToString()),
             };
     }
 }

@@ -58,14 +58,21 @@ namespace BoardRentAndProperty.Services
 
         public ImmutableList<NotificationDTO> GetNotificationsForUser(Guid accountId)
         {
-            var response = this.httpClient.GetAsync($"api/notifications/user/{accountId}").GetAwaiter().GetResult();
-            if (!response.IsSuccessStatusCode)
+            try
+            {
+                var response = this.httpClient.GetAsync($"api/notifications/user/{accountId}").GetAwaiter().GetResult();
+                if (!response.IsSuccessStatusCode)
+                {
+                    return ImmutableList<NotificationDTO>.Empty;
+                }
+
+                var list = response.Content.ReadFromJsonAsync<List<NotificationDTO>>().GetAwaiter().GetResult() ?? new List<NotificationDTO>();
+                return list.ToImmutableList();
+            }
+            catch (HttpRequestException)
             {
                 return ImmutableList<NotificationDTO>.Empty;
             }
-
-            var list = response.Content.ReadFromJsonAsync<List<NotificationDTO>>().GetAwaiter().GetResult() ?? new List<NotificationDTO>();
-            return list.ToImmutableList();
         }
 
         public void SendNotificationToUser(Guid recipientAccountId, NotificationDTO notificationToSend)

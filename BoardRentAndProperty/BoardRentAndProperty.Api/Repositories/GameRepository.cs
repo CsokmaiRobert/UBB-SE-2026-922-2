@@ -55,7 +55,7 @@ namespace BoardRentAndProperty.Api.Repositories
             var existing = GamesWithOwner(dbContext).FirstOrDefault(game => game.Id == id);
             if (existing == null)
             {
-                return;
+                throw new KeyNotFoundException();
             }
 
             if (updated.Owner != null)
