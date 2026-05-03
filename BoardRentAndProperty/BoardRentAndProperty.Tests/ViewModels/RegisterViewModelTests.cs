@@ -1,9 +1,8 @@
 using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
-using BoardRentAndProperty.Services;
+using BoardRentAndProperty.Tests.Fakes;
 using BoardRentAndProperty.Utilities;
 using BoardRentAndProperty.ViewModels;
-using Moq;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.ViewModels
@@ -11,14 +10,14 @@ namespace BoardRentAndProperty.Tests.ViewModels
     [TestFixture]
     public sealed class RegisterViewModelTests
     {
-        private Mock<IAuthService> authServiceMock = null!;
+        private FakeClientAuthService authService = null!;
         private RegisterViewModel systemUnderTest = null!;
 
         [SetUp]
         public void SetUp()
         {
-            this.authServiceMock = new Mock<IAuthService>();
-            this.systemUnderTest = new RegisterViewModel(this.authServiceMock.Object);
+            this.authService = new FakeClientAuthService();
+            this.systemUnderTest = new RegisterViewModel(this.authService);
         }
 
         [Test]
@@ -30,14 +29,12 @@ namespace BoardRentAndProperty.Tests.ViewModels
             this.systemUnderTest.Password = "Password123!";
             this.systemUnderTest.ConfirmPassword = "Password123!";
 
-            this.authServiceMock
-                .Setup(service => service.RegisterAsync(It.IsAny<RegisterDataTransferObject>()))
-                .ReturnsAsync(ServiceResult<bool>.Ok(true));
+            this.authService.RegisterResult = ServiceResult<bool>.Ok(true);
 
             await this.systemUnderTest.RegisterCommand.ExecuteAsync(null);
 
             Assert.That(registrationSuccessCallbackWasCalled, Is.True);
-            this.authServiceMock.Verify(service => service.RegisterAsync(It.IsAny<RegisterDataTransferObject>()), Times.Once);
+            Assert.That(this.authService.RegisterCallCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -45,9 +42,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
         {
             string validationError = "Username|Username already exists;Password|Password is too short";
 
-            this.authServiceMock
-                .Setup(service => service.RegisterAsync(It.IsAny<RegisterDataTransferObject>()))
-                .ReturnsAsync(ServiceResult<bool>.Fail(validationError));
+            this.authService.RegisterResult = ServiceResult<bool>.Fail(validationError);
 
             await this.systemUnderTest.RegisterCommand.ExecuteAsync(null);
 
@@ -61,9 +56,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
         {
             string generalError = "Server connection lost";
 
-            this.authServiceMock
-                .Setup(service => service.RegisterAsync(It.IsAny<RegisterDataTransferObject>()))
-                .ReturnsAsync(ServiceResult<bool>.Fail(generalError));
+            this.authService.RegisterResult = ServiceResult<bool>.Fail(generalError);
 
             await this.systemUnderTest.RegisterCommand.ExecuteAsync(null);
 
@@ -87,9 +80,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
         {
             this.systemUnderTest.UsernameError = "Old error";
 
-            this.authServiceMock
-                .Setup(service => service.RegisterAsync(It.IsAny<RegisterDataTransferObject>()))
-                .ReturnsAsync(ServiceResult<bool>.Ok(true));
+            this.authService.RegisterResult = ServiceResult<bool>.Ok(true);
 
             await this.systemUnderTest.RegisterCommand.ExecuteAsync(null);
 

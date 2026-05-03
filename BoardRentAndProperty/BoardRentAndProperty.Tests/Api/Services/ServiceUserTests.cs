@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using BoardRentAndProperty.Api.Mappers;
 using BoardRentAndProperty.Api.Models;
-using BoardRentAndProperty.Api.Repositories;
 using BoardRentAndProperty.Api.Services;
-using Moq;
+using BoardRentAndProperty.Tests.Fakes;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.Api.Services
@@ -17,14 +16,14 @@ namespace BoardRentAndProperty.Tests.Api.Services
         private readonly Guid secondAccountId = Guid.NewGuid();
         private readonly Guid thirdAccountId = Guid.NewGuid();
 
-        private Mock<IAccountRepository> repositoryMock = null!;
+        private FakeAccountRepository repository = null!;
         private UserService service = null!;
 
         [SetUp]
         public void SetUp()
         {
-            this.repositoryMock = new Mock<IAccountRepository>();
-            this.service = new UserService(this.repositoryMock.Object, new UserMapper());
+            this.repository = new FakeAccountRepository();
+            this.service = new UserService(this.repository, new UserMapper());
         }
 
         [Test]
@@ -36,9 +35,7 @@ namespace BoardRentAndProperty.Tests.Api.Services
                 new Account { Id = this.thirdAccountId, DisplayName = "Gabi" },
             };
 
-            this.repositoryMock
-                .Setup(repository => repository.GetAllAsync(1, int.MaxValue))
-                .ReturnsAsync(accounts);
+            this.repository.Accounts = accounts;
 
             var result = this.service.GetUsersExcept(this.currentAccountId);
 
@@ -49,9 +46,10 @@ namespace BoardRentAndProperty.Tests.Api.Services
         [Test]
         public void GetUsersExcept_WhenNoOtherAccountsExist_ReturnsEmptyList()
         {
-            this.repositoryMock
-                .Setup(repository => repository.GetAllAsync(1, int.MaxValue))
-                .ReturnsAsync(new List<Account> { new Account { Id = this.currentAccountId, DisplayName = "Me" } });
+            this.repository.Accounts = new List<Account>
+            {
+                new Account { Id = this.currentAccountId, DisplayName = "Me" },
+            };
 
             var result = this.service.GetUsersExcept(this.currentAccountId);
 
@@ -61,9 +59,7 @@ namespace BoardRentAndProperty.Tests.Api.Services
         [Test]
         public void GetUsersExcept_WhenThereAreNoAccounts_ReturnsEmptyList()
         {
-            this.repositoryMock
-                .Setup(repository => repository.GetAllAsync(1, int.MaxValue))
-                .ReturnsAsync(new List<Account>());
+            this.repository.Accounts = new List<Account>();
 
             var result = this.service.GetUsersExcept(this.currentAccountId);
 
@@ -80,9 +76,7 @@ namespace BoardRentAndProperty.Tests.Api.Services
                 new Account { Id = this.thirdAccountId, DisplayName = "Bob" },
             };
 
-            this.repositoryMock
-                .Setup(repository => repository.GetAllAsync(1, int.MaxValue))
-                .ReturnsAsync(accounts);
+            this.repository.Accounts = accounts;
 
             var result = this.service.GetUsersExcept(this.currentAccountId);
 

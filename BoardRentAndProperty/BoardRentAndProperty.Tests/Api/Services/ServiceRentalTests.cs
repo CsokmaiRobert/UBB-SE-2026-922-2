@@ -2,9 +2,8 @@ using System;
 using System.Collections.Immutable;
 using BoardRentAndProperty.Api.Mappers;
 using BoardRentAndProperty.Api.Models;
-using BoardRentAndProperty.Api.Repositories;
 using BoardRentAndProperty.Api.Services;
-using Moq;
+using BoardRentAndProperty.Tests.Fakes;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.Api.Services
@@ -18,43 +17,31 @@ namespace BoardRentAndProperty.Tests.Api.Services
         private readonly Guid ownerId = Guid.NewGuid();
         private readonly Guid renterId = Guid.NewGuid();
         private readonly Guid fakeOwnerId = Guid.NewGuid();
-        private Mock<IRentalRepository> rentalRepositoryMock = null!;
-        private Mock<IGameRepository> gameRepositoryMock = null!;
+        private FakeRentalRepository rentalRepository = null!;
+        private FakeGameRepository gameRepository = null!;
         private RentalService service = null!;
 
         [SetUp]
         public void SetUp()
         {
-            this.rentalRepositoryMock = new Mock<IRentalRepository>();
-            this.gameRepositoryMock = new Mock<IGameRepository>();
-
-            this.gameRepositoryMock
-                .Setup(repository => repository.Get(ActiveGameId))
-                .Returns(new Game
+            this.rentalRepository = new FakeRentalRepository();
+            this.gameRepository = new FakeGameRepository();
+            this.gameRepository.GamesById[ActiveGameId] = new Game
                 {
                     Id = ActiveGameId,
                     Owner = new Account { Id = this.ownerId, DisplayName = "Owner" },
                     IsActive = true,
-                });
-            this.gameRepositoryMock
-                .Setup(repository => repository.Get(SecondGameId))
-                .Returns(new Game
+                };
+            this.gameRepository.GamesById[SecondGameId] = new Game
                 {
                     Id = SecondGameId,
                     Owner = new Account { Id = this.ownerId, DisplayName = "Owner" },
                     IsActive = false,
-                });
-
-            this.rentalRepositoryMock
-                .Setup(repository => repository.GetRentalsByGame(ActiveGameId))
-                .Returns(ImmutableList<Rental>.Empty);
-            this.rentalRepositoryMock
-                .Setup(repository => repository.GetRentalsByGame(SecondGameId))
-                .Returns(ImmutableList<Rental>.Empty);
+                };
 
             this.service = new RentalService(
-                this.rentalRepositoryMock.Object,
-                this.gameRepositoryMock.Object,
+                this.rentalRepository,
+                this.gameRepository,
                 new RentalMapper(new GameMapper(new UserMapper()), new UserMapper()));
         }
 
@@ -62,10 +49,10 @@ namespace BoardRentAndProperty.Tests.Api.Services
         public void CreateConfirmedRental_WithCorrectOwner_CallsAddConfirmedForEachGame()
         {
             this.service.CreateConfirmedRental(SecondGameId, this.renterId, this.ownerId, DateTime.UtcNow.AddDays(1), DateTime.UtcNow.AddDays(3));
-            this.rentalRepositoryMock.Verify(repository => repository.AddConfirmed(It.IsAny<Rental>()), Times.Once);
+            Assert.That(this.rentalRepository.AddConfirmedCallCount, Is.EqualTo(1));
 
             this.service.CreateConfirmedRental(ActiveGameId, this.renterId, this.ownerId, DateTime.UtcNow.AddDays(4), DateTime.UtcNow.AddDays(6));
-            this.rentalRepositoryMock.Verify(repository => repository.AddConfirmed(It.IsAny<Rental>()), Times.Exactly(2));
+            Assert.That(this.rentalRepository.AddConfirmedCallCount, Is.EqualTo(2));
         }
 
         [Test]
@@ -97,9 +84,8 @@ namespace BoardRentAndProperty.Tests.Api.Services
         {
             var existingRental = BuildRental(DateTime.UtcNow.AddDays(1), DateTime.UtcNow.AddDays(3));
 
-            this.rentalRepositoryMock
-                .Setup(repository => repository.GetRentalsByGame(ActiveGameId))
-                .Returns(ImmutableList.Create(existingRental));
+            this.rentalRepository.RentalsByGameId[ActiveGameId] = ImmutableList.Create(existingRental);
+            this.rentalRepository.RentalsByGameId[SecondGameId] = ImmutableList<Rental>.Empty;
 
             Assert.Throws<InvalidOperationException>(() =>
                 this.service.CreateConfirmedRental(
@@ -122,9 +108,8 @@ namespace BoardRentAndProperty.Tests.Api.Services
         {
             var existingRental = BuildRental(DateTime.UtcNow.AddDays(1), DateTime.UtcNow.AddDays(2));
 
-            this.rentalRepositoryMock
-                .Setup(repository => repository.GetRentalsByGame(ActiveGameId))
-                .Returns(ImmutableList.Create(existingRental));
+            this.rentalRepository.RentalsByGameId[ActiveGameId] = ImmutableList.Create(existingRental);
+            this.rentalRepository.RentalsByGameId[SecondGameId] = ImmutableList<Rental>.Empty;
 
             bool isAvailable = this.service.IsSlotAvailable(
                 ActiveGameId,

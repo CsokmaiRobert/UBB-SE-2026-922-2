@@ -1,9 +1,8 @@
 using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
-using BoardRentAndProperty.Services;
+using BoardRentAndProperty.Tests.Fakes;
 using BoardRentAndProperty.Utilities;
 using BoardRentAndProperty.ViewModels;
-using Moq;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.ViewModels
@@ -11,14 +10,14 @@ namespace BoardRentAndProperty.Tests.ViewModels
     [TestFixture]
     public sealed class LoginViewModelTests
     {
-        private Mock<IAuthService> authServiceMock = null!;
+        private FakeClientAuthService authService = null!;
         private LoginViewModel systemUnderTest = null!;
 
         [SetUp]
         public void SetUp()
         {
-            this.authServiceMock = new Mock<IAuthService>();
-            this.systemUnderTest = new LoginViewModel(this.authServiceMock.Object);
+            this.authService = new FakeClientAuthService();
+            this.systemUnderTest = new LoginViewModel(this.authService);
         }
 
         [Test]
@@ -35,14 +34,12 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 Role = new RoleDataTransferObject { Name = "Administrator" },
             };
 
-            this.authServiceMock
-                .Setup(service => service.LoginAsync(It.IsAny<LoginDataTransferObject>()))
-                .ReturnsAsync(ServiceResult<AccountProfileDataTransferObject>.Ok(profile));
+            this.authService.LoginResult = ServiceResult<AccountProfileDataTransferObject>.Ok(profile);
 
             await this.systemUnderTest.LoginCommand.ExecuteAsync(null);
 
             Assert.That(capturedRole, Is.EqualTo("Administrator"));
-            this.authServiceMock.Verify(service => service.LoginAsync(It.IsAny<LoginDataTransferObject>()), Times.Once);
+            Assert.That(this.authService.LoginCallCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -54,7 +51,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             await this.systemUnderTest.LoginCommand.ExecuteAsync(null);
 
             Assert.That(this.systemUnderTest.ErrorMessage, Is.EqualTo("Please enter both username/email and password."));
-            this.authServiceMock.Verify(service => service.LoginAsync(It.IsAny<LoginDataTransferObject>()), Times.Never);
+            Assert.That(this.authService.LoginCallCount, Is.EqualTo(0));
         }
 
         [Test]
@@ -64,9 +61,8 @@ namespace BoardRentAndProperty.Tests.ViewModels
             this.systemUnderTest.Password = "wrongpass";
 
             string serviceError = "Invalid username or password.";
-            this.authServiceMock
-                .Setup(service => service.LoginAsync(It.IsAny<LoginDataTransferObject>()))
-                .ReturnsAsync(ServiceResult<AccountProfileDataTransferObject>.Fail(serviceError));
+            this.authService.LoginResult =
+                ServiceResult<AccountProfileDataTransferObject>.Fail(serviceError);
 
             await this.systemUnderTest.LoginCommand.ExecuteAsync(null);
 
@@ -99,9 +95,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 Role = null!,
             };
 
-            this.authServiceMock
-                .Setup(service => service.LoginAsync(It.IsAny<LoginDataTransferObject>()))
-                .ReturnsAsync(ServiceResult<AccountProfileDataTransferObject>.Ok(profile));
+            this.authService.LoginResult = ServiceResult<AccountProfileDataTransferObject>.Ok(profile);
 
             await this.systemUnderTest.LoginCommand.ExecuteAsync(null);
 

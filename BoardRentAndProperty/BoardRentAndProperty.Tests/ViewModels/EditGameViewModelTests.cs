@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
-using BoardRentAndProperty.Services;
+using BoardRentAndProperty.Tests.Fakes;
 using BoardRentAndProperty.ViewModels;
-using Moq;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.ViewModels
@@ -14,17 +13,17 @@ namespace BoardRentAndProperty.Tests.ViewModels
         private const int SampleGameIdentifier = 42;
 
         private readonly Guid sampleOwnerIdentifier = Guid.NewGuid();
-        private Mock<IGameService> gameServiceMock = null!;
+        private FakeClientGameService gameService = null!;
         private EditGameViewModel viewModel = null!;
 
         [SetUp]
         public void SetUp()
         {
-            this.gameServiceMock = new Mock<IGameService>();
-            this.gameServiceMock
-                .Setup(service => service.ValidateGame(It.IsAny<GameDTO>()))
-                .Returns(new List<string>());
-            this.viewModel = new EditGameViewModel(this.gameServiceMock.Object);
+            this.gameService = new FakeClientGameService
+            {
+                ValidateGameHandler = _ => new List<string>(),
+            };
+            this.viewModel = new EditGameViewModel(this.gameService);
         }
 
         [Test]
@@ -42,9 +41,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 IsActive = true,
             };
 
-            this.gameServiceMock
-                .Setup(service => service.GetGameByIdentifier(SampleGameIdentifier))
-                .Returns(existingGame);
+            this.gameService.GameToReturn = existingGame;
 
             this.viewModel.LoadGame(SampleGameIdentifier);
 
@@ -55,9 +52,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void UpdateGame_ValidInputs_CallsUpdateWithCorrectIdentifier()
         {
-            this.gameServiceMock
-                .Setup(service => service.GetGameByIdentifier(SampleGameIdentifier))
-                .Returns(new GameDTO
+            this.gameService.GameToReturn = new GameDTO
                 {
                     Id = SampleGameIdentifier,
                     Owner = new UserDTO { Id = this.sampleOwnerIdentifier },
@@ -67,14 +62,13 @@ namespace BoardRentAndProperty.Tests.ViewModels
                     MaximumPlayerNumber = 4,
                     Description = "This description is long enough to pass the validation rules.",
                     IsActive = true,
-                });
+                };
 
             this.viewModel.LoadGame(SampleGameIdentifier);
             this.viewModel.UpdateGame();
 
-            this.gameServiceMock.Verify(service => service.UpdateGameByIdentifier(
-                SampleGameIdentifier,
-                It.IsAny<GameDTO>()), Times.Once);
+            Assert.That(this.gameService.UpdateGameCallCount, Is.EqualTo(1));
+            Assert.That(this.gameService.LastUpdatedGameId, Is.EqualTo(SampleGameIdentifier));
         }
     }
 }

@@ -2,12 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using BoardRentAndProperty.Api.Models;
-using BoardRentAndProperty.Api.Repositories;
 using BoardRentAndProperty.Api.Services;
 using BoardRentAndProperty.Api.Utilities;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
-using FluentAssertions;
-using Moq;
+using BoardRentAndProperty.Tests.Fakes;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.Api.Services
@@ -15,16 +13,16 @@ namespace BoardRentAndProperty.Tests.Api.Services
     [TestFixture]
     public sealed class AuthServiceTests
     {
-        private Mock<IAccountRepository> accountRepositoryMock = null!;
-        private Mock<IFailedLoginRepository> failedLoginRepositoryMock = null!;
+        private FakeAccountRepository accountRepository = null!;
+        private FakeFailedLoginRepository failedLoginRepository = null!;
         private AuthService service = null!;
 
         [SetUp]
         public void SetUp()
         {
-            this.accountRepositoryMock = new Mock<IAccountRepository>();
-            this.failedLoginRepositoryMock = new Mock<IFailedLoginRepository>();
-            this.service = new AuthService(this.accountRepositoryMock.Object, this.failedLoginRepositoryMock.Object);
+            this.accountRepository = new FakeAccountRepository();
+            this.failedLoginRepository = new FakeFailedLoginRepository();
+            this.service = new AuthService(this.accountRepository, this.failedLoginRepository);
         }
 
         [Test]
@@ -36,14 +34,12 @@ namespace BoardRentAndProperty.Tests.Api.Services
                 Password = "Password123!",
             };
 
-            this.accountRepositoryMock
-                .Setup(repository => repository.GetByUsernameAsync("existing_user"))
-                .ReturnsAsync(new Account { Username = "existing_user" });
+            this.accountRepository.AccountsByUsername["existing_user"] = new Account { Username = "existing_user" };
 
             var registrationResult = await this.service.RegisterAsync(registrationRequest);
 
-            registrationResult.Success.Should().BeFalse();
-            registrationResult.Error.Should().Contain("Username is already taken");
+            Assert.That(registrationResult.Success, Is.False);
+            Assert.That(registrationResult.Error, Does.Contain("Username is already taken"));
         }
 
         [Test]
@@ -58,20 +54,17 @@ namespace BoardRentAndProperty.Tests.Api.Services
                 Password = "Password123!",
             };
 
-            this.accountRepositoryMock
-                .Setup(repository => repository.GetByUsernameAsync("new_user"))
-                .ReturnsAsync((Account?)null);
-            this.accountRepositoryMock
-                .Setup(repository => repository.AddAsync(It.IsAny<Account>()))
-                .Callback<Account>(account => createdAccountId = account.Id)
-                .Returns(Task.CompletedTask);
+            this.accountRepository.AccountsByUsername["new_user"] = null;
 
             var registrationResult = await this.service.RegisterAsync(registrationRequest);
 
-            registrationResult.Success.Should().BeTrue();
-            createdAccountId.Should().NotBe(Guid.Empty);
-            this.accountRepositoryMock.Verify(repository => repository.AddAsync(It.IsAny<Account>()), Times.Once);
-            this.accountRepositoryMock.Verify(repository => repository.AddRoleAsync(createdAccountId, "Standard User"), Times.Once);
+            Assert.That(registrationResult.Success, Is.True);
+            createdAccountId = this.accountRepository.LastAddedAccount!.Id;
+            Assert.That(createdAccountId, Is.Not.EqualTo(Guid.Empty));
+            Assert.That(this.accountRepository.AddCallCount, Is.EqualTo(1));
+            Assert.That(this.accountRepository.AddRoleCallCount, Is.EqualTo(1));
+            Assert.That(this.accountRepository.LastRoleAccountId, Is.EqualTo(createdAccountId));
+            Assert.That(this.accountRepository.LastRoleName, Is.EqualTo("Standard User"));
         }
 
         [Test]
@@ -89,14 +82,12 @@ namespace BoardRentAndProperty.Tests.Api.Services
                 IsSuspended = true,
             };
 
-            this.accountRepositoryMock
-                .Setup(repository => repository.GetByUsernameAsync("suspended_user"))
-                .ReturnsAsync(suspendedAccount);
+            this.accountRepository.AccountsByUsername["suspended_user"] = suspendedAccount;
 
             var loginResult = await this.service.LoginAsync(loginRequest);
 
-            loginResult.Success.Should().BeFalse();
-            loginResult.Error.Should().Be("This account has been suspended.");
+            Assert.That(loginResult.Success, Is.False);
+            Assert.That(loginResult.Error, Is.EqualTo("This account has been suspended."));
         }
 
         [Test]
@@ -120,14 +111,13 @@ namespace BoardRentAndProperty.Tests.Api.Services
                 Password = wrongPassword,
             };
 
-            this.accountRepositoryMock
-                .Setup(repository => repository.GetByUsernameAsync("test_user"))
-                .ReturnsAsync(account);
+            this.accountRepository.AccountsByUsername["test_user"] = account;
 
             var loginResult = await this.service.LoginAsync(loginRequest);
 
-            loginResult.Success.Should().BeFalse();
-            this.failedLoginRepositoryMock.Verify(repository => repository.IncrementAsync(accountId), Times.Once);
+            Assert.That(loginResult.Success, Is.False);
+            Assert.That(this.failedLoginRepository.IncrementCallCount, Is.EqualTo(1));
+            Assert.That(this.failedLoginRepository.LastAccountId, Is.EqualTo(accountId));
         }
 
         [Test]
@@ -150,16 +140,15 @@ namespace BoardRentAndProperty.Tests.Api.Services
                 Password = password,
             };
 
-            this.accountRepositoryMock
-                .Setup(repository => repository.GetByUsernameAsync("valid_user"))
-                .ReturnsAsync(account);
+            this.accountRepository.AccountsByUsername["valid_user"] = account;
 
             var loginResult = await this.service.LoginAsync(loginRequest);
 
-            loginResult.Success.Should().BeTrue();
-            loginResult.Data.Should().NotBeNull();
-            loginResult.Data!.Role.Name.Should().Be("Administrator");
-            this.failedLoginRepositoryMock.Verify(repository => repository.ResetAsync(accountId), Times.Once);
+            Assert.That(loginResult.Success, Is.True);
+            Assert.That(loginResult.Data, Is.Not.Null);
+            Assert.That(loginResult.Data!.Role.Name, Is.EqualTo("Administrator"));
+            Assert.That(this.failedLoginRepository.ResetCallCount, Is.EqualTo(1));
+            Assert.That(this.failedLoginRepository.LastAccountId, Is.EqualTo(accountId));
         }
 
         [Test]
@@ -167,8 +156,8 @@ namespace BoardRentAndProperty.Tests.Api.Services
         {
             var serviceResult = await this.service.ForgotPasswordAsync();
 
-            serviceResult.Success.Should().BeTrue();
-            serviceResult.Data.Should().Contain("admin@boardrent.com");
+            Assert.That(serviceResult.Success, Is.True);
+            Assert.That(serviceResult.Data, Does.Contain("admin@boardrent.com"));
         }
 
         [Test]
@@ -176,8 +165,8 @@ namespace BoardRentAndProperty.Tests.Api.Services
         {
             var serviceResult = await this.service.LogoutAsync();
 
-            serviceResult.Success.Should().BeTrue();
-            serviceResult.Data.Should().BeTrue();
+            Assert.That(serviceResult.Success, Is.True);
+            Assert.That(serviceResult.Data, Is.True);
         }
     }
 }

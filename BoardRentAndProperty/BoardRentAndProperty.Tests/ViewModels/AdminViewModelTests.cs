@@ -2,10 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
-using BoardRentAndProperty.Services;
+using BoardRentAndProperty.Tests.Fakes;
 using BoardRentAndProperty.Utilities;
 using BoardRentAndProperty.ViewModels;
-using Moq;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.ViewModels
@@ -13,18 +12,14 @@ namespace BoardRentAndProperty.Tests.ViewModels
     [TestFixture]
     public sealed class AdminViewModelTests
     {
-        private Mock<IAdminService> adminServiceMock = null!;
+        private FakeClientAdminService adminService = null!;
         private AdminViewModel systemUnderTest = null!;
 
         [SetUp]
         public void SetUp()
         {
-            this.adminServiceMock = new Mock<IAdminService>();
-            this.adminServiceMock
-                .Setup(service => service.GetAllAccountsAsync(It.IsAny<int>(), It.IsAny<int>()))
-                .ReturnsAsync(ServiceResult<List<AccountProfileDataTransferObject>>.Ok(new List<AccountProfileDataTransferObject>()));
-
-            this.systemUnderTest = new AdminViewModel(this.adminServiceMock.Object);
+            this.adminService = new FakeClientAdminService();
+            this.systemUnderTest = new AdminViewModel(this.adminService);
         }
 
         [Test]
@@ -37,9 +32,8 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 new AccountProfileDataTransferObject { Username = "user2", DisplayName = "User Two" },
             };
 
-            this.adminServiceMock
-                .Setup(service => service.GetAllAccountsAsync(1, pageSize))
-                .ReturnsAsync(ServiceResult<List<AccountProfileDataTransferObject>>.Ok(accounts));
+            this.adminService.AccountsResult =
+                ServiceResult<List<AccountProfileDataTransferObject>>.Ok(accounts);
 
             await this.systemUnderTest.LoadAccountsAsync();
 
@@ -67,14 +61,14 @@ namespace BoardRentAndProperty.Tests.ViewModels
             Guid accountId = Guid.NewGuid();
             this.systemUnderTest.SelectedAccount = new AccountProfileDataTransferObject { Id = accountId, Username = "victim" };
 
-            this.adminServiceMock
-                .Setup(service => service.SuspendAccountAsync(accountId))
-                .ReturnsAsync(ServiceResult<bool>.Ok(true));
+            this.adminService.SuspendResult = ServiceResult<bool>.Ok(true);
 
             await this.systemUnderTest.SuspendAccountCommand.ExecuteAsync(null);
 
-            this.adminServiceMock.Verify(service => service.SuspendAccountAsync(accountId), Times.Once);
-            this.adminServiceMock.Verify(service => service.GetAllAccountsAsync(1, pageSize), Times.Once);
+            Assert.That(this.adminService.SuspendCallCount, Is.EqualTo(1));
+            Assert.That(this.adminService.GetAllAccountsCallCount, Is.EqualTo(1));
+            Assert.That(this.adminService.LastPage, Is.EqualTo(1));
+            Assert.That(this.adminService.LastPageSize, Is.EqualTo(pageSize));
         }
 
         [Test]
@@ -87,9 +81,8 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 accounts.Add(new AccountProfileDataTransferObject { Username = $"user{accountIndex}" });
             }
 
-            this.adminServiceMock
-                .Setup(service => service.GetAllAccountsAsync(1, pageSize))
-                .ReturnsAsync(ServiceResult<List<AccountProfileDataTransferObject>>.Ok(accounts));
+            this.adminService.AccountsResult =
+                ServiceResult<List<AccountProfileDataTransferObject>>.Ok(accounts);
 
             await this.systemUnderTest.LoadAccountsAsync();
             this.systemUnderTest.NextPageCommand.Execute(null);
@@ -105,9 +98,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             Guid accountId = Guid.NewGuid();
             this.systemUnderTest.SelectedAccount = new AccountProfileDataTransferObject { Id = accountId };
 
-            this.adminServiceMock
-                .Setup(service => service.UnlockAccountAsync(accountId))
-                .ReturnsAsync(ServiceResult<bool>.Ok(true));
+            this.adminService.UnlockResult = ServiceResult<bool>.Ok(true);
 
             await this.systemUnderTest.UnlockAccountCommand.ExecuteAsync(null);
 
@@ -121,9 +112,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             this.systemUnderTest.SelectedAccount = new AccountProfileDataTransferObject { Id = accountId };
             string newPassword = "NewSecurePass123!";
 
-            this.adminServiceMock
-                .Setup(service => service.ResetPasswordAsync(accountId, newPassword))
-                .ReturnsAsync(ServiceResult<bool>.Ok(true));
+            this.adminService.ResetPasswordResult = ServiceResult<bool>.Ok(true);
 
             await this.systemUnderTest.ResetPasswordWithValueAsync(newPassword);
 

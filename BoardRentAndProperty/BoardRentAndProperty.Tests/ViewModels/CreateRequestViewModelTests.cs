@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
+using BoardRentAndProperty.Tests.Fakes;
 using BoardRentAndProperty.Utilities;
 using BoardRentAndProperty.ViewModels;
-using Moq;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.ViewModels
@@ -16,21 +16,19 @@ namespace BoardRentAndProperty.Tests.ViewModels
         private readonly Guid currentUserId = Guid.NewGuid();
         private readonly Guid otherOwnerId = Guid.NewGuid();
 
-        private Mock<IGameService> gameServiceMock = null!;
-        private Mock<IRequestService> requestServiceMock = null!;
-        private Mock<ICurrentUserContext> currentUserContextMock = null!;
+        private FakeClientGameService gameService = null!;
+        private FakeClientRequestService requestService = null!;
+        private FakeCurrentUserContext currentUserContext = null!;
 
         [SetUp]
         public void SetUp()
         {
-            this.gameServiceMock = new Mock<IGameService>();
-            this.requestServiceMock = new Mock<IRequestService>();
-            this.currentUserContextMock = new Mock<ICurrentUserContext>();
-
-            this.currentUserContextMock.SetupGet(context => context.CurrentUserId).Returns(this.currentUserId);
-            this.gameServiceMock
-                .Setup(service => service.GetAvailableGamesForRenter(this.currentUserId))
-                .Returns(ImmutableList.Create(BuildOtherUsersGame(300)));
+            this.gameService = new FakeClientGameService
+            {
+                AvailableGamesForRenter = ImmutableList.Create(BuildOtherUsersGame(300)),
+            };
+            this.requestService = new FakeClientRequestService();
+            this.currentUserContext = new FakeCurrentUserContext { CurrentUserId = this.currentUserId };
         }
 
         [Test]
@@ -47,9 +45,8 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 Assert.That(viewModel.AvailableGamesToRequest[0].IsActive, Is.True);
             });
 
-            this.gameServiceMock
-                .Setup(service => service.GetAvailableGamesForRenter(this.currentUserId))
-                .Returns(ImmutableList.Create(BuildOtherUsersGame(300), BuildOtherUsersGame(401)));
+            this.gameService.AvailableGamesForRenter =
+                ImmutableList.Create(BuildOtherUsersGame(300), BuildOtherUsersGame(401));
 
             viewModel.LoadAvailableGames();
 
@@ -81,21 +78,9 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 Assert.That(validationFailure.IsSuccess, Is.False);
                 Assert.That(validationFailure.DialogTitle, Is.EqualTo("Validation Error"));
             });
-            this.requestServiceMock.Verify(service => service.CreateRequest(
-                It.IsAny<int>(),
-                It.IsAny<Guid>(),
-                It.IsAny<Guid>(),
-                It.IsAny<DateTime>(),
-                It.IsAny<DateTime>()), Times.Never);
+            Assert.That(this.requestService.CreateRequestCallCount, Is.EqualTo(0));
 
-            this.requestServiceMock
-                .Setup(service => service.CreateRequest(
-                    It.IsAny<int>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<DateTime>(),
-                    It.IsAny<DateTime>()))
-                .Returns(Result<int, CreateRequestError>.Success(1));
+            this.requestService.CreateRequestResult = Result<int, CreateRequestError>.Success(1);
 
             var successfulViewModel = BuildViewModel();
             PopulateWithValidSelections(successfulViewModel);
@@ -103,21 +88,13 @@ namespace BoardRentAndProperty.Tests.ViewModels
             ViewOperationResult successResult = successfulViewModel.SubmitRequest();
 
             Assert.That(successResult.IsSuccess, Is.True);
-            this.requestServiceMock.Verify(service => service.CreateRequest(
-                300,
-                this.currentUserId,
-                this.otherOwnerId,
-                It.IsAny<DateTime>(),
-                It.IsAny<DateTime>()), Times.Once);
+            Assert.That(this.requestService.CreateRequestCallCount, Is.EqualTo(1));
+            Assert.That(this.requestService.LastGameId, Is.EqualTo(300));
+            Assert.That(this.requestService.LastRenterAccountId, Is.EqualTo(this.currentUserId));
+            Assert.That(this.requestService.LastOwnerAccountId, Is.EqualTo(this.otherOwnerId));
 
-            this.requestServiceMock
-                .Setup(service => service.CreateRequest(
-                    It.IsAny<int>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<DateTime>(),
-                    It.IsAny<DateTime>()))
-                .Returns(Result<int, CreateRequestError>.Failure(CreateRequestError.InvalidDateRange));
+            this.requestService.CreateRequestResult =
+                Result<int, CreateRequestError>.Failure(CreateRequestError.InvalidDateRange);
 
             var invalidDateRangeViewModel = BuildViewModel();
             PopulateWithValidSelections(invalidDateRangeViewModel);
@@ -134,14 +111,8 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void SubmitRequest_MapsServiceErrorsAndTrySubmitRequestMirrorsResult()
         {
-            this.requestServiceMock
-                .Setup(service => service.CreateRequest(
-                    It.IsAny<int>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<DateTime>(),
-                    It.IsAny<DateTime>()))
-                .Returns(Result<int, CreateRequestError>.Failure(CreateRequestError.OwnerCannotRent));
+            this.requestService.CreateRequestResult =
+                Result<int, CreateRequestError>.Failure(CreateRequestError.OwnerCannotRent);
 
             var ownerCannotRentViewModel = BuildViewModel();
             PopulateWithValidSelections(ownerCannotRentViewModel);
@@ -156,40 +127,21 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 Assert.That(ownerCannotRentViewModel.TrySubmitRequest(), Does.Contain("own game"));
             });
 
-            this.requestServiceMock
-                .Setup(service => service.CreateRequest(
-                    It.IsAny<int>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<DateTime>(),
-                    It.IsAny<DateTime>()))
-                .Returns(Result<int, CreateRequestError>.Failure(CreateRequestError.DatesUnavailable));
+            this.requestService.CreateRequestResult =
+                Result<int, CreateRequestError>.Failure(CreateRequestError.DatesUnavailable);
 
             var datesUnavailableViewModel = BuildViewModel();
             PopulateWithValidSelections(datesUnavailableViewModel);
             Assert.That(datesUnavailableViewModel.SubmitRequest().DialogMessage, Does.Contain("not available"));
 
-            this.requestServiceMock
-                .Setup(service => service.CreateRequest(
-                    It.IsAny<int>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<DateTime>(),
-                    It.IsAny<DateTime>()))
-                .Returns(Result<int, CreateRequestError>.Failure(CreateRequestError.GameDoesNotExist));
+            this.requestService.CreateRequestResult =
+                Result<int, CreateRequestError>.Failure(CreateRequestError.GameDoesNotExist);
 
             var missingGameViewModel = BuildViewModel();
             PopulateWithValidSelections(missingGameViewModel);
             Assert.That(missingGameViewModel.SubmitRequest().DialogMessage, Does.Contain("no longer exists"));
 
-            this.requestServiceMock
-                .Setup(service => service.CreateRequest(
-                    It.IsAny<int>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<DateTime>(),
-                    It.IsAny<DateTime>()))
-                .Returns(Result<int, CreateRequestError>.Success(1));
+            this.requestService.CreateRequestResult = Result<int, CreateRequestError>.Success(1);
 
             var successfulTrySubmitViewModel = BuildViewModel();
             PopulateWithValidSelections(successfulTrySubmitViewModel);
@@ -218,9 +170,9 @@ namespace BoardRentAndProperty.Tests.ViewModels
         private CreateRequestViewModel BuildViewModel()
         {
             return new CreateRequestViewModel(
-                this.gameServiceMock.Object,
-                this.requestServiceMock.Object,
-                this.currentUserContextMock.Object);
+                this.gameService,
+                this.requestService,
+                this.currentUserContext);
         }
 
         private static void AssertInvalidRequestInputs(CreateRequestViewModel viewModel, Action<CreateRequestViewModel> invalidate)
