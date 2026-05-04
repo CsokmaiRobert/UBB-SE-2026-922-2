@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using BoardRentAndProperty.Api.Data;
 using BoardRentAndProperty.Api.Models;
@@ -85,7 +86,12 @@ namespace BoardRentAndProperty.Tests.Api.Repository
             dbContext.Games.Add(game);
             dbContext.SaveChanges();
 
-            return game.Id;
+            return dbContext.Games
+                .AsNoTracking()
+                .Where(storedGame => storedGame.Name == gameName)
+                .OrderByDescending(storedGame => storedGame.Id)
+                .Select(storedGame => storedGame.Id)
+                .First();
         }
 
         private static string ResolveConnectionString()

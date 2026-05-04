@@ -1,11 +1,8 @@
 using System;
 using System.Collections.Immutable;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
-using BoardRentAndProperty.Services;
-using BoardRentAndProperty.Utilities;
+using BoardRentAndProperty.Tests.Fakes;
 using BoardRentAndProperty.ViewModels;
-using FluentAssertions;
-using Moq;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.ViewModels
@@ -14,32 +11,24 @@ namespace BoardRentAndProperty.Tests.ViewModels
     public sealed class RentalsFromOthersViewModelTests
     {
         private readonly Guid sampleRenterIdentifier = Guid.NewGuid();
-        private Mock<IRentalService> rentalServiceMock = null!;
-        private Mock<ICurrentUserContext> currentUserContextMock = null!;
+        private FakeClientRentalService rentalService = null!;
+        private FakeCurrentUserContext currentUserContext = null!;
 
         [SetUp]
         public void SetUp()
         {
-            this.rentalServiceMock = new Mock<IRentalService>();
-            this.currentUserContextMock = new Mock<ICurrentUserContext>();
-            this.currentUserContextMock
-                .SetupGet(context => context.CurrentUserId)
-                .Returns(this.sampleRenterIdentifier);
-            this.rentalServiceMock
-                .Setup(service => service.GetRentalsForRenter(this.sampleRenterIdentifier))
-                .Returns(ImmutableList<RentalDTO>.Empty);
+            this.rentalService = new FakeClientRentalService();
+            this.currentUserContext = new FakeCurrentUserContext { CurrentUserId = this.sampleRenterIdentifier };
         }
 
         [Test]
         public void Constructor_LoadsRentalsForCurrentRenter()
         {
-            this.rentalServiceMock
-                .Setup(service => service.GetRentalsForRenter(this.sampleRenterIdentifier))
-                .Returns(ImmutableList.Create(BuildRental(1), BuildRental(2)));
+            this.rentalService.RentalsForRenter = ImmutableList.Create(BuildRental(1), BuildRental(2));
 
-            var viewModel = new RentalsFromOthersViewModel(this.rentalServiceMock.Object, this.currentUserContextMock.Object);
+            var viewModel = new RentalsFromOthersViewModel(this.rentalService, this.currentUserContext);
 
-            viewModel.TotalCount.Should().Be(2);
+            Assert.That(viewModel.TotalCount, Is.EqualTo(2));
         }
 
         [Test]
@@ -47,13 +36,11 @@ namespace BoardRentAndProperty.Tests.ViewModels
         {
             var olderRental = BuildRental(1, DateTime.UtcNow.AddDays(2));
             var newerRental = BuildRental(2, DateTime.UtcNow.AddDays(10));
-            this.rentalServiceMock
-                .Setup(service => service.GetRentalsForRenter(this.sampleRenterIdentifier))
-                .Returns(ImmutableList.Create(olderRental, newerRental));
+            this.rentalService.RentalsForRenter = ImmutableList.Create(olderRental, newerRental);
 
-            var viewModel = new RentalsFromOthersViewModel(this.rentalServiceMock.Object, this.currentUserContextMock.Object);
+            var viewModel = new RentalsFromOthersViewModel(this.rentalService, this.currentUserContext);
 
-            viewModel.PagedItems[0].Id.Should().Be(2);
+            Assert.That(viewModel.PagedItems[0].Id, Is.EqualTo(2));
         }
 
         private RentalDTO BuildRental(int identifier, DateTime? startDate = null)

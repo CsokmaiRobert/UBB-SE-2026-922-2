@@ -4,10 +4,9 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
-using BoardRentAndProperty.Services;
+using BoardRentAndProperty.Tests.Fakes;
 using BoardRentAndProperty.Utilities;
 using BoardRentAndProperty.ViewModels;
-using Moq;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.ViewModels
@@ -18,26 +17,24 @@ namespace BoardRentAndProperty.Tests.ViewModels
         private readonly Guid ownerUserId = Guid.NewGuid();
         private readonly Guid renterUserId = Guid.NewGuid();
 
-        private Mock<IGameService> gameServiceMock = null!;
-        private Mock<IRentalService> rentalServiceMock = null!;
-        private Mock<IUserService> userServiceMock = null!;
-        private Mock<ICurrentUserContext> currentUserContextMock = null!;
+        private FakeClientGameService gameService = null!;
+        private FakeClientRentalService rentalService = null!;
+        private FakeClientUserService userService = null!;
+        private FakeCurrentUserContext currentUserContext = null!;
 
         [SetUp]
         public void SetUp()
         {
-            this.gameServiceMock = new Mock<IGameService>();
-            this.rentalServiceMock = new Mock<IRentalService>();
-            this.userServiceMock = new Mock<IUserService>();
-            this.currentUserContextMock = new Mock<ICurrentUserContext>();
-
-            this.currentUserContextMock.SetupGet(context => context.CurrentUserId).Returns(this.ownerUserId);
-            this.gameServiceMock
-                .Setup(service => service.GetActiveGamesForOwner(this.ownerUserId))
-                .Returns(ImmutableList.Create(BuildActiveGame(100)));
-            this.userServiceMock
-                .Setup(service => service.GetUsersExcept(this.ownerUserId))
-                .Returns(ImmutableList.Create(new UserDTO { Id = this.renterUserId, DisplayName = "Renter" }));
+            this.gameService = new FakeClientGameService
+            {
+                ActiveGamesForOwner = ImmutableList.Create(BuildActiveGame(100)),
+            };
+            this.rentalService = new FakeClientRentalService();
+            this.userService = new FakeClientUserService
+            {
+                UsersExceptCurrent = ImmutableList.Create(new UserDTO { Id = this.renterUserId, DisplayName = "Renter" }),
+            };
+            this.currentUserContext = new FakeCurrentUserContext { CurrentUserId = this.ownerUserId };
         }
 
         [Test]
@@ -54,14 +51,10 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 Assert.That(viewModel.AvailableRenters.Select(user => user.Id), Is.EquivalentTo(new[] { this.renterUserId }));
             });
 
-            this.gameServiceMock
-                .Setup(service => service.GetActiveGamesForOwner(this.ownerUserId))
-                .Returns(ImmutableList.Create(BuildActiveGame(100), BuildActiveGame(201)));
-            this.userServiceMock
-                .Setup(service => service.GetUsersExcept(this.ownerUserId))
-                .Returns(ImmutableList.Create(
+            this.gameService.ActiveGamesForOwner = ImmutableList.Create(BuildActiveGame(100), BuildActiveGame(201));
+            this.userService.UsersExceptCurrent = ImmutableList.Create(
                     new UserDTO { Id = this.renterUserId, DisplayName = "Renter" },
-                    new UserDTO { Id = Guid.NewGuid(), DisplayName = "Second renter" }));
+                    new UserDTO { Id = Guid.NewGuid(), DisplayName = "Second renter" });
 
             await viewModel.LoadRentalFormDataAsync();
 
@@ -98,12 +91,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 Assert.That(validationFailure.IsSuccess, Is.False);
                 Assert.That(validationFailure.DialogTitle, Is.EqualTo("Validation Error"));
             });
-            this.rentalServiceMock.Verify(service => service.CreateConfirmedRental(
-                It.IsAny<int>(),
-                It.IsAny<Guid>(),
-                It.IsAny<Guid>(),
-                It.IsAny<DateTime>(),
-                It.IsAny<DateTime>()), Times.Never);
+            Assert.That(this.rentalService.CreateRentalCallCount, Is.EqualTo(0));
 
             var successfulViewModel = BuildViewModel();
             PopulateWithValidSelections(successfulViewModel);
@@ -111,21 +99,13 @@ namespace BoardRentAndProperty.Tests.ViewModels
             ViewOperationResult successResult = successfulViewModel.CreateRental();
 
             Assert.That(successResult.IsSuccess, Is.True);
-            this.rentalServiceMock.Verify(service => service.CreateConfirmedRental(
-                100,
-                this.renterUserId,
-                this.ownerUserId,
-                It.IsAny<DateTime>(),
-                It.IsAny<DateTime>()), Times.Once);
+            Assert.That(this.rentalService.CreateRentalCallCount, Is.EqualTo(1));
+            Assert.That(this.rentalService.LastGameId, Is.EqualTo(100));
+            Assert.That(this.rentalService.LastRenterAccountId, Is.EqualTo(this.renterUserId));
+            Assert.That(this.rentalService.LastOwnerAccountId, Is.EqualTo(this.ownerUserId));
 
-            this.rentalServiceMock
-                .Setup(service => service.CreateConfirmedRental(
-                    It.IsAny<int>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<DateTime>(),
-                    It.IsAny<DateTime>()))
-                .Throws(new ArgumentException("Start date must be before end date and not in the past."));
+            this.rentalService.CreateRentalException =
+                new ArgumentException("Start date must be before end date and not in the past.");
 
             var argumentExceptionViewModel = BuildViewModel();
             PopulateWithValidSelections(argumentExceptionViewModel);
@@ -138,14 +118,8 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 Assert.That(argumentExceptionResult.DialogTitle, Is.EqualTo("Validation Error"));
             });
 
-            this.rentalServiceMock
-                .Setup(service => service.CreateConfirmedRental(
-                    It.IsAny<int>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<DateTime>(),
-                    It.IsAny<DateTime>()))
-                .Throws(new InvalidOperationException("Dates overlap with existing rental."));
+            this.rentalService.CreateRentalException =
+                new InvalidOperationException("Dates overlap with existing rental.");
 
             var unexpectedExceptionViewModel = BuildViewModel();
             PopulateWithValidSelections(unexpectedExceptionViewModel);
@@ -173,14 +147,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             string? invalidResult = invalidViewModel.SaveRental();
             Assert.That(invalidResult, Is.EqualTo("Validation failed."));
 
-            this.rentalServiceMock
-                .Setup(service => service.CreateConfirmedRental(
-                    It.IsAny<int>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<DateTime>(),
-                    It.IsAny<DateTime>()))
-                .Throws(new Exception("Database connection lost."));
+            this.rentalService.CreateRentalException = new Exception("Database connection lost.");
 
             var failingViewModel = BuildViewModel();
             PopulateWithValidSelections(failingViewModel);
@@ -213,10 +180,10 @@ namespace BoardRentAndProperty.Tests.ViewModels
         private CreateRentalViewModel BuildViewModel()
         {
             return new CreateRentalViewModel(
-                this.gameServiceMock.Object,
-                this.rentalServiceMock.Object,
-                this.userServiceMock.Object,
-                this.currentUserContextMock.Object);
+                this.gameService,
+                this.rentalService,
+                this.userService,
+                this.currentUserContext);
         }
 
         private void AssertInvalidRentalInputs(CreateRentalViewModel viewModel, Action<CreateRentalViewModel> invalidate)

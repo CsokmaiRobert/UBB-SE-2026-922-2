@@ -1,6 +1,6 @@
+using BoardRentAndProperty.Tests.Fakes;
 using BoardRentAndProperty.Utilities;
 using BoardRentAndProperty.ViewModels;
-using Moq;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.ViewModels
@@ -8,7 +8,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
     [TestFixture]
     public sealed class MenuBarViewModelTests
     {
-        private Mock<ISessionContext> sessionContextMock = null!;
+        private FakeSessionContext sessionContext = null!;
         private MenuBarViewModel viewModel = null!;
         private AppPage? capturedNavigationTarget;
         private bool navigationWasTriggered;
@@ -17,9 +17,8 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [SetUp]
         public void SetUp()
         {
-            this.sessionContextMock = new Mock<ISessionContext>();
-            this.sessionContextMock.SetupGet(context => context.Role).Returns("Standard User");
-            this.viewModel = new MenuBarViewModel(this.sessionContextMock.Object);
+            this.sessionContext = new FakeSessionContext { Role = "Standard User" };
+            this.viewModel = new MenuBarViewModel(this.sessionContext);
             this.capturedNavigationTarget = null;
             this.navigationWasTriggered = false;
             this.navigationTriggerCount = 0;

@@ -1,10 +1,9 @@
 using System;
 using BoardRentAndProperty.Api.Mappers;
 using BoardRentAndProperty.Api.Models;
-using BoardRentAndProperty.Api.Repositories;
 using BoardRentAndProperty.Api.Services;
 using BoardRentAndProperty.Contracts.Models;
-using Moq;
+using BoardRentAndProperty.Tests.Fakes;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.Api.Services
@@ -12,25 +11,25 @@ namespace BoardRentAndProperty.Tests.Api.Services
     [TestFixture]
     public sealed class RequestServiceTests
     {
-        private Mock<IRequestRepository> requestRepositoryMock = null!;
-        private Mock<IRentalRepository> rentalRepositoryMock = null!;
-        private Mock<IGameRepository> gameRepositoryMock = null!;
-        private Mock<INotificationService> notificationServiceMock = null!;
+        private FakeRequestRepository requestRepository = null!;
+        private FakeRentalRepository rentalRepository = null!;
+        private FakeGameRepository gameRepository = null!;
+        private FakeApiNotificationService notificationService = null!;
         private RequestService service = null!;
 
         [SetUp]
         public void SetUp()
         {
-            this.requestRepositoryMock = new Mock<IRequestRepository>();
-            this.rentalRepositoryMock = new Mock<IRentalRepository>();
-            this.gameRepositoryMock = new Mock<IGameRepository>();
-            this.notificationServiceMock = new Mock<INotificationService>();
+            this.requestRepository = new FakeRequestRepository();
+            this.rentalRepository = new FakeRentalRepository();
+            this.gameRepository = new FakeGameRepository();
+            this.notificationService = new FakeApiNotificationService();
 
             this.service = new RequestService(
-                this.requestRepositoryMock.Object,
-                this.rentalRepositoryMock.Object,
-                this.gameRepositoryMock.Object,
-                this.notificationServiceMock.Object,
+                this.requestRepository,
+                this.rentalRepository,
+                this.gameRepository,
+                this.notificationService,
                 new RequestMapper(new GameMapper(new UserMapper()), new UserMapper()));
         }
 
@@ -38,14 +37,12 @@ namespace BoardRentAndProperty.Tests.Api.Services
         public void CreateRequest_WhenRenterIsOwner_ReturnsOwnerCannotRent()
         {
             var ownerId = Guid.NewGuid();
-            this.gameRepositoryMock
-                .Setup(repository => repository.Get(10))
-                .Returns(new Game
+            this.gameRepository.GamesById[10] = new Game
                 {
                     Id = 10,
                     Owner = new Account { Id = ownerId, DisplayName = "Owner" },
                     IsActive = true,
-                });
+                };
 
             var result = this.service.CreateRequest(
                 10,
@@ -88,16 +85,16 @@ namespace BoardRentAndProperty.Tests.Api.Services
                 Status = RequestStatus.Open,
             };
 
-            this.requestRepositoryMock
-                .Setup(repository => repository.Get(100))
-                .Returns(existingRequest);
+            this.requestRepository.RequestsById[100] = existingRequest;
 
             var result = this.service.CancelRequest(100, renterId);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Value, Is.EqualTo(100));
-            this.requestRepositoryMock.Verify(repository => repository.Delete(100), Times.Once);
-            this.notificationServiceMock.Verify(service => service.DeleteNotificationsLinkedToRequest(100), Times.Once);
+            Assert.That(this.requestRepository.DeleteCallCount, Is.EqualTo(1));
+            Assert.That(this.requestRepository.LastDeletedRequestId, Is.EqualTo(100));
+            Assert.That(this.notificationService.DeleteLinkedNotificationCallCount, Is.EqualTo(1));
+            Assert.That(this.notificationService.LastLinkedRequestId, Is.EqualTo(100));
         }
     }
 }

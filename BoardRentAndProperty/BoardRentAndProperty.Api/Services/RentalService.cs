@@ -60,9 +60,9 @@ namespace BoardRentAndProperty.Api.Services
         }
 
         public ImmutableList<RentalDTO> GetRentalsForRenter(Guid renterAccountId) =>
-            this.rentalDataRepository.GetRentalsByRenter(renterAccountId).Select(r => this.rentalDtoMapper.ToDTO(r)!).ToImmutableList();
+            this.rentalDataRepository.GetRentalsByRenter(renterAccountId).Select(rental => this.rentalDtoMapper.ToDTO(rental)!).ToImmutableList();
 
         public ImmutableList<RentalDTO> GetRentalsForOwner(Guid ownerAccountId) =>
-            this.rentalDataRepository.GetRentalsByOwner(ownerAccountId).Select(r => this.rentalDtoMapper.ToDTO(r)!).ToImmutableList();
+            this.rentalDataRepository.GetRentalsByOwner(ownerAccountId).Select(rental => this.rentalDtoMapper.ToDTO(rental)!).ToImmutableList();
     }
 }

@@ -2,9 +2,8 @@ using System;
 using System.Collections.Immutable;
 using System.Linq;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
-using BoardRentAndProperty.Services;
+using BoardRentAndProperty.Tests.Fakes;
 using BoardRentAndProperty.ViewModels;
-using Moq;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.ViewModels
@@ -13,23 +12,18 @@ namespace BoardRentAndProperty.Tests.ViewModels
     public sealed class ListingsViewModelTests
     {
         private readonly Guid ownerUserId = Guid.NewGuid();
-        private Mock<IGameService> gameServiceMock = null!;
+        private FakeClientGameService gameService = null!;
 
         [SetUp]
         public void SetUp()
         {
-            this.gameServiceMock = new Mock<IGameService>();
-            this.gameServiceMock
-                .Setup(service => service.GetGamesForOwner(this.ownerUserId))
-                .Returns(ImmutableList<GameDTO>.Empty);
+            this.gameService = new FakeClientGameService();
         }
 
         [Test]
         public void Constructor_LoadsGamesForOwner()
         {
-            this.gameServiceMock
-                .Setup(service => service.GetGamesForOwner(this.ownerUserId))
-                .Returns(ImmutableList.Create(BuildGame(1), BuildGame(2), BuildGame(3)));
+            this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(1), BuildGame(2), BuildGame(3));
 
             var viewModel = BuildViewModel();
 
@@ -47,9 +41,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void ShowingText_ContainsGameCountAndGamesWord()
         {
-            this.gameServiceMock
-                .Setup(service => service.GetGamesForOwner(this.ownerUserId))
-                .Returns(ImmutableList.Create(BuildGame(1), BuildGame(2)));
+            this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(1), BuildGame(2));
 
             var viewModel = BuildViewModel();
 
@@ -63,9 +55,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             var viewModel = BuildViewModel();
             Assert.That(viewModel.TotalCount, Is.EqualTo(0));
 
-            this.gameServiceMock
-                .Setup(service => service.GetGamesForOwner(this.ownerUserId))
-                .Returns(ImmutableList.Create(BuildGame(10), BuildGame(11)));
+            this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(10), BuildGame(11));
 
             viewModel.LoadGames();
 
@@ -75,31 +65,26 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void DeleteGame_CallsServiceDeleteWithCorrectId()
         {
-            this.gameServiceMock
-                .Setup(service => service.GetGamesForOwner(this.ownerUserId))
-                .Returns(ImmutableList.Create(BuildGame(42)));
+            this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(42));
 
             var viewModel = BuildViewModel();
             GameDTO gameToDelete = viewModel.PagedItems.First();
 
             viewModel.DeleteGame(gameToDelete);
 
-            this.gameServiceMock.Verify(service => service.DeleteGameByIdentifier(42), Times.Once);
+            Assert.That(this.gameService.DeleteGameCallCount, Is.EqualTo(1));
+            Assert.That(this.gameService.LastDeletedGameId, Is.EqualTo(42));
         }
 
         [Test]
         public void DeleteGame_ReloadsListAfterDeletion()
         {
-            this.gameServiceMock
-                .Setup(service => service.GetGamesForOwner(this.ownerUserId))
-                .Returns(ImmutableList.Create(BuildGame(1), BuildGame(2)));
+            this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(1), BuildGame(2));
 
             var viewModel = BuildViewModel();
             Assert.That(viewModel.TotalCount, Is.EqualTo(2));
 
-            this.gameServiceMock
-                .Setup(service => service.GetGamesForOwner(this.ownerUserId))
-                .Returns(ImmutableList.Create(BuildGame(2)));
+            this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(2));
 
             viewModel.DeleteGame(BuildGame(1));
 
@@ -109,9 +94,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void TryDeleteGame_SuccessfulDeletion_ReturnsSuccessWithGameRemovedTitle()
         {
-            this.gameServiceMock
-                .Setup(service => service.GetGamesForOwner(this.ownerUserId))
-                .Returns(ImmutableList.Create(BuildGame(1)));
+            this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(1));
 
             var viewModel = BuildViewModel();
             ViewOperationResult result = viewModel.TryDeleteGame(BuildGame(1));
@@ -123,12 +106,9 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void TryDeleteGame_GameHasActiveRentals_ReturnsFailureWithCannotDeleteTitle()
         {
-            this.gameServiceMock
-                .Setup(service => service.GetGamesForOwner(this.ownerUserId))
-                .Returns(ImmutableList.Create(BuildGame(1)));
-            this.gameServiceMock
-                .Setup(service => service.DeleteGameByIdentifier(1))
-                .Throws(new InvalidOperationException("There are 2 active rentals for this game and it cannot be removed now."));
+            this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(1));
+            this.gameService.DeleteGameException =
+                new InvalidOperationException("There are 2 active rentals for this game and it cannot be removed now.");
 
             var viewModel = BuildViewModel();
             ViewOperationResult result = viewModel.TryDeleteGame(BuildGame(1));
@@ -141,12 +121,8 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void TryDeleteGame_UnexpectedExceptionWithMessage_ReturnsFailureWithThatMessage()
         {
-            this.gameServiceMock
-                .Setup(service => service.GetGamesForOwner(this.ownerUserId))
-                .Returns(ImmutableList.Create(BuildGame(1)));
-            this.gameServiceMock
-                .Setup(service => service.DeleteGameByIdentifier(1))
-                .Throws(new Exception("Database connection failed."));
+            this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(1));
+            this.gameService.DeleteGameException = new Exception("Database connection failed.");
 
             var viewModel = BuildViewModel();
             ViewOperationResult result = viewModel.TryDeleteGame(BuildGame(1));
@@ -159,12 +135,8 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void TryDeleteGame_UnexpectedExceptionWithEmptyMessage_ReturnsFallbackMessage()
         {
-            this.gameServiceMock
-                .Setup(service => service.GetGamesForOwner(this.ownerUserId))
-                .Returns(ImmutableList.Create(BuildGame(1)));
-            this.gameServiceMock
-                .Setup(service => service.DeleteGameByIdentifier(1))
-                .Throws(new Exception(string.Empty));
+            this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(1));
+            this.gameService.DeleteGameException = new Exception(string.Empty);
 
             var viewModel = BuildViewModel();
             ViewOperationResult result = viewModel.TryDeleteGame(BuildGame(1));
@@ -176,12 +148,8 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void TryDeleteGame_UnexpectedExceptionWithWhitespaceMessage_ReturnsFallbackMessage()
         {
-            this.gameServiceMock
-                .Setup(service => service.GetGamesForOwner(this.ownerUserId))
-                .Returns(ImmutableList.Create(BuildGame(1)));
-            this.gameServiceMock
-                .Setup(service => service.DeleteGameByIdentifier(1))
-                .Throws(new Exception("   "));
+            this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(1));
+            this.gameService.DeleteGameException = new Exception("   ");
 
             var viewModel = BuildViewModel();
             ViewOperationResult result = viewModel.TryDeleteGame(BuildGame(1));
@@ -195,9 +163,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
         {
             int pageSize = PagedViewModel<GameDTO>.PageSize;
             var games = Enumerable.Range(1, pageSize + 2).Select(BuildGame).ToImmutableList();
-            this.gameServiceMock
-                .Setup(service => service.GetGamesForOwner(this.ownerUserId))
-                .Returns(games);
+            this.gameService.GamesForOwner = games;
 
             var viewModel = BuildViewModel();
 
@@ -209,9 +175,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
         public void ShowingText_WithGames_IncludesDisplayedAndTotalCounts()
         {
             var games = Enumerable.Range(1, 5).Select(BuildGame).ToImmutableList();
-            this.gameServiceMock
-                .Setup(service => service.GetGamesForOwner(this.ownerUserId))
-                .Returns(games);
+            this.gameService.GamesForOwner = games;
 
             var viewModel = BuildViewModel();
 
@@ -221,7 +185,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
 
         private ListingsViewModel BuildViewModel()
         {
-            return new ListingsViewModel(this.gameServiceMock.Object, this.ownerUserId);
+            return new ListingsViewModel(this.gameService, this.ownerUserId);
         }
 
         private GameDTO BuildGame(int gameId)

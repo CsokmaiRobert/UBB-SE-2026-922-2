@@ -1,11 +1,10 @@
 using System;
 using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
-using BoardRentAndProperty.Services;
+using BoardRentAndProperty.Tests.Fakes;
 using BoardRentAndProperty.Utilities;
 using BoardRentAndProperty.ViewModels;
 using CommunityToolkit.Mvvm.Input;
-using Moq;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.ViewModels
@@ -13,37 +12,38 @@ namespace BoardRentAndProperty.Tests.ViewModels
     [TestFixture]
     public sealed class ProfileViewModelTests
     {
-        private Mock<IAccountService> accountServiceMock = null!;
-        private Mock<IAuthService> authServiceMock = null!;
-        private Mock<IFilePickerService> filePickerServiceMock = null!;
-        private Mock<ISessionContext> sessionContextMock = null!;
+        private FakeClientAccountService accountService = null!;
+        private FakeClientAuthService authService = null!;
+        private FakeFilePickerService filePickerService = null!;
+        private FakeSessionContext sessionContext = null!;
         private ProfileViewModel systemUnderTest = null!;
         private Guid testAccountId;
 
         [SetUp]
         public void SetUp()
         {
-            this.accountServiceMock = new Mock<IAccountService>();
-            this.authServiceMock = new Mock<IAuthService>();
-            this.filePickerServiceMock = new Mock<IFilePickerService>();
-            this.sessionContextMock = new Mock<ISessionContext>();
-
             this.testAccountId = Guid.NewGuid();
-            this.sessionContextMock.SetupGet(context => context.AccountId).Returns(this.testAccountId);
-            this.sessionContextMock.SetupGet(context => context.Username).Returns("testuser");
-            this.sessionContextMock.SetupGet(context => context.DisplayName).Returns("Test User");
-            this.sessionContextMock.SetupGet(context => context.Email).Returns("test@test.com");
-            this.sessionContextMock.SetupGet(context => context.PhoneNumber).Returns(string.Empty);
-            this.sessionContextMock.SetupGet(context => context.Country).Returns(string.Empty);
-            this.sessionContextMock.SetupGet(context => context.City).Returns(string.Empty);
-            this.sessionContextMock.SetupGet(context => context.StreetName).Returns(string.Empty);
-            this.sessionContextMock.SetupGet(context => context.StreetNumber).Returns(string.Empty);
+            this.accountService = new FakeClientAccountService();
+            this.authService = new FakeClientAuthService();
+            this.filePickerService = new FakeFilePickerService();
+            this.sessionContext = new FakeSessionContext
+            {
+                AccountId = this.testAccountId,
+                Username = "testuser",
+                DisplayName = "Test User",
+                Email = "test@test.com",
+                PhoneNumber = string.Empty,
+                Country = string.Empty,
+                City = string.Empty,
+                StreetName = string.Empty,
+                StreetNumber = string.Empty,
+            };
 
             this.systemUnderTest = new ProfileViewModel(
-                this.accountServiceMock.Object,
-                this.authServiceMock.Object,
-                this.filePickerServiceMock.Object,
-                this.sessionContextMock.Object);
+                this.accountService,
+                this.authService,
+                this.filePickerService,
+                this.sessionContext);
         }
 
         [Test]
@@ -57,9 +57,8 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 Email = "loaded@test.com",
             };
 
-            this.accountServiceMock
-                .Setup(service => service.GetProfileAsync(this.testAccountId))
-                .ReturnsAsync(ServiceResult<AccountProfileDataTransferObject>.Ok(profileData));
+            this.accountService.ProfileResult =
+                ServiceResult<AccountProfileDataTransferObject>.Ok(profileData);
 
             await this.systemUnderTest.LoadProfileAsync();
 
@@ -74,9 +73,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             this.systemUnderTest.DisplayName = "A";
 
             var failureResult = ServiceResult<bool>.Fail("DisplayName|Display name must be between 2 and 50 characters long.");
-            this.accountServiceMock
-                .Setup(service => service.UpdateProfileAsync(this.testAccountId, It.IsAny<AccountProfileDataTransferObject>()))
-                .ReturnsAsync(failureResult);
+            this.accountService.UpdateProfileResult = failureResult;
 
             await ((IAsyncRelayCommand)this.systemUnderTest.SaveProfileCommand).ExecuteAsync(null);
 
@@ -87,14 +84,12 @@ namespace BoardRentAndProperty.Tests.ViewModels
         public async Task SelectAvatarCommand_UserPicksFile_SetsAvatarUrlPreview()
         {
             string fakePath = "C:\\test_avatar.jpg";
-            this.filePickerServiceMock
-                .Setup(service => service.PickImageFileAsync())
-                .ReturnsAsync(fakePath);
+            this.filePickerService.SelectedPath = fakePath;
 
             await ((IAsyncRelayCommand)this.systemUnderTest.SelectAvatarCommand).ExecuteAsync(null);
 
             Assert.That(this.systemUnderTest.AvatarUrl, Is.EqualTo(fakePath));
-            this.accountServiceMock.Verify(service => service.UploadAvatarAsync(It.IsAny<Guid>(), It.IsAny<string>()), Times.Never);
+            Assert.That(this.accountService.UploadAvatarCallCount, Is.EqualTo(0));
         }
 
         [Test]
@@ -106,7 +101,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             await ((IAsyncRelayCommand)this.systemUnderTest.SaveNewPasswordCommand).ExecuteAsync(null);
 
             Assert.That(this.systemUnderTest.ConfirmPasswordError, Is.EqualTo("Passwords do not match."));
-            this.accountServiceMock.Verify(service => service.ChangePasswordAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+            Assert.That(this.accountService.ChangePasswordCallCount, Is.EqualTo(0));
         }
     }
 }

@@ -2,12 +2,10 @@ using System;
 using System.Threading.Tasks;
 using BoardRentAndProperty.Api.Mappers;
 using BoardRentAndProperty.Api.Models;
-using BoardRentAndProperty.Api.Repositories;
 using BoardRentAndProperty.Api.Services;
 using BoardRentAndProperty.Api.Utilities;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
-using FluentAssertions;
-using Moq;
+using BoardRentAndProperty.Tests.Fakes;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.Api.Services
@@ -15,19 +13,19 @@ namespace BoardRentAndProperty.Tests.Api.Services
     [TestFixture]
     public sealed class AccountServiceTests
     {
-        private Mock<IAccountRepository> accountRepositoryMock = null!;
-        private Mock<IAvatarStorageService> avatarStorageServiceMock = null!;
+        private FakeAccountRepository accountRepository = null!;
+        private FakeAvatarStorageService avatarStorageService = null!;
         private AccountService service = null!;
 
         [SetUp]
         public void SetUp()
         {
-            this.accountRepositoryMock = new Mock<IAccountRepository>();
-            this.avatarStorageServiceMock = new Mock<IAvatarStorageService>();
+            this.accountRepository = new FakeAccountRepository();
+            this.avatarStorageService = new FakeAvatarStorageService();
             this.service = new AccountService(
-                this.accountRepositoryMock.Object,
+                this.accountRepository,
                 new AccountProfileMapper(),
-                this.avatarStorageServiceMock.Object);
+                this.avatarStorageService);
         }
 
         [Test]
@@ -35,14 +33,12 @@ namespace BoardRentAndProperty.Tests.Api.Services
         {
             var accountId = Guid.NewGuid();
 
-            this.accountRepositoryMock
-                .Setup(repository => repository.GetByIdAsync(accountId))
-                .ReturnsAsync((Account?)null);
+            this.accountRepository.AccountsById[accountId] = null;
 
             var serviceResult = await this.service.GetProfileAsync(accountId);
 
-            serviceResult.Success.Should().BeFalse();
-            serviceResult.Error.Should().Be("Account not found.");
+            Assert.That(serviceResult.Success, Is.False);
+            Assert.That(serviceResult.Error, Is.EqualTo("Account not found."));
         }
 
         [Test]
@@ -57,15 +53,13 @@ namespace BoardRentAndProperty.Tests.Api.Services
                 Roles = { new Role { Id = Guid.NewGuid(), Name = "Standard User" } },
             };
 
-            this.accountRepositoryMock
-                .Setup(repository => repository.GetByIdAsync(accountId))
-                .ReturnsAsync(account);
+            this.accountRepository.AccountsById[accountId] = account;
 
             var serviceResult = await this.service.GetProfileAsync(accountId);
 
-            serviceResult.Success.Should().BeTrue();
-            serviceResult.Data.Should().NotBeNull();
-            serviceResult.Data!.Username.Should().Be("test_user");
+            Assert.That(serviceResult.Success, Is.True);
+            Assert.That(serviceResult.Data, Is.Not.Null);
+            Assert.That(serviceResult.Data!.Username, Is.EqualTo("test_user"));
         }
 
         [Test]
@@ -85,18 +79,15 @@ namespace BoardRentAndProperty.Tests.Api.Services
                 Email = "updated@test.com",
             };
 
-            this.accountRepositoryMock
-                .Setup(repository => repository.GetByIdAsync(accountId))
-                .ReturnsAsync(account);
-            this.accountRepositoryMock
-                .Setup(repository => repository.GetByEmailAsync("updated@test.com"))
-                .ReturnsAsync((Account?)null);
+            this.accountRepository.AccountsById[accountId] = account;
+            this.accountRepository.AccountsByEmail["updated@test.com"] = null;
 
             var serviceResult = await this.service.UpdateProfileAsync(accountId, updateData);
 
-            serviceResult.Success.Should().BeTrue();
-            account.DisplayName.Should().Be("Updated Display Name");
-            this.accountRepositoryMock.Verify(repository => repository.UpdateAsync(account), Times.Once);
+            Assert.That(serviceResult.Success, Is.True);
+            Assert.That(account.DisplayName, Is.EqualTo("Updated Display Name"));
+            Assert.That(this.accountRepository.UpdateCallCount, Is.EqualTo(1));
+            Assert.That(this.accountRepository.LastUpdatedAccount, Is.SameAs(account));
         }
 
         [Test]
@@ -110,15 +101,14 @@ namespace BoardRentAndProperty.Tests.Api.Services
                 PasswordHash = originalHash,
             };
 
-            this.accountRepositoryMock
-                .Setup(repository => repository.GetByIdAsync(accountId))
-                .ReturnsAsync(account);
+            this.accountRepository.AccountsById[accountId] = account;
 
             var serviceResult = await this.service.ChangePasswordAsync(accountId, "OldPassword123!", "NewSecurePass123!");
 
-            serviceResult.Success.Should().BeTrue();
-            account.PasswordHash.Should().NotBe(originalHash);
-            this.accountRepositoryMock.Verify(repository => repository.UpdateAsync(account), Times.Once);
+            Assert.That(serviceResult.Success, Is.True);
+            Assert.That(account.PasswordHash, Is.Not.EqualTo(originalHash));
+            Assert.That(this.accountRepository.UpdateCallCount, Is.EqualTo(1));
+            Assert.That(this.accountRepository.LastUpdatedAccount, Is.SameAs(account));
         }
 
         [Test]
@@ -127,16 +117,15 @@ namespace BoardRentAndProperty.Tests.Api.Services
             var accountId = Guid.NewGuid();
             var account = new Account { Id = accountId };
 
-            this.accountRepositoryMock
-                .Setup(repository => repository.GetByIdAsync(accountId))
-                .ReturnsAsync(account);
+            this.accountRepository.AccountsById[accountId] = account;
 
             var serviceResult = await this.service.SetAvatarUrlAsync(accountId, "/avatars/test.png");
 
-            serviceResult.Success.Should().BeTrue();
-            serviceResult.Data.Should().Be("/avatars/test.png");
-            account.AvatarUrl.Should().Be("/avatars/test.png");
-            this.accountRepositoryMock.Verify(repository => repository.UpdateAsync(account), Times.Once);
+            Assert.That(serviceResult.Success, Is.True);
+            Assert.That(serviceResult.Data, Is.EqualTo("/avatars/test.png"));
+            Assert.That(account.AvatarUrl, Is.EqualTo("/avatars/test.png"));
+            Assert.That(this.accountRepository.UpdateCallCount, Is.EqualTo(1));
+            Assert.That(this.accountRepository.LastUpdatedAccount, Is.SameAs(account));
         }
 
         [Test]
@@ -149,16 +138,16 @@ namespace BoardRentAndProperty.Tests.Api.Services
                 AvatarUrl = "/avatars/old.png",
             };
 
-            this.accountRepositoryMock
-                .Setup(repository => repository.GetByIdAsync(accountId))
-                .ReturnsAsync(account);
+            this.accountRepository.AccountsById[accountId] = account;
 
             var serviceResult = await this.service.RemoveAvatarAsync(accountId);
 
-            serviceResult.Success.Should().BeTrue();
-            account.AvatarUrl.Should().BeEmpty();
-            this.avatarStorageServiceMock.Verify(service => service.Delete("/avatars/old.png"), Times.Once);
-            this.accountRepositoryMock.Verify(repository => repository.UpdateAsync(account), Times.Once);
+            Assert.That(serviceResult.Success, Is.True);
+            Assert.That(account.AvatarUrl, Is.Empty);
+            Assert.That(this.avatarStorageService.DeleteCallCount, Is.EqualTo(1));
+            Assert.That(this.avatarStorageService.LastDeletedPath, Is.EqualTo("/avatars/old.png"));
+            Assert.That(this.accountRepository.UpdateCallCount, Is.EqualTo(1));
+            Assert.That(this.accountRepository.LastUpdatedAccount, Is.SameAs(account));
         }
     }
 }

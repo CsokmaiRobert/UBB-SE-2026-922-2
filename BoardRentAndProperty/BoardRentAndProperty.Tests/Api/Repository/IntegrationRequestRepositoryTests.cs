@@ -2,7 +2,6 @@ using System;
 using BoardRentAndProperty.Api.Models;
 using BoardRentAndProperty.Api.Repositories;
 using BoardRentAndProperty.Contracts.Models;
-using FluentAssertions;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.Api.Repository
@@ -35,10 +34,10 @@ namespace BoardRentAndProperty.Tests.Api.Repository
 
             var fetchedRequest = this.requestRepository.Get(newRequest.Id);
 
-            fetchedRequest.Id.Should().Be(newRequest.Id);
-            fetchedRequest.Game!.Id.Should().Be(gameId);
-            fetchedRequest.Renter!.Id.Should().Be(RenterAccountId);
-            fetchedRequest.Owner!.Id.Should().Be(OwnerAccountId);
+            Assert.That(fetchedRequest.Id, Is.EqualTo(newRequest.Id));
+            Assert.That(fetchedRequest.Game!.Id, Is.EqualTo(gameId));
+            Assert.That(fetchedRequest.Renter!.Id, Is.EqualTo(RenterAccountId));
+            Assert.That(fetchedRequest.Owner!.Id, Is.EqualTo(OwnerAccountId));
         }
 
         [Test]
@@ -55,9 +54,9 @@ namespace BoardRentAndProperty.Tests.Api.Repository
 
             var requestsForFirstGame = this.requestRepository.GetRequestsByGame(firstGameId);
 
-            requestsForFirstGame.Should().OnlyContain(request => request.Game!.Id == firstGameId);
-            requestsForFirstGame.Should().Contain(request => request.Id == requestForFirstGame.Id);
-            requestsForFirstGame.Should().NotContain(request => request.Id == requestForSecondGame.Id);
+            Assert.That(requestsForFirstGame, Is.All.Matches<Request>(request => request.Game!.Id == firstGameId));
+            Assert.That(requestsForFirstGame, Has.Some.Matches<Request>(request => request.Id == requestForFirstGame.Id));
+            Assert.That(requestsForFirstGame, Has.None.Matches<Request>(request => request.Id == requestForSecondGame.Id));
         }
 
         private static Request BuildRequest(

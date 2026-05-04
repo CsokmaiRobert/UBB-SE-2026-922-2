@@ -2,10 +2,8 @@ using System;
 using System.Collections.Immutable;
 using System.Linq;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
-using BoardRentAndProperty.Services;
-using BoardRentAndProperty.Utilities;
+using BoardRentAndProperty.Tests.Fakes;
 using BoardRentAndProperty.ViewModels;
-using Moq;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.ViewModels
@@ -15,28 +13,23 @@ namespace BoardRentAndProperty.Tests.ViewModels
     {
         private readonly Guid ownerIdentifier = Guid.NewGuid();
         private readonly Guid renterIdentifier = Guid.NewGuid();
-        private Mock<IRentalService> rentalServiceMock = null!;
-        private Mock<ICurrentUserContext> currentUserContextMock = null!;
+        private FakeClientRentalService rentalService = null!;
+        private FakeCurrentUserContext currentUserContext = null!;
 
         [SetUp]
         public void SetUp()
         {
-            this.rentalServiceMock = new Mock<IRentalService>();
-            this.currentUserContextMock = new Mock<ICurrentUserContext>();
-            this.currentUserContextMock.SetupGet(context => context.CurrentUserId).Returns(this.ownerIdentifier);
-            this.rentalServiceMock
-                .Setup(service => service.GetRentalsForOwner(this.ownerIdentifier))
-                .Returns(ImmutableList<RentalDTO>.Empty);
+            this.rentalService = new FakeClientRentalService();
+            this.currentUserContext = new FakeCurrentUserContext { CurrentUserId = this.ownerIdentifier };
         }
 
         [Test]
         public void ShowingText_WithRentals_ContainsCountAndRentalsKeyword()
         {
-            this.rentalServiceMock
-                .Setup(service => service.GetRentalsForOwner(this.ownerIdentifier))
-                .Returns(ImmutableList.Create(BuildRental(10), BuildRental(20), BuildRental(30), BuildRental(50)));
+            this.rentalService.RentalsForOwner =
+                ImmutableList.Create(BuildRental(10), BuildRental(20), BuildRental(30), BuildRental(50));
 
-            var viewModel = new RentalsToOthersViewModel(this.rentalServiceMock.Object, this.currentUserContextMock.Object);
+            var viewModel = new RentalsToOthersViewModel(this.rentalService, this.currentUserContext);
 
             Assert.That(viewModel.ShowingText, Does.Contain("rentals"));
             Assert.That(viewModel.ShowingText, Does.Contain("4"));
@@ -45,11 +38,10 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void Constructor_WithRentals_SetsCorrectOwnerIdAndTotalCount()
         {
-            this.rentalServiceMock
-                .Setup(service => service.GetRentalsForOwner(this.ownerIdentifier))
-                .Returns(ImmutableList.Create(BuildRental(10), BuildRental(20), BuildRental(30), BuildRental(40)));
+            this.rentalService.RentalsForOwner =
+                ImmutableList.Create(BuildRental(10), BuildRental(20), BuildRental(30), BuildRental(40));
 
-            var viewModel = new RentalsToOthersViewModel(this.rentalServiceMock.Object, this.currentUserContextMock.Object);
+            var viewModel = new RentalsToOthersViewModel(this.rentalService, this.currentUserContext);
 
             Assert.That(viewModel.TotalCount, Is.EqualTo(4));
             Assert.That(viewModel.CurrentGameOwnerUserId, Is.EqualTo(this.ownerIdentifier));
@@ -58,11 +50,9 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void Constructor_WithRentals_PagedItemsContainCorrectRentalDetails()
         {
-            this.rentalServiceMock
-                .Setup(service => service.GetRentalsForOwner(this.ownerIdentifier))
-                .Returns(ImmutableList.Create(BuildRental(10), BuildRental(20), BuildRental(30)));
+            this.rentalService.RentalsForOwner = ImmutableList.Create(BuildRental(10), BuildRental(20), BuildRental(30));
 
-            var viewModel = new RentalsToOthersViewModel(this.rentalServiceMock.Object, this.currentUserContextMock.Object);
+            var viewModel = new RentalsToOthersViewModel(this.rentalService, this.currentUserContext);
             var pagedRentalIds = viewModel.PagedItems.Select(rental => rental.Id).ToList();
 
             Assert.That(viewModel.PagedItems.All(rental => rental.Game.Id == 1), Is.True);
@@ -75,16 +65,13 @@ namespace BoardRentAndProperty.Tests.ViewModels
         [Test]
         public void LoadRentals_AfterServiceDataChanged_RefreshesTotalCountAndPagedItems()
         {
-            this.rentalServiceMock
-                .Setup(service => service.GetRentalsForOwner(this.ownerIdentifier))
-                .Returns(ImmutableList.Create(BuildRental(10), BuildRental(20), BuildRental(30)));
+            this.rentalService.RentalsForOwner = ImmutableList.Create(BuildRental(10), BuildRental(20), BuildRental(30));
 
-            var viewModel = new RentalsToOthersViewModel(this.rentalServiceMock.Object, this.currentUserContextMock.Object);
+            var viewModel = new RentalsToOthersViewModel(this.rentalService, this.currentUserContext);
             Assert.That(viewModel.TotalCount, Is.EqualTo(3));
 
-            this.rentalServiceMock
-                .Setup(service => service.GetRentalsForOwner(this.ownerIdentifier))
-                .Returns(ImmutableList.Create(BuildRental(10), BuildRental(20), BuildRental(30), BuildRental(50)));
+            this.rentalService.RentalsForOwner =
+                ImmutableList.Create(BuildRental(10), BuildRental(20), BuildRental(30), BuildRental(50));
 
             viewModel.LoadRentals();
 

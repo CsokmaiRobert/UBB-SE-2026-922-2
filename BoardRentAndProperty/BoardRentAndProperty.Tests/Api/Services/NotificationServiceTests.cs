@@ -1,11 +1,10 @@
 using System;
 using BoardRentAndProperty.Api.Mappers;
 using BoardRentAndProperty.Api.Models;
-using BoardRentAndProperty.Api.Repositories;
 using BoardRentAndProperty.Api.Services;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Contracts.Models;
-using Moq;
+using BoardRentAndProperty.Tests.Fakes;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.Api.Services
@@ -13,14 +12,14 @@ namespace BoardRentAndProperty.Tests.Api.Services
     [TestFixture]
     public sealed class NotificationServiceTests
     {
-        private Mock<INotificationRepository> notificationRepositoryMock = null!;
+        private FakeNotificationRepository notificationRepository = null!;
         private NotificationService service = null!;
 
         [SetUp]
         public void SetUp()
         {
-            this.notificationRepositoryMock = new Mock<INotificationRepository>();
-            this.service = new NotificationService(this.notificationRepositoryMock.Object, new NotificationMapper(new UserMapper()));
+            this.notificationRepository = new FakeNotificationRepository();
+            this.service = new NotificationService(this.notificationRepository, new NotificationMapper(new UserMapper()));
         }
 
         [Test]
@@ -38,13 +37,12 @@ namespace BoardRentAndProperty.Tests.Api.Services
 
             this.service.SendNotificationToUser(recipientId, notification);
 
-            this.notificationRepositoryMock.Verify(repository => repository.Add(It.Is<Notification>(savedNotification =>
-                savedNotification.Recipient != null
-                && savedNotification.Recipient.Id == recipientId
-                && savedNotification.Title == "Hello"
-                && savedNotification.Body == "World"
-                && savedNotification.RelatedRequest != null
-                && savedNotification.RelatedRequest.Id == 42)), Times.Once);
+            Notification savedNotification = this.notificationRepository.LastAddedNotification!;
+            Assert.That(this.notificationRepository.AddCallCount, Is.EqualTo(1));
+            Assert.That(savedNotification.Recipient!.Id, Is.EqualTo(recipientId));
+            Assert.That(savedNotification.Title, Is.EqualTo("Hello"));
+            Assert.That(savedNotification.Body, Is.EqualTo("World"));
+            Assert.That(savedNotification.RelatedRequest!.Id, Is.EqualTo(42));
         }
 
         [Test]
@@ -52,7 +50,8 @@ namespace BoardRentAndProperty.Tests.Api.Services
         {
             this.service.DeleteNotificationsLinkedToRequest(42);
 
-            this.notificationRepositoryMock.Verify(repository => repository.DeleteNotificationsLinkedToRequest(42), Times.Once);
+            Assert.That(this.notificationRepository.DeleteLinkedCallCount, Is.EqualTo(1));
+            Assert.That(this.notificationRepository.LastLinkedRequestId, Is.EqualTo(42));
         }
     }
 }

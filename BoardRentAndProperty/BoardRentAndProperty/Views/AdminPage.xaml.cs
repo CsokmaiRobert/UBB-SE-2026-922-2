@@ -30,9 +30,9 @@ namespace BoardRentAndProperty.Views
 
         public bool IsErrorVisible => this.ViewModel != null && !string.IsNullOrEmpty(this.ViewModel.ErrorMessage);
 
-        protected override async void OnNavigatedTo(NavigationEventArgs e)
+        protected override async void OnNavigatedTo(NavigationEventArgs navigationEventArgs)
         {
-            base.OnNavigatedTo(e);
+            base.OnNavigatedTo(navigationEventArgs);
 
             if (!this.IsUnauthorized)
             {
@@ -41,9 +41,9 @@ namespace BoardRentAndProperty.Views
             }
         }
 
-        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        protected override void OnNavigatedFrom(NavigationEventArgs navigationEventArgs)
         {
-            base.OnNavigatedFrom(e);
+            base.OnNavigatedFrom(navigationEventArgs);
             this.ViewModel.PropertyChanged -= this.OnViewModelPropertyChanged;
         }
 

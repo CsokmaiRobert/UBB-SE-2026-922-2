@@ -2,10 +2,9 @@ using System;
 using System.Collections.Generic;
 using BoardRentAndProperty.Constants;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
-using BoardRentAndProperty.Services;
+using BoardRentAndProperty.Tests.Fakes;
 using BoardRentAndProperty.Utilities;
 using BoardRentAndProperty.ViewModels;
-using Moq;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.ViewModels
@@ -14,21 +13,16 @@ namespace BoardRentAndProperty.Tests.ViewModels
     public sealed class CreateGameViewModelTests
     {
         private readonly Guid testUserId = Guid.NewGuid();
-        private Mock<IGameService> gameServiceMock = null!;
-        private Mock<ICurrentUserContext> currentUserContextMock = null!;
+        private FakeClientGameService gameService = null!;
+        private FakeCurrentUserContext currentUserContext = null!;
         private CreateGameViewModel viewModel = null!;
 
         [SetUp]
         public void SetUp()
         {
-            this.gameServiceMock = new Mock<IGameService>();
-            this.currentUserContextMock = new Mock<ICurrentUserContext>();
-            this.currentUserContextMock
-                .SetupGet(context => context.CurrentUserId)
-                .Returns(this.testUserId);
-            this.gameServiceMock
-                .Setup(service => service.ValidateGame(It.IsAny<GameDTO>()))
-                .Returns((GameDTO game) => BoardRentAndProperty.Api.Services.GameInputHelper.BuildValidationErrors(
+            this.gameService = new FakeClientGameService
+            {
+                ValidateGameHandler = game => BoardRentAndProperty.Api.Services.GameInputHelper.BuildValidationErrors(
                     game.Name,
                     game.Price,
                     game.MinimumPlayerNumber,
@@ -39,9 +33,11 @@ namespace BoardRentAndProperty.Tests.ViewModels
                     DomainConstants.GameMinimumAllowedPrice,
                     DomainConstants.GameMinimumPlayerCount,
                     DomainConstants.GameMinimumDescriptionLength,
-                    DomainConstants.GameMaximumDescriptionLength));
+                    DomainConstants.GameMaximumDescriptionLength),
+            };
+            this.currentUserContext = new FakeCurrentUserContext { CurrentUserId = this.testUserId };
 
-            this.viewModel = new CreateGameViewModel(this.gameServiceMock.Object, this.currentUserContextMock.Object);
+            this.viewModel = new CreateGameViewModel(this.gameService, this.currentUserContext);
         }
 
         [Test]
@@ -115,12 +111,17 @@ namespace BoardRentAndProperty.Tests.ViewModels
             ViewOperationResult successResult = this.viewModel.SubmitCreateGame();
 
             Assert.That(successResult.IsSuccess, Is.True);
-            this.gameServiceMock.Verify(service => service.AddGame(It.Is<GameDTO>(game =>
-                game.Owner.Id == this.testUserId &&
-                game.Name == "Settlers of Catan" &&
-                game.Price == 15.99m)), Times.Once);
+            Assert.That(this.gameService.AddGameCallCount, Is.EqualTo(1));
+            Assert.That(this.gameService.LastAddedGame!.Owner.Id, Is.EqualTo(this.testUserId));
+            Assert.That(this.gameService.LastAddedGame.Name, Is.EqualTo("Settlers of Catan"));
+            Assert.That(this.gameService.LastAddedGame.Price, Is.EqualTo(15.99m));
 
-            this.gameServiceMock.Invocations.Clear();
+            this.gameService = new FakeClientGameService
+            {
+                ValidateGameHandler = this.gameService.ValidateGameHandler,
+            };
+            this.viewModel = new CreateGameViewModel(this.gameService, this.currentUserContext);
+            PopulateWithValidInputs();
             this.viewModel.GameName = string.Empty;
 
             ViewOperationResult failureResult = this.viewModel.SubmitCreateGame();
@@ -130,7 +131,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 Assert.That(failureResult.IsSuccess, Is.False);
                 Assert.That(failureResult.DialogTitle, Is.EqualTo("Validation Error"));
             });
-            this.gameServiceMock.Verify(service => service.AddGame(It.IsAny<GameDTO>()), Times.Never);
+            Assert.That(this.gameService.AddGameCallCount, Is.EqualTo(0));
         }
 
         [Test]
@@ -149,15 +150,20 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 Assert.That(savedGame.MinimumPlayerNumber, Is.EqualTo(2));
                 Assert.That(savedGame.MaximumPlayerNumber, Is.EqualTo(6));
             });
-            this.gameServiceMock.Verify(service => service.AddGame(It.IsAny<GameDTO>()), Times.Once);
+            Assert.That(this.gameService.AddGameCallCount, Is.EqualTo(1));
 
-            this.gameServiceMock.Invocations.Clear();
+            this.gameService = new FakeClientGameService
+            {
+                ValidateGameHandler = this.gameService.ValidateGameHandler,
+            };
+            this.viewModel = new CreateGameViewModel(this.gameService, this.currentUserContext);
+            PopulateWithValidInputs();
             this.viewModel.GameName = string.Empty;
 
             GameDTO invalidGame = this.viewModel.SaveGame();
 
             Assert.That(invalidGame, Is.Null);
-            this.gameServiceMock.Verify(service => service.AddGame(It.IsAny<GameDTO>()), Times.Never);
+            Assert.That(this.gameService.AddGameCallCount, Is.EqualTo(0));
         }
 
         private void AssertValidationError(Action<CreateGameViewModel> mutate, string expectedMessageFragment)

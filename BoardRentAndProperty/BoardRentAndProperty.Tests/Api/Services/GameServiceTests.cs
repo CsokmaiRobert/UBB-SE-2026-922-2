@@ -2,11 +2,9 @@ using System;
 using System.Collections.Immutable;
 using BoardRentAndProperty.Api.Mappers;
 using BoardRentAndProperty.Api.Models;
-using BoardRentAndProperty.Api.Repositories;
 using BoardRentAndProperty.Api.Services;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
-using FluentAssertions;
-using Moq;
+using BoardRentAndProperty.Tests.Fakes;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.Api.Services
@@ -17,27 +15,23 @@ namespace BoardRentAndProperty.Tests.Api.Services
         private const int SampleGameIdentifier = 42;
 
         private readonly Guid sampleOwnerIdentifier = Guid.NewGuid();
-        private Mock<IGameRepository> gameRepositoryMock = null!;
-        private Mock<IRentalRepository> rentalRepositoryMock = null!;
-        private Mock<IRequestService> requestServiceMock = null!;
+        private FakeGameRepository gameRepository = null!;
+        private FakeRentalRepository rentalRepository = null!;
+        private FakeApiRequestService requestService = null!;
         private GameService service = null!;
 
         [SetUp]
         public void SetUp()
         {
-            this.gameRepositoryMock = new Mock<IGameRepository>();
-            this.rentalRepositoryMock = new Mock<IRentalRepository>();
-            this.requestServiceMock = new Mock<IRequestService>();
-
-            this.rentalRepositoryMock
-                .Setup(repository => repository.GetRentalsByGame(It.IsAny<int>()))
-                .Returns(ImmutableList<Rental>.Empty);
+            this.gameRepository = new FakeGameRepository();
+            this.rentalRepository = new FakeRentalRepository();
+            this.requestService = new FakeApiRequestService();
 
             this.service = new GameService(
-                this.gameRepositoryMock.Object,
-                this.rentalRepositoryMock.Object,
+                this.gameRepository,
+                this.rentalRepository,
                 new GameMapper(new UserMapper()),
-                this.requestServiceMock.Object);
+                this.requestService);
         }
 
         [Test]
@@ -51,15 +45,12 @@ namespace BoardRentAndProperty.Tests.Api.Services
                 DateTime.Now.AddDays(-1),
                 DateTime.Now.AddDays(3));
 
-            this.rentalRepositoryMock
-                .Setup(repository => repository.GetRentalsByGame(SampleGameIdentifier))
-                .Returns(ImmutableList.Create(activeRental));
+            this.rentalRepository.RentalsByGame = ImmutableList.Create(activeRental);
 
             Action deleteAction = () => this.service.DeleteGameByIdentifier(SampleGameIdentifier);
 
-            deleteAction.Should()
-                .Throw<InvalidOperationException>()
-                .WithMessage("*1 active rental*");
+            var exception = Assert.Throws<InvalidOperationException>(() => deleteAction());
+            Assert.That(exception!.Message, Does.Contain("1 active rental"));
         }
 
         [Test]
@@ -78,7 +69,8 @@ namespace BoardRentAndProperty.Tests.Api.Services
 
             this.service.AddGame(gameDto);
 
-            this.gameRepositoryMock.Verify(repository => repository.Add(It.IsAny<Game>()), Times.Once);
+            Assert.That(this.gameRepository.AddCallCount, Is.EqualTo(1));
+            Assert.That(this.gameRepository.LastAddedGame, Is.Not.Null);
         }
 
         [Test]
@@ -96,7 +88,7 @@ namespace BoardRentAndProperty.Tests.Api.Services
 
             Action addAction = () => this.service.AddGame(gameDto);
 
-            addAction.Should().Throw<ArgumentException>();
+            Assert.Throws<ArgumentException>(() => addAction());
         }
 
         [Test]
@@ -117,27 +109,22 @@ namespace BoardRentAndProperty.Tests.Api.Services
                 DateTime.Now.AddDays(4),
                 DateTime.Now.AddDays(6));
 
-            this.rentalRepositoryMock
-                .Setup(repository => repository.GetRentalsByGame(SampleGameIdentifier))
-                .Returns(ImmutableList.Create(firstRental, secondRental));
+            this.rentalRepository.RentalsByGame = ImmutableList.Create(firstRental, secondRental);
 
             Action deleteAction = () => this.service.DeleteGameByIdentifier(SampleGameIdentifier);
 
-            deleteAction.Should()
-                .Throw<InvalidOperationException>()
-                .WithMessage("*2 active rentals*");
+            var exception = Assert.Throws<InvalidOperationException>(() => deleteAction());
+            Assert.That(exception!.Message, Does.Contain("2 active rentals"));
         }
 
         [Test]
         public void GetGameByIdentifier_WithValidId_ReturnsGameDto()
         {
-            this.gameRepositoryMock
-                .Setup(repository => repository.Get(SampleGameIdentifier))
-                .Returns(new Game { Id = SampleGameIdentifier });
+            this.gameRepository.GamesById[SampleGameIdentifier] = new Game { Id = SampleGameIdentifier };
 
             var retrievedGame = this.service.GetGameByIdentifier(SampleGameIdentifier);
 
-            retrievedGame.Id.Should().Be(SampleGameIdentifier);
+            Assert.That(retrievedGame.Id, Is.EqualTo(SampleGameIdentifier));
         }
 
         [Test]
@@ -156,25 +143,22 @@ namespace BoardRentAndProperty.Tests.Api.Services
 
             this.service.UpdateGameByIdentifier(SampleGameIdentifier, gameDto);
 
-            this.gameRepositoryMock.Verify(
-                repository => repository.Update(SampleGameIdentifier, It.IsAny<Game>()),
-                Times.Once);
+            Assert.That(this.gameRepository.UpdateCallCount, Is.EqualTo(1));
+            Assert.That(this.gameRepository.LastUpdatedGameId, Is.EqualTo(SampleGameIdentifier));
         }
 
         [Test]
         public void DeleteGameByIdentifier_WithNoActiveRentals_DeletesGameAndNotifiesRequestService()
         {
-            this.rentalRepositoryMock
-                .Setup(repository => repository.GetRentalsByGame(SampleGameIdentifier))
-                .Returns(ImmutableList<Rental>.Empty);
-            this.gameRepositoryMock
-                .Setup(repository => repository.Delete(SampleGameIdentifier))
-                .Returns(new Game { Id = SampleGameIdentifier });
+            this.rentalRepository.RentalsByGame = ImmutableList<Rental>.Empty;
+            this.gameRepository.GamesById[SampleGameIdentifier] = new Game { Id = SampleGameIdentifier };
 
             this.service.DeleteGameByIdentifier(SampleGameIdentifier);
 
-            this.requestServiceMock.Verify(requestService => requestService.OnGameDeactivated(SampleGameIdentifier), Times.Once);
-            this.gameRepositoryMock.Verify(repository => repository.Delete(SampleGameIdentifier), Times.Once);
+            Assert.That(this.requestService.OnGameDeactivatedCallCount, Is.EqualTo(1));
+            Assert.That(this.requestService.LastDeactivatedGameId, Is.EqualTo(SampleGameIdentifier));
+            Assert.That(this.gameRepository.DeleteCallCount, Is.EqualTo(1));
+            Assert.That(this.gameRepository.LastDeletedGameId, Is.EqualTo(SampleGameIdentifier));
         }
     }
 }
