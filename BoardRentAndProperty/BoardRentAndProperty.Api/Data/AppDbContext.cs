@@ -17,6 +17,7 @@ namespace BoardRentAndProperty.Api.Data
 
         public DbSet<Account> Accounts { get; set; } = default!;
         public DbSet<Role> Roles { get; set; } = default!;
+        public DbSet<AccountRole> AccountRoles { get; set; } = default!;
         public DbSet<FailedLoginAttempt> FailedLoginAttempts { get; set; } = default!;
         public DbSet<Game> Games { get; set; } = default!;
         public DbSet<Rental> Rentals { get; set; } = default!;
