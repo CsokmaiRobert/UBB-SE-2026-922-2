@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using GUI_BRAP.Services;
+using GUI_BRAP.Utilities;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GUI_BRAP.Controllers
@@ -46,6 +47,12 @@ namespace GUI_BRAP.Controllers
                 return View(body);
             }
 
+            body.Owner = new UserDTO
+            {
+                Id = User.GetAccountId(),
+                DisplayName = User.GetDisplayNameOrUsername(),
+            };
+
             try
             {
                 await this.gameProxyService.CreateGameAsync(body);
@@ -83,6 +90,14 @@ namespace GUI_BRAP.Controllers
             {
                 return View(body);
             }
+
+            GameDTO? existing = await this.gameProxyService.GetGameByIdAsync(id);
+            if (existing is null)
+            {
+                return NotFound();
+            }
+
+            body.Owner = existing.Owner;
 
             try
             {
