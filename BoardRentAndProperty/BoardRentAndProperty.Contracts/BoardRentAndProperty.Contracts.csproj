@@ -11,4 +11,9 @@
     <AdditionalFiles Include="..\SE.ruleset" Link="SE.ruleset" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="NuGet.Packaging" Version="7.3.1" />
+    <PackageReference Include="NuGet.Protocol" Version="7.3.1" />
+  </ItemGroup>
+
 </Project>

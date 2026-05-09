@@ -141,7 +141,10 @@ namespace BoardRentAndProperty.ViewModels
             {
                 return ViewOperationResult.Failure(Constants.DialogTitles.RentalFailed, rentalCreationException.Message);
             }
+            #pragma warning restore CA1031
             catch (Exception rentalCreationException)
+            #pragma warning restore CA1031 
+
             {
                 return ViewOperationResult.Failure(
                     Constants.DialogTitles.RentalFailed,
