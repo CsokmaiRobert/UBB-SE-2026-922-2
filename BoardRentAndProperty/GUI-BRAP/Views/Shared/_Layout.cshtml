@@ -4,46 +4,63 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - GUI_BRAP</title>
+    <title>@ViewData["Title"] - BoardRent &amp; Property</title>
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/GUI_BRAP.styles.css" asp-append-version="true" />
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Games" asp-action="Index">GUI_BRAP</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+        <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom app-navbar">
+            <div class="container">
+                <a class="navbar-brand fw-semibold" asp-area="" asp-controller="Games" asp-action="Index">BoardRent &amp; Property</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar"
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Games" asp-action="Index">Games</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-                        </li>
-                    </ul>
-                    <ul class="navbar-nav">
+                <div class="navbar-collapse collapse" id="mainNavbar">
+                    <ul class="navbar-nav me-auto">
                         @if (User.Identity?.IsAuthenticated == true)
                         {
-                            <li class="nav-item d-flex align-items-center">
-                                <span class="nav-link text-dark">@User.GetDisplayNameOrUsername()</span>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="" asp-controller="Games" asp-action="Index">Games</a>
                             </li>
                             <li class="nav-item">
-                                <form asp-controller="Auth" asp-action="Logout" method="post" class="form-inline">
-                                    <button type="submit" class="btn btn-link nav-link text-dark">Logout</button>
+                                <a class="nav-link" asp-area="" asp-controller="Requests" asp-action="Index">Requests</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="" asp-controller="Rentals" asp-action="Index">Rentals</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="" asp-controller="Notifications" asp-action="Index">Notifications</a>
+                            </li>
+                            @if (User.IsAdministrator())
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-area="" asp-controller="Accounts" asp-action="Index">Accounts</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-area="" asp-controller="Roles" asp-action="Index">Roles</a>
+                                </li>
+                            }
+                        }
+                    </ul>
+                    <ul class="navbar-nav ms-auto align-items-lg-center">
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <li class="nav-item">
+                                <span class="navbar-text app-user-name">@User.GetDisplayNameOrUsername()</span>
+                            </li>
+                            <li class="nav-item">
+                                <form asp-controller="Auth" asp-action="Logout" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm">Logout</button>
                                 </form>
                             </li>
                         }
                         else
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Auth" asp-action="Login">Login</a>
+                                <a class="btn btn-primary btn-sm" asp-controller="Auth" asp-action="Login">Login</a>
                             </li>
                         }
                     </ul>
@@ -51,15 +68,13 @@
             </div>
         </nav>
     </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
-    </div>
+    <main role="main" class="container py-4">
+        @RenderBody()
+    </main>
 
     <footer class="border-top footer text-muted">
         <div class="container">
-            &copy; 2026 - GUI_BRAP - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            &copy; 2026 - BoardRent &amp; Property - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
     </footer>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>

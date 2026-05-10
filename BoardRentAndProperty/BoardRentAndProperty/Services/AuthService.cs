@@ -1,6 +1,7 @@
 using System;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Utilities;
@@ -37,7 +38,20 @@ namespace BoardRentAndProperty.Services
 
         public async Task<ServiceResult<AccountProfileDataTransferObject>> LoginAsync(LoginDataTransferObject loginRequest)
         {
-            var loginResponse = await this.httpClient.PostAsJsonAsync("api/auth/login", loginRequest);
+            HttpResponseMessage loginResponse;
+            try
+            {
+                loginResponse = await this.httpClient.PostAsJsonAsync("api/auth/login", loginRequest);
+            }
+            catch (HttpRequestException)
+            {
+                return ServiceResult<AccountProfileDataTransferObject>.Fail("Cannot connect to the API. Start the API server and try again.");
+            }
+            catch (TaskCanceledException)
+            {
+                return ServiceResult<AccountProfileDataTransferObject>.Fail("The API did not respond in time. Check that the API server is running.");
+            }
+
             if (!loginResponse.IsSuccessStatusCode)
             {
                 return ServiceResult<AccountProfileDataTransferObject>.Fail(await ReadErrorAsync(loginResponse));
@@ -83,7 +97,16 @@ namespace BoardRentAndProperty.Services
                     return errorEnvelope!.Error!;
                 }
             }
-            catch
+            catch (JsonException)
+            {
+            }
+            catch (NotSupportedException)
+            {
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            catch (HttpRequestException)
             {
             }
 
