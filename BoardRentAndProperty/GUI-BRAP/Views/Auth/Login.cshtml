@@ -1,19 +1,21 @@
 @model LoginViewModel
+
 @{
-    ViewData["Title"] = "Login";
+    ViewData["Title"] = "Sign in";
+    Layout = "_Layout";
 }
 
-<h1>Login</h1>
+<h1>Sign in</h1>
 
 <div class="row">
     <div class="col-md-6">
         <form asp-action="Login" method="post">
-            <input type="hidden" asp-for="ReturnUrl" />
             <div asp-validation-summary="All" class="text-danger"></div>
+            <input type="hidden" asp-for="ReturnUrl" />
 
             <div class="mb-3">
                 <label asp-for="UsernameOrEmail" class="form-label"></label>
-                <input asp-for="UsernameOrEmail" class="form-control" autocomplete="username" />
+                <input asp-for="UsernameOrEmail" class="form-control" autocomplete="username" autofocus />
                 <span asp-validation-for="UsernameOrEmail" class="text-danger"></span>
             </div>
 
@@ -34,5 +36,5 @@
 </div>
 
 @section Scripts {
-    <partial name="_ValidationScriptsPartial" />
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
 }

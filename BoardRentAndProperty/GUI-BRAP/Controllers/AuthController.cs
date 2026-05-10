@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using GUI_BRAP.Services;
 
 namespace GUI_BRAP.Controllers
 {
@@ -54,39 +55,27 @@ namespace GUI_BRAP.Controllers
                 return View(model);
             }
 
-            var claims = new List<Claim>
+            ClaimsIdentity identity = BuildIdentity(profile);
+            AuthenticationProperties authProperties = new AuthenticationProperties
             {
-                new(ClaimTypes.NameIdentifier, profile.Id.ToString()),
-                new(ClaimTypes.Name, profile.Username ?? string.Empty),
-                new("DisplayName", profile.DisplayName ?? profile.Username ?? string.Empty),
+                IsPersistent = model.RememberMe,
+                AllowRefresh = true,
             };
-
-            if (profile.Role is not null && !string.IsNullOrWhiteSpace(profile.Role.Name))
-            {
-                claims.Add(new Claim(ClaimTypes.Role, profile.Role.Name));
-            }
-
-            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-            var principal = new ClaimsPrincipal(identity);
 
             await HttpContext.SignInAsync(
                 CookieAuthenticationDefaults.AuthenticationScheme,
-                principal,
-                new AuthenticationProperties
-                {
-                    IsPersistent = model.RememberMe,
-                });
+                new ClaimsPrincipal(identity),
+                authProperties);
 
             if (!string.IsNullOrEmpty(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
             {
                 return Redirect(model.ReturnUrl);
             }
 
-            return RedirectToAction("Index", "Home");
+            return RedirectToAction("Index", "Games");
         }
 
         [HttpPost]
-        [Authorize]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Logout()
         {
@@ -98,6 +87,22 @@ namespace GUI_BRAP.Controllers
         public IActionResult AccessDenied()
         {
             return View();
+        }
+
+        private static ClaimsIdentity BuildIdentity(AccountProfileDataTransferObject profile)
+        {
+            ClaimsIdentity identity = new ClaimsIdentity(CookieAuthenticationDefaults.AuthenticationScheme);
+            identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, profile.Id.ToString()));
+            identity.AddClaim(new Claim(ClaimTypes.Name, profile.Username ?? string.Empty));
+            identity.AddClaim(new Claim("DisplayName", profile.DisplayName ?? string.Empty));
+
+            string? roleName = profile.Role?.Name;
+            if (!string.IsNullOrWhiteSpace(roleName))
+            {
+                identity.AddClaim(new Claim(ClaimTypes.Role, roleName));
+            }
+
+            return identity;
         }
     }
 }

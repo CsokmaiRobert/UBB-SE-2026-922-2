@@ -10,9 +10,10 @@ namespace GUI_BRAP.Controllers
     {
         public IActionResult Index()
         {
-            return View();
+            return RedirectToAction("Index", "Games");
         }
 
+        [AllowAnonymous]
         public IActionResult Privacy()
         {
             return View();

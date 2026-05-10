@@ -1,13 +1,21 @@
-@model IReadOnlyList<GameDTO>
+@model IEnumerable<GameDTO>
+
 @{
     ViewData["Title"] = "Games";
 }
 
 <h1>Games</h1>
 
-<div asp-validation-summary="ModelOnly" class="text-danger"></div>
+@if (TempData["DeleteError"] is string deleteError)
+{
+    <div class="alert alert-danger" role="alert">@deleteError</div>
+}
 
-@if (Model is null || Model.Count == 0)
+<p>
+    <a asp-action="Create" class="btn btn-primary">Create New</a>
+</p>
+
+@if (Model is null || !Model.Any())
 {
     <p>No games available.</p>
 }
@@ -20,20 +28,28 @@ else
                 <th>Owner</th>
                 <th>Price</th>
                 <th>Players</th>
+                <th>Description</th>
                 <th>Active</th>
+                <th></th>
             </tr>
         </thead>
         <tbody>
-            @foreach (var game in Model)
-            {
-                <tr>
-                    <td>@game.Name</td>
-                    <td>@game.Owner?.DisplayName</td>
-                    <td>@game.Price</td>
-                    <td>@game.MinimumPlayerNumber - @game.MaximumPlayerNumber</td>
-                    <td>@(game.IsActive ? "Yes" : "No")</td>
-                </tr>
-            }
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.Name</td>
+                <td>@(item.Owner?.DisplayName ?? "-")</td>
+                <td>@item.Price</td>
+                <td>@item.MinimumPlayerNumber - @item.MaximumPlayerNumber</td>
+                <td>@item.Description</td>
+                <td>@(item.IsActive ? "Yes" : "No")</td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@item.Id">Edit</a> |
+                    <a asp-action="Details" asp-route-id="@item.Id">Details</a> |
+                    <a asp-action="Delete" asp-route-id="@item.Id">Delete</a>
+                </td>
+            </tr>
+        }
         </tbody>
     </table>
 }
