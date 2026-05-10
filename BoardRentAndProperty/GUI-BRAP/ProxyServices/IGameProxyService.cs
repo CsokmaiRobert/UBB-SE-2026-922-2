@@ -7,6 +7,14 @@ namespace GUI_BRAP.ProxyServices
 {
     public interface IGameProxyService
     {
-        Task<IReadOnlyList<GameDTO>> GetAllAsync(CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<GameDTO>> GetAllGamesAsync(CancellationToken cancellationToken = default);
+
+        Task<GameDTO?> GetGameByIdAsync(int gameId, CancellationToken cancellationToken = default);
+
+        Task CreateGameAsync(GameDTO body, CancellationToken cancellationToken = default);
+
+        Task UpdateGameAsync(int gameId, GameDTO body, CancellationToken cancellationToken = default);
+
+        Task DeleteGameAsync(int gameId, CancellationToken cancellationToken = default);
     }
 }

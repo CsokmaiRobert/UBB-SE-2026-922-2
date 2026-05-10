@@ -1,13 +1,11 @@
 using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
+using GUI_BRAP.Authorization;
 using GUI_BRAP.Infrastructure;
 using GUI_BRAP.ProxyServices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using GUI_BRAP.Services;
-using GUI_BRAP.Utilities;
 
 namespace GUI_BRAP.Controllers
 {

@@ -13,7 +13,6 @@ namespace GUI_BRAP.Controllers
             return RedirectToAction("Index", "Games");
         }
 
-        [AllowAnonymous]
         public IActionResult Privacy()
         {
             return View();

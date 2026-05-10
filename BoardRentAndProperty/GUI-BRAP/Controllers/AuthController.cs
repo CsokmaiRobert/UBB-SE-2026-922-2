@@ -1,20 +1,17 @@
 using System;
-using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
+using GUI_BRAP.Infrastructure;
 using GUI_BRAP.Models;
 using GUI_BRAP.ProxyServices;
-using GUI_BRAP.Infrastructure;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using GUI_BRAP.Services;
 
 namespace GUI_BRAP.Controllers
 {
-    [AllowAnonymous]
     public class AuthController : Controller
     {
         private readonly IAuthProxyService authProxyService;
@@ -25,12 +22,14 @@ namespace GUI_BRAP.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public IActionResult Login(string? returnUrl = null)
         {
             return View(new LoginViewModel { ReturnUrl = returnUrl });
         }
 
         [HttpPost]
+        [AllowAnonymous]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Login(LoginViewModel model)
         {
@@ -76,6 +75,7 @@ namespace GUI_BRAP.Controllers
         }
 
         [HttpPost]
+        [Authorize]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Logout()
         {
@@ -84,6 +84,7 @@ namespace GUI_BRAP.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public IActionResult AccessDenied()
         {
             return View();

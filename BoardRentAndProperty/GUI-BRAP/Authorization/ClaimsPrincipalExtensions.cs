@@ -49,5 +49,10 @@ namespace GUI_BRAP.Authorization
         {
             return user?.FindFirstValue(ClaimTypes.Role);
         }
+
+        public static bool IsAdministrator(this ClaimsPrincipal user)
+        {
+            return string.Equals(user.GetRoleName(), AppRoles.Administrator, StringComparison.Ordinal);
+        }
     }
 }
