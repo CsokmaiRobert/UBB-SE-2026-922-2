@@ -1,5 +1,7 @@
 html {
   font-size: 14px;
+  min-height: 100%;
+  position: relative;
 }
 
 @media (min-width: 768px) {
@@ -8,24 +10,97 @@ html {
   }
 }
 
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-select:focus, .form-check-input:focus {
   box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
 
-html {
-  position: relative;
-  min-height: 100%;
-}
-
 body {
-  margin-bottom: 60px;
+  background-color: #f7f8fa;
+  color: #212529;
+  margin-bottom: 72px;
 }
 
-.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
-  color: var(--bs-secondary-color);
-  text-align: end;
+.app-navbar {
+  box-shadow: 0 0.125rem 0.75rem rgba(33, 37, 41, 0.06);
 }
 
-.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
-  text-align: start;
+.navbar-brand {
+  letter-spacing: 0;
+}
+
+.app-user-name {
+  color: #495057;
+  margin-right: 0.75rem;
+}
+
+main.container {
+  background-color: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.footer {
+  background-color: #fff;
+  bottom: 0;
+  line-height: 60px;
+  position: absolute;
+  width: 100%;
+}
+
+.page-header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.page-title {
+  margin-bottom: 0;
+}
+
+.page-actions,
+.form-actions,
+.table-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.table-actions {
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+
+.form-section {
+  max-width: 42rem;
+}
+
+.details-list dt {
+  color: #495057;
+  font-weight: 600;
+}
+
+.delete-warning {
+  margin-bottom: 1.5rem;
+}
+
+.status-badge {
+  font-weight: 600;
+}
+
+@media (max-width: 575.98px) {
+  main.container {
+    border-left: 0;
+    border-radius: 0;
+    border-right: 0;
+    margin-top: 0;
+  }
+
+  .table-actions {
+    justify-content: flex-start;
+  }
 }

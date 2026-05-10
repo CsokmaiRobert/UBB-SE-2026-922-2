@@ -1,42 +1,37 @@
-﻿@model BoardRentAndProperty.Api.Models.Request
+@model BoardRentAndProperty.Api.Models.Request
 
 @{
-    ViewData["Title"] = "Edit";
+    ViewData["Title"] = "Edit Request";
 }
 
-<h1>Edit</h1>
-
-<h4>Request</h4>
-<hr />
-<div class="row">
-    <div class="col-md-4">
-        <form asp-action="Edit">
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            <input type="hidden" asp-for="Id" />
-            <div class="form-group">
-                <label asp-for="StartDate" class="control-label"></label>
-                <input asp-for="StartDate" class="form-control" />
-                <span asp-validation-for="StartDate" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="EndDate" class="control-label"></label>
-                <input asp-for="EndDate" class="form-control" />
-                <span asp-validation-for="EndDate" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="Status" class="control-label"></label>
-                <select asp-for="Status" class="form-control"></select>
-                <span asp-validation-for="Status" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <input type="submit" value="Save" class="btn btn-primary" />
-            </div>
-        </form>
-    </div>
+<div class="page-header">
+    <h1 class="page-title">Edit Request</h1>
 </div>
 
-<div>
-    <a asp-action="Index">Back to List</a>
+<div class="form-section">
+    <form asp-action="Edit">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+        <input type="hidden" asp-for="Id" />
+        <div class="mb-3">
+            <label asp-for="StartDate" class="form-label"></label>
+            <input asp-for="StartDate" class="form-control" />
+            <span asp-validation-for="StartDate" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="EndDate" class="form-label"></label>
+            <input asp-for="EndDate" class="form-control" />
+            <span asp-validation-for="EndDate" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Status" class="form-label"></label>
+            <select asp-for="Status" class="form-select"></select>
+            <span asp-validation-for="Status" class="text-danger"></span>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a class="btn btn-secondary" asp-action="Index">Cancel</a>
+        </div>
+    </form>
 </div>
 
 @section Scripts {

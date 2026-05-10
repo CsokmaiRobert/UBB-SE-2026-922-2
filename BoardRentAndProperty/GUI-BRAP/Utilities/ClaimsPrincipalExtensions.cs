@@ -5,6 +5,8 @@ namespace GUI_BRAP.Utilities
 {
     public static class ClaimsPrincipalExtensions
     {
+        private const string AdministratorRoleName = "Administrator";
+
         public static Guid GetAccountId(this ClaimsPrincipal user)
         {
             string? rawId = user?.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -21,5 +23,8 @@ namespace GUI_BRAP.Utilities
 
             return user?.Identity?.Name ?? string.Empty;
         }
+
+        public static bool IsAdministrator(this ClaimsPrincipal user) =>
+            user?.IsInRole(AdministratorRoleName) == true;
     }
 }
