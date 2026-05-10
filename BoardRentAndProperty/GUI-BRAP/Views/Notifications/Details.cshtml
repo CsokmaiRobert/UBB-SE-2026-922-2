@@ -1,0 +1,32 @@
+@model BoardRentAndProperty.Api.Models.Notification
+
+@{
+    ViewData["Title"] = "Notification Details";
+    var typeClass = Model.Type.ToString() switch
+    {
+        "Informational" => "bg-info text-dark",
+        "OfferReceived" => "bg-warning text-dark",
+        "OfferResult" => "bg-success",
+        _ => "bg-secondary"
+    };
+}
+
+<div class="page-header">
+    <h1 class="page-title">Notification Details</h1>
+</div>
+
+<dl class="row details-list">
+    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Timestamp)</dt>
+    <dd class="col-sm-9">@Html.DisplayFor(model => model.Timestamp)</dd>
+    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Title)</dt>
+    <dd class="col-sm-9">@Html.DisplayFor(model => model.Title)</dd>
+    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Body)</dt>
+    <dd class="col-sm-9">@Html.DisplayFor(model => model.Body)</dd>
+    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Type)</dt>
+    <dd class="col-sm-9"><span class="badge @typeClass status-badge">@Model.Type</span></dd>
+</dl>
+
+<div class="page-actions">
+    <a class="btn btn-warning" asp-action="Edit" asp-route-id="@Model?.Id">Edit</a>
+    <a class="btn btn-secondary" asp-action="Index">Back</a>
+</div>

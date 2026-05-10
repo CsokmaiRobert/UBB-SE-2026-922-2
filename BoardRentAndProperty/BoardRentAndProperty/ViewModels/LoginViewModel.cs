@@ -49,19 +49,24 @@ namespace BoardRentAndProperty.ViewModels
                 RememberMe = this.RememberMe,
             };
 
-            ServiceResult<AccountProfileDataTransferObject> loginResult = await this.authService.LoginAsync(loginRequest);
-
-            if (loginResult.Success && loginResult.Data != null)
+            try
             {
-                string userRole = loginResult.Data.Role?.Name ?? "Standard User";
-                this.OnLoginSuccess?.Invoke(userRole);
-            }
-            else
-            {
-                this.ErrorMessage = loginResult.Error ?? "Login failed.";
-            }
+                ServiceResult<AccountProfileDataTransferObject> loginResult = await this.authService.LoginAsync(loginRequest);
 
-            this.IsLoading = false;
+                if (loginResult.Success && loginResult.Data != null)
+                {
+                    string userRole = loginResult.Data.Role?.Name ?? "Standard User";
+                    this.OnLoginSuccess?.Invoke(userRole);
+                }
+                else
+                {
+                    this.ErrorMessage = loginResult.Error ?? "Login failed.";
+                }
+            }
+            finally
+            {
+                this.IsLoading = false;
+            }
         }
 
         [RelayCommand]

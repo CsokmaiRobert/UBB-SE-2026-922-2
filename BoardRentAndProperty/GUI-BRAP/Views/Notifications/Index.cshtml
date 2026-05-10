@@ -1,0 +1,50 @@
+@model IEnumerable<BoardRentAndProperty.Api.Models.Notification>
+
+@{
+    ViewData["Title"] = "Notifications";
+}
+
+<div class="page-header">
+    <h1 class="page-title">Notifications</h1>
+    <div class="page-actions">
+        <a class="btn btn-primary" asp-action="Create">Create New</a>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover align-middle">
+        <thead>
+            <tr>
+                <th>@Html.DisplayNameFor(model => model.Timestamp)</th>
+                <th>@Html.DisplayNameFor(model => model.Title)</th>
+                <th>@Html.DisplayNameFor(model => model.Body)</th>
+                <th>@Html.DisplayNameFor(model => model.Type)</th>
+                <th class="text-end">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+@foreach (var item in Model) {
+            var typeClass = item.Type.ToString() switch
+            {
+                "Informational" => "bg-info text-dark",
+                "OfferReceived" => "bg-warning text-dark",
+                "OfferResult" => "bg-success",
+                _ => "bg-secondary"
+            };
+            <tr>
+                <td>@Html.DisplayFor(modelItem => item.Timestamp)</td>
+                <td>@Html.DisplayFor(modelItem => item.Title)</td>
+                <td>@Html.DisplayFor(modelItem => item.Body)</td>
+                <td><span class="badge @typeClass status-badge">@item.Type</span></td>
+                <td>
+                    <div class="table-actions">
+                        <a class="btn btn-warning btn-sm" asp-action="Edit" asp-route-id="@item.Id">Edit</a>
+                        <a class="btn btn-info btn-sm" asp-action="Details" asp-route-id="@item.Id">Details</a>
+                        <a class="btn btn-danger btn-sm" asp-action="Delete" asp-route-id="@item.Id">Delete</a>
+                    </div>
+                </td>
+            </tr>
+}
+        </tbody>
+    </table>
+</div>

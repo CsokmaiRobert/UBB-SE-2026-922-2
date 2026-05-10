@@ -1,0 +1,39 @@
+@model BoardRentAndProperty.Api.Models.Notification
+
+@{
+    ViewData["Title"] = "Delete Notification";
+    var typeClass = Model.Type.ToString() switch
+    {
+        "Informational" => "bg-info text-dark",
+        "OfferReceived" => "bg-warning text-dark",
+        "OfferResult" => "bg-success",
+        _ => "bg-secondary"
+    };
+}
+
+<div class="page-header">
+    <h1 class="page-title">Delete Notification</h1>
+</div>
+
+<div class="alert alert-danger delete-warning" role="alert">
+    Are you sure you want to delete this notification?
+</div>
+
+<dl class="row details-list">
+    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Timestamp)</dt>
+    <dd class="col-sm-9">@Html.DisplayFor(model => model.Timestamp)</dd>
+    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Title)</dt>
+    <dd class="col-sm-9">@Html.DisplayFor(model => model.Title)</dd>
+    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Body)</dt>
+    <dd class="col-sm-9">@Html.DisplayFor(model => model.Body)</dd>
+    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Type)</dt>
+    <dd class="col-sm-9"><span class="badge @typeClass status-badge">@Model.Type</span></dd>
+</dl>
+
+<form asp-action="Delete" data-confirm="Are you sure you want to delete this notification?">
+    <input type="hidden" asp-for="Id" />
+    <div class="form-actions">
+        <button type="submit" class="btn btn-danger">Delete</button>
+        <a class="btn btn-secondary" asp-action="Index">Cancel</a>
+    </div>
+</form>

@@ -1,0 +1,28 @@
+@model BoardRentAndProperty.Api.Models.Role
+
+@{
+    ViewData["Title"] = "Create Role";
+}
+
+<div class="page-header">
+    <h1 class="page-title">Create Role</h1>
+</div>
+
+<div class="form-section">
+    <form asp-action="Create">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+        <div class="mb-3">
+            <label asp-for="Name" class="form-label"></label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Create</button>
+            <a class="btn btn-secondary" asp-action="Index">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
