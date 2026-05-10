@@ -16,46 +16,56 @@
     <div class="alert alert-danger" role="alert">@deleteError</div>
 }
 
-<div class="table-responsive">
-    <table class="table table-striped table-hover align-middle">
-        <thead>
-            <tr>
-                <th>@Html.DisplayNameFor(model => model.Name)</th>
-                <th>@Html.DisplayNameFor(model => model.Price)</th>
-                <th>@Html.DisplayNameFor(model => model.MinimumPlayerNumber)</th>
-                <th>@Html.DisplayNameFor(model => model.MaximumPlayerNumber)</th>
-                <th>@Html.DisplayNameFor(model => model.Description)</th>
-                <th>@Html.DisplayNameFor(model => model.IsActive)</th>
-                <th class="text-end">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-@foreach (var item in Model) {
-            <tr>
-                <td>@Html.DisplayFor(modelItem => item.Name)</td>
-                <td>@Html.DisplayFor(modelItem => item.Price)</td>
-                <td>@Html.DisplayFor(modelItem => item.MinimumPlayerNumber)</td>
-                <td>@Html.DisplayFor(modelItem => item.MaximumPlayerNumber)</td>
-                <td>@Html.DisplayFor(modelItem => item.Description)</td>
-                <td>
-                    @if (item.IsActive)
-                    {
-                        <span class="badge bg-success status-badge">Active</span>
-                    }
-                    else
-                    {
-                        <span class="badge bg-secondary status-badge">Inactive</span>
-                    }
-                </td>
-                <td>
-                    <div class="table-actions">
-                        <a class="btn btn-warning btn-sm" asp-action="Edit" asp-route-id="@item.Id">Edit</a>
-                        <a class="btn btn-info btn-sm" asp-action="Details" asp-route-id="@item.Id">Details</a>
-                        <a class="btn btn-danger btn-sm" asp-action="Delete" asp-route-id="@item.Id">Delete</a>
-                    </div>
-                </td>
-            </tr>
+@if (Model is null || !Model.Any())
+{
+    <div class="empty-state">
+        <p>No games available.</p>
+    </div>
 }
-        </tbody>
-    </table>
-</div>
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>@Html.DisplayNameFor(model => model.Name)</th>
+                    <th>Owner</th>
+                    <th>@Html.DisplayNameFor(model => model.Price)</th>
+                    <th>Players</th>
+                    <th>@Html.DisplayNameFor(model => model.Description)</th>
+                    <th>@Html.DisplayNameFor(model => model.IsActive)</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>@Html.DisplayFor(modelItem => item.Name)</td>
+                    <td>@(item.Owner?.DisplayName ?? "-")</td>
+                    <td>@Html.DisplayFor(modelItem => item.Price)</td>
+                    <td>@item.MinimumPlayerNumber - @item.MaximumPlayerNumber</td>
+                    <td>@Html.DisplayFor(modelItem => item.Description)</td>
+                    <td>
+                        @if (item.IsActive)
+                        {
+                            <span class="badge bg-success status-badge">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary status-badge">Inactive</span>
+                        }
+                    </td>
+                    <td class="text-end">
+                        <div class="table-actions">
+                            <a class="btn btn-warning btn-sm" asp-action="Edit" asp-route-id="@item.Id">Edit</a>
+                            <a class="btn btn-info btn-sm" asp-action="Details" asp-route-id="@item.Id">Details</a>
+                            <a class="btn btn-danger btn-sm" asp-action="Delete" asp-route-id="@item.Id">Delete</a>
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
