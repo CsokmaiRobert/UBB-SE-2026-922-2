@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace GUI_BRAP.Models.Auth
+namespace GUI_BRAP.Models
 {
     public class LoginViewModel
     {

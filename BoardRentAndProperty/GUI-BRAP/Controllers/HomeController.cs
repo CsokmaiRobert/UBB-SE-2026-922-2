@@ -5,6 +5,7 @@ using System.Diagnostics;
 
 namespace GUI_BRAP.Controllers
 {
+    [Authorize]
     public class HomeController : Controller
     {
         public IActionResult Index()
@@ -12,7 +13,6 @@ namespace GUI_BRAP.Controllers
             return RedirectToAction("Index", "Games");
         }
 
-        [AllowAnonymous]
         public IActionResult Privacy()
         {
             return View();

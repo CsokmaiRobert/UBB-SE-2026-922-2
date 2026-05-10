@@ -8,28 +8,29 @@
 <h1>Sign in</h1>
 
 <div class="row">
-    <div class="col-md-4">
+    <div class="col-md-6">
         <form asp-action="Login" method="post">
             <div asp-validation-summary="All" class="text-danger"></div>
             <input type="hidden" asp-for="ReturnUrl" />
-            <div class="form-group mb-3">
-                <label asp-for="UsernameOrEmail" class="control-label"></label>
-                <input asp-for="UsernameOrEmail" class="form-control" autofocus />
+
+            <div class="mb-3">
+                <label asp-for="UsernameOrEmail" class="form-label"></label>
+                <input asp-for="UsernameOrEmail" class="form-control" autocomplete="username" autofocus />
                 <span asp-validation-for="UsernameOrEmail" class="text-danger"></span>
             </div>
-            <div class="form-group mb-3">
-                <label asp-for="Password" class="control-label"></label>
-                <input asp-for="Password" class="form-control" />
+
+            <div class="mb-3">
+                <label asp-for="Password" class="form-label"></label>
+                <input asp-for="Password" class="form-control" autocomplete="current-password" />
                 <span asp-validation-for="Password" class="text-danger"></span>
             </div>
-            <div class="form-group form-check mb-3">
-                <label class="form-check-label">
-                    <input class="form-check-input" asp-for="RememberMe" /> @Html.DisplayNameFor(model => model.RememberMe)
-                </label>
+
+            <div class="form-check mb-3">
+                <input asp-for="RememberMe" class="form-check-input" />
+                <label asp-for="RememberMe" class="form-check-label"></label>
             </div>
-            <div class="form-group">
-                <button type="submit" class="btn btn-primary">Sign in</button>
-            </div>
+
+            <button type="submit" class="btn btn-primary">Sign in</button>
         </form>
     </div>
 </div>
