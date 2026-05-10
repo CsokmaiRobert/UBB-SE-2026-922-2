@@ -1,39 +1,42 @@
+using System;
+using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
-using GUI_BRAP.Models.Auth;
-using GUI_BRAP.Services;
+using GUI_BRAP.Models;
+using GUI_BRAP.ProxyServices;
+using GUI_BRAP.Infrastructure;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using GUI_BRAP.Services;
 
 namespace GUI_BRAP.Controllers
 {
+    [AllowAnonymous]
     public class AuthController : Controller
     {
         private readonly IAuthProxyService authProxyService;
 
         public AuthController(IAuthProxyService authProxyService)
         {
-            this.authProxyService = authProxyService;
+            this.authProxyService = authProxyService ?? throw new ArgumentNullException(nameof(authProxyService));
         }
 
         [HttpGet]
-        [AllowAnonymous]
         public IActionResult Login(string? returnUrl = null)
         {
             return View(new LoginViewModel { ReturnUrl = returnUrl });
         }
 
         [HttpPost]
-        [AllowAnonymous]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Login(LoginViewModel viewModel)
+        public async Task<IActionResult> Login(LoginViewModel model)
         {
             if (!ModelState.IsValid)
             {
-                return View(viewModel);
+                return View(model);
             }
 
             AccountProfileDataTransferObject profile;
@@ -41,21 +44,21 @@ namespace GUI_BRAP.Controllers
             {
                 profile = await this.authProxyService.LoginAsync(new LoginDataTransferObject
                 {
-                    UsernameOrEmail = viewModel.UsernameOrEmail,
-                    Password = viewModel.Password,
-                    RememberMe = viewModel.RememberMe,
+                    UsernameOrEmail = model.UsernameOrEmail,
+                    Password = model.Password,
+                    RememberMe = model.RememberMe,
                 });
             }
             catch (ProxyServiceException ex)
             {
                 ModelState.AddModelError(string.Empty, ex.Message);
-                return View(viewModel);
+                return View(model);
             }
 
             ClaimsIdentity identity = BuildIdentity(profile);
             AuthenticationProperties authProperties = new AuthenticationProperties
             {
-                IsPersistent = viewModel.RememberMe,
+                IsPersistent = model.RememberMe,
                 AllowRefresh = true,
             };
 
@@ -64,9 +67,9 @@ namespace GUI_BRAP.Controllers
                 new ClaimsPrincipal(identity),
                 authProperties);
 
-            if (!string.IsNullOrEmpty(viewModel.ReturnUrl) && Url.IsLocalUrl(viewModel.ReturnUrl))
+            if (!string.IsNullOrEmpty(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
             {
-                return Redirect(viewModel.ReturnUrl);
+                return Redirect(model.ReturnUrl);
             }
 
             return RedirectToAction("Index", "Games");
@@ -81,7 +84,6 @@ namespace GUI_BRAP.Controllers
         }
 
         [HttpGet]
-        [AllowAnonymous]
         public IActionResult AccessDenied()
         {
             return View();

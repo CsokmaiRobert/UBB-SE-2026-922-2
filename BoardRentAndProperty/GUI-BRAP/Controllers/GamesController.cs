@@ -1,18 +1,24 @@
+using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
+using GUI_BRAP.Infrastructure;
+using GUI_BRAP.ProxyServices;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using GUI_BRAP.Services;
 using GUI_BRAP.Utilities;
-using Microsoft.AspNetCore.Mvc;
 
 namespace GUI_BRAP.Controllers
 {
+    [Authorize]
     public class GamesController : Controller
     {
         private readonly IGameProxyService gameProxyService;
 
         public GamesController(IGameProxyService gameProxyService)
         {
-            this.gameProxyService = gameProxyService;
+            this.gameProxyService = gameProxyService ?? throw new ArgumentNullException(nameof(gameProxyService));
         }
 
         public async Task<IActionResult> Index()
