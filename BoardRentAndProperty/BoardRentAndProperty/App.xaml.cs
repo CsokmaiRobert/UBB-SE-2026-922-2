@@ -1,11 +1,11 @@
 using System;
+using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
-using System.Configuration;
-using System.Net.Http;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Services.Listeners;
@@ -86,10 +86,15 @@ namespace BoardRentAndProperty
         {
             var serviceCollection = new ServiceCollection();
 
-            string apiBaseUrl = "http://172.30.254.241";
+            string apiBaseUrl = ConfigurationManager.AppSettings["ApiBaseUrl"]
+                ?? throw new InvalidOperationException("ApiBaseUrl is not configured in App.config.");
             var apiBaseAddress = new Uri(apiBaseUrl, UriKind.Absolute);
 
-            serviceCollection.AddHttpClient(string.Empty, client => client.BaseAddress = apiBaseAddress);
+            serviceCollection.AddHttpClient(string.Empty, client =>
+            {
+                client.BaseAddress = apiBaseAddress;
+                client.Timeout = TimeSpan.FromSeconds(10);
+            });
             serviceCollection.AddTransient(serviceProvider =>
                 serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient());
 
