@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+@using GUI_BRAP.Authorization
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -24,8 +25,31 @@
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Games" asp-action="Index">Games</a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                         </li>
+                    </ul>
+                    <ul class="navbar-nav">
+                        @if (User?.Identity?.IsAuthenticated == true)
+                        {
+                            <li class="nav-item d-flex align-items-center me-2">
+                                <span class="navbar-text">@User.GetDisplayNameOrUsername()</span>
+                            </li>
+                            <li class="nav-item">
+                                <form asp-controller="Auth" asp-action="Logout" method="post" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-link nav-link text-dark">Logout</button>
+                                </form>
+                            </li>
+                        }
+                        else
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-controller="Auth" asp-action="Login">Login</a>
+                            </li>
+                        }
                     </ul>
                 </div>
             </div>

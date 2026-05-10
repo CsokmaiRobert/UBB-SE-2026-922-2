@@ -1,0 +1,39 @@
+@model IReadOnlyList<GameDTO>
+@{
+    ViewData["Title"] = "Games";
+}
+
+<h1>Games</h1>
+
+<div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+@if (Model is null || Model.Count == 0)
+{
+    <p>No games available.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Owner</th>
+                <th>Price</th>
+                <th>Players</th>
+                <th>Active</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var game in Model)
+            {
+                <tr>
+                    <td>@game.Name</td>
+                    <td>@game.Owner?.DisplayName</td>
+                    <td>@game.Price</td>
+                    <td>@game.MinimumPlayerNumber - @game.MaximumPlayerNumber</td>
+                    <td>@(game.IsActive ? "Yes" : "No")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

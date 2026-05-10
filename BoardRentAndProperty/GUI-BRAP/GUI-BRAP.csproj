@@ -7,4 +7,8 @@
     <RootNamespace>GUI_BRAP</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\BoardRentAndProperty.Contracts\BoardRentAndProperty.Contracts.csproj" />
+  </ItemGroup>
+
 </Project>
