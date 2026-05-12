@@ -34,6 +34,10 @@
                             <li class="nav-item">
                                 <a class="nav-link" asp-area="" asp-controller="Notifications" asp-action="Index">Notifications</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="Profile" asp-action="Index">Profile</a>
+                            </li>
+
                             @if (User.IsAdministrator())
                             {
                                 <li class="nav-item">
@@ -49,7 +53,7 @@
                         @if (User.Identity?.IsAuthenticated == true)
                         {
                             <li class="nav-item">
-                                <span class="navbar-text app-user-name">@User.GetDisplayNameOrUsername()</span>
+                                <span class="navbar-text app-user-name me-3">@User.GetDisplayNameOrUsername()</span>
                             </li>
                             <li class="nav-item">
                                 <form asp-controller="Auth" asp-action="Logout" method="post" class="d-inline">

@@ -1,5 +1,6 @@
 using BoardRentAndProperty.Api.Data;
 using GUI_BRAP.Infrastructure;
+using GUI_BRAP.ProxyServices;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
@@ -32,6 +33,7 @@ builder.Services.AddHttpClient(ApiClientNames.BoardRentApi, client =>
 });
 
 builder.Services.AddProxyServices();
+builder.Services.AddScoped<IAccountProxyService, AccountProxyService>();
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -72,4 +74,4 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-app.Run();
+app.Run("http://localhost:5175");
