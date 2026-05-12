@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,6 +11,8 @@ namespace GUI_BRAP.ProxyServices
         Task<IReadOnlyList<GameDTO>> GetAllGamesAsync(CancellationToken cancellationToken = default);
 
         Task<GameDTO?> GetGameByIdAsync(int gameId, CancellationToken cancellationToken = default);
+
+        Task<IReadOnlyList<GameDTO>> GetAvailableGamesForRenterAsync(Guid renterAccountId, CancellationToken cancellationToken = default);
 
         Task CreateGameAsync(GameDTO body, CancellationToken cancellationToken = default);
 
