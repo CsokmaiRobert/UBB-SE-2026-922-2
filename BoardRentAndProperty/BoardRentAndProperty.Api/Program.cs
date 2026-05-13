@@ -1,6 +1,7 @@
 using System.IO;
 using BoardRentAndProperty.Api.Data;
 using BoardRentAndProperty.Api.Mappers;
+using BoardRentAndProperty.Api.Models;
 using BoardRentAndProperty.Api.Repositories;
 using BoardRentAndProperty.Api.Services;
 using Microsoft.EntityFrameworkCore;
@@ -49,6 +50,43 @@ using (var scope = app.Services.CreateScope())
     var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
     using var dbContext = contextFactory.CreateDbContext();
     dbContext.Database.Migrate();
+
+    if (!dbContext.Games.Any())
+    {
+        var adminId = new Guid("00000000-0000-0000-0000-000000000010");
+        var dariusId = new Guid("00000000-0000-0000-0000-000000000011");
+
+        var admin = dbContext.Accounts.Find(adminId);
+        var darius = dbContext.Accounts.Find(dariusId);
+
+        if (admin != null && darius != null)
+        {
+            var testGame = new Game
+            {
+                Name = "Catan",
+                Price = 15.0m,
+                Description = "A classic strategy game.",
+                Owner = admin,
+                IsActive = true,
+                MinimumPlayerNumber = 3,
+                MaximumPlayerNumber = 4
+            };
+            dbContext.Games.Add(testGame);
+            dbContext.SaveChanges();
+
+            var testRequest = new Request
+            {
+                Game = testGame,
+                Renter = darius,
+                Owner = admin,
+                StartDate = DateTime.UtcNow.AddDays(7),
+                EndDate = DateTime.UtcNow.AddDays(10),
+                Status = BoardRentAndProperty.Contracts.Models.RequestStatus.Open
+            };
+            dbContext.Requests.Add(testRequest);
+            dbContext.SaveChanges();
+        }
+    }
 }
 
 if (app.Environment.IsDevelopment())

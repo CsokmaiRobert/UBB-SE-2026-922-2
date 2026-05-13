@@ -1,0 +1,214 @@
+@model IReadOnlyList<RequestDTO>
+
+@{
+    ViewData["Title"] = "Others\u2019 Requests";
+    const string placeholderImageSource = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Crect width='160' height='160' fill='%23e9ecef'/%3E%3Ccircle cx='58' cy='56' r='14' fill='%23ced4da'/%3E%3Cpath d='M38 118l30-34 20 23 16-18 18 18v11H38z' fill='%23adb5bd'/%3E%3C/svg%3E";
+}
+
+<div class="page-header">
+    <h1 class="page-title">Others&#8217; Requests</h1>
+</div>
+
+@if (TempData["SuccessMessage"] is string successMessage)
+{
+    <div class="alert alert-success" role="alert">@successMessage</div>
+}
+
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
+@if (Model is null || Model.Count == 0)
+{
+    <div class="empty-state">
+        <p>There are no requests from other users at the moment.</p>
+    </div>
+}
+else
+{
+    <div class="request-card-list">
+    @foreach (var request in Model.OrderByDescending(r => r.StartDate))
+    {
+        string imageSource = placeholderImageSource;
+
+        if (request.Game?.Image is { Length: > 0 })
+        {
+            string mimeType = "image/jpeg";
+
+            if (request.Game.Image.Length >= 4 &&
+                request.Game.Image[0] == 0x89 &&
+                request.Game.Image[1] == 0x50 &&
+                request.Game.Image[2] == 0x4E &&
+                request.Game.Image[3] == 0x47)
+            {
+                mimeType = "image/png";
+            }
+            else if (request.Game.Image.Length >= 3 &&
+                     request.Game.Image[0] == 0x47 &&
+                     request.Game.Image[1] == 0x49 &&
+                     request.Game.Image[2] == 0x46)
+            {
+                mimeType = "image/gif";
+            }
+            else if (request.Game.Image.Length >= 2 &&
+                     request.Game.Image[0] == 0x42 &&
+                     request.Game.Image[1] == 0x4D)
+            {
+                mimeType = "image/bmp";
+            }
+            else if (request.Game.Image.Length >= 12 &&
+                     request.Game.Image[0] == 0x52 &&
+                     request.Game.Image[1] == 0x49 &&
+                     request.Game.Image[2] == 0x46 &&
+                     request.Game.Image[3] == 0x46 &&
+                     request.Game.Image[8] == 0x57 &&
+                     request.Game.Image[9] == 0x45 &&
+                     request.Game.Image[10] == 0x42 &&
+                     request.Game.Image[11] == 0x50)
+            {
+                mimeType = "image/webp";
+            }
+
+            imageSource = $"data:{mimeType};base64,{Convert.ToBase64String(request.Game.Image)}";
+        }
+
+        string gameName = request.Game?.Name ?? "Unknown Game";
+        string requesterName = request.Renter?.DisplayName ?? "Unknown User";
+
+        <div class="request-card" id="request-card-@request.Id">
+            <div class="request-card-image-wrap">
+                <img class="request-card-image" src="@imageSource" alt="@gameName" />
+            </div>
+
+            <div class="request-card-body">
+                <h2 class="request-card-title">@gameName</h2>
+                <div class="request-card-meta">
+                    <span>Requested by: @requesterName</span>
+                </div>
+                <div class="request-card-dates">
+                    <span>@request.StartDateDisplayLong</span>
+                    <span>@request.EndDateDisplayLong</span>
+                </div>
+            </div>
+
+            <div class="request-card-actions">
+                <button type="button"
+                        class="btn btn-success btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#offerModal"
+                        data-request-id="@request.Id"
+                        data-game-name="@gameName"
+                        data-requester-name="@requesterName"
+                        data-start-date="@request.StartDateDisplayLong"
+                        data-end-date="@request.EndDateDisplayLong"
+                        id="offer-button-@request.Id">
+                    Offer
+                </button>
+                <button type="button"
+                        class="btn btn-danger btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#denyModal"
+                        data-request-id="@request.Id"
+                        data-game-name="@gameName"
+                        data-requester-name="@requesterName"
+                        id="deny-button-@request.Id">
+                    Deny
+                </button>
+            </div>
+        </div>
+    }
+    </div>
+}
+
+<div class="modal fade" id="offerModal" tabindex="-1" aria-labelledby="offerModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="offerModalLabel">Offer Game</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="offerModalMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="offerForm" method="post" asp-action="Offer">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" id="offerRequestId" />
+                    <button type="submit" class="btn btn-success" id="offerConfirmButton">Offer</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="denyModal" tabindex="-1" aria-labelledby="denyModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="denyModalLabel">Decline Request</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="denyForm" method="post" asp-action="Deny">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" id="denyRequestId" />
+                <div class="modal-body">
+                    <p id="denyModalMessage"></p>
+                    <div class="mb-3">
+                        <label for="denyReasonInput" class="form-label">Reason (optional)</label>
+                        <textarea class="form-control" id="denyReasonInput" name="reason" rows="3"
+                                  placeholder="Optional reason (e.g. unavailable in this period)"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger" id="denyConfirmButton">Decline</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+$(function () {
+    var offerModal = document.getElementById("offerModal");
+    if (offerModal) {
+        offerModal.addEventListener("show.bs.modal", function (event) {
+            var triggerButton = event.relatedTarget;
+            var requestId = triggerButton.getAttribute("data-request-id");
+            var gameName = triggerButton.getAttribute("data-game-name");
+            var requesterName = triggerButton.getAttribute("data-requester-name");
+            var startDate = triggerButton.getAttribute("data-start-date");
+            var endDate = triggerButton.getAttribute("data-end-date");
+
+            document.getElementById("offerRequestId").value = requestId;
+            document.getElementById("offerModalMessage").textContent =
+                "Offer " + gameName + " to " + requesterName + " for " + startDate + " \u2013 " + endDate + "? This will approve the request and create the rental immediately.";
+
+            var offerForm = document.getElementById("offerForm");
+            offerForm.action = "@Url.Action("Offer", "Requests")" + "/" + requestId;
+        });
+    }
+
+    var denyModal = document.getElementById("denyModal");
+    if (denyModal) {
+        denyModal.addEventListener("show.bs.modal", function (event) {
+            var triggerButton = event.relatedTarget;
+            var requestId = triggerButton.getAttribute("data-request-id");
+            var gameName = triggerButton.getAttribute("data-game-name");
+            var requesterName = triggerButton.getAttribute("data-requester-name");
+
+            document.getElementById("denyRequestId").value = requestId;
+            document.getElementById("denyModalMessage").textContent =
+                "Decline request for " + gameName + " from " + requesterName + "?";
+            document.getElementById("denyReasonInput").value = "";
+
+            var denyForm = document.getElementById("denyForm");
+            denyForm.action = "@Url.Action("Deny", "Requests")" + "/" + requestId;
+        });
+    }
+});
+</script>
+}

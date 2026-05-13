@@ -1,157 +1,75 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+using System;
 using System.Threading.Tasks;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
+using GUI_BRAP.Authorization;
+using GUI_BRAP.Infrastructure;
+using GUI_BRAP.ProxyServices;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
-using BoardRentAndProperty.Api.Data;
-using BoardRentAndProperty.Api.Models;
 
-namespace GUI_BRAP
+namespace GUI_BRAP.Controllers
 {
+    [Authorize]
     public class RequestsController : Controller
     {
-        private readonly AppDbContext _context;
+        private readonly IRequestProxyService requestProxyService;
 
-        public RequestsController(AppDbContext context)
+        public RequestsController(IRequestProxyService requestProxyService)
         {
-            _context = context;
+            this.requestProxyService = requestProxyService ?? throw new ArgumentNullException(nameof(requestProxyService));
         }
 
-        // GET: Requests
-        public async Task<IActionResult> Index()
+        [HttpGet]
+        public async Task<IActionResult> Others()
         {
-            return View(await _context.Requests.ToListAsync());
+            Guid ownerAccountId = User.GetAccountId();
+            var openRequests = await this.requestProxyService.GetOpenRequestsForOwnerAsync(ownerAccountId);
+            return View(openRequests);
         }
 
-        // GET: Requests/Details/5
-        public async Task<IActionResult> Details(int? id)
-        {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var request = await _context.Requests
-                .FirstOrDefaultAsync(m => m.Id == id);
-            if (request == null)
-            {
-                return NotFound();
-            }
-
-            return View(request);
-        }
-
-        // GET: Requests/Create
-        public IActionResult Create()
-        {
-            return View();
-        }
-
-        // POST: Requests/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,StartDate,EndDate,Status")] Request request)
+        public async Task<IActionResult> Offer(int id)
         {
-            if (ModelState.IsValid)
+            Guid ownerAccountId = User.GetAccountId();
+
+            try
             {
-                _context.Add(request);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
+                await this.requestProxyService.OfferGameAsync(id, new RequestActionDataTransferObject
+                {
+                    AccountId = ownerAccountId,
+                });
+                TempData["SuccessMessage"] = "The request was approved and the rental was created.";
             }
-            return View(request);
+            catch (ProxyServiceException proxyException)
+            {
+                TempData["ErrorMessage"] = proxyException.Message;
+            }
+
+            return RedirectToAction(nameof(Others));
         }
 
-        // GET: Requests/Edit/5
-        public async Task<IActionResult> Edit(int? id)
-        {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var request = await _context.Requests.FindAsync(id);
-            if (request == null)
-            {
-                return NotFound();
-            }
-            return View(request);
-        }
-
-        // POST: Requests/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,StartDate,EndDate,Status")] Request request)
+        public async Task<IActionResult> Deny(int id, string? reason)
         {
-            if (id != request.Id)
-            {
-                return NotFound();
-            }
+            Guid ownerAccountId = User.GetAccountId();
 
-            if (ModelState.IsValid)
+            try
             {
-                try
+                await this.requestProxyService.DenyRequestAsync(id, new RequestActionDataTransferObject
                 {
-                    _context.Update(request);
-                    await _context.SaveChangesAsync();
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!RequestExists(request.Id))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
-                return RedirectToAction(nameof(Index));
+                    AccountId = ownerAccountId,
+                    Reason = reason ?? string.Empty,
+                });
+                TempData["SuccessMessage"] = "The request was declined.";
             }
-            return View(request);
-        }
-
-        // GET: Requests/Delete/5
-        public async Task<IActionResult> Delete(int? id)
-        {
-            if (id == null)
+            catch (ProxyServiceException proxyException)
             {
-                return NotFound();
+                TempData["ErrorMessage"] = proxyException.Message;
             }
 
-            var request = await _context.Requests
-                .FirstOrDefaultAsync(m => m.Id == id);
-            if (request == null)
-            {
-                return NotFound();
-            }
-
-            return View(request);
-        }
-
-        // POST: Requests/Delete/5
-        [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteConfirmed(int id)
-        {
-            var request = await _context.Requests.FindAsync(id);
-            if (request != null)
-            {
-                _context.Requests.Remove(request);
-            }
-
-            await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
-        }
-
-        private bool RequestExists(int id)
-        {
-            return _context.Requests.Any(e => e.Id == id);
+            return RedirectToAction(nameof(Others));
         }
     }
 }
