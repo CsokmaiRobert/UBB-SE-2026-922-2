@@ -1,0 +1,60 @@
+@model GameDTO
+
+@{
+    ViewData["Title"] = "Details";
+}
+
+<div class="page-header">
+    <h1 class="page-title">Game Details</h1>
+</div>
+
+@{
+    const string placeholderImageSource = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Crect width='160' height='160' fill='%23e9ecef'/%3E%3Ccircle cx='58' cy='56' r='14' fill='%23ced4da'/%3E%3Cpath d='M38 118l30-34 20 23 16-18 18 18v11H38z' fill='%23adb5bd'/%3E%3C/svg%3E";
+    string imageSource = placeholderImageSource;
+
+    if (Model?.Image is { Length: > 0 })
+    {
+        string mimeType = "image/jpeg";
+        // Simple mime type detection
+        if (Model.Image.Length >= 4 && Model.Image[0] == 0x89 && Model.Image[1] == 0x50) mimeType = "image/png";
+        else if (Model.Image.Length >= 3 && Model.Image[0] == 0x47 && Model.Image[1] == 0x49) mimeType = "image/gif";
+        imageSource = $"data:{mimeType};base64,{Convert.ToBase64String(Model.Image)}";
+    }
+}
+
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <img src="@imageSource" class="img-fluid rounded" alt="@Model?.Name" style="max-height: 300px; width: 100%; object-fit: cover;" />
+    </div>
+    <div class="col-md-8">
+
+<dl class="row details-list">
+    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Name)</dt>
+    <dd class="col-sm-9">@Html.DisplayFor(model => model.Name)</dd>
+    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Price)</dt>
+    <dd class="col-sm-9">@Html.DisplayFor(model => model.Price)</dd>
+    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.MinimumPlayerNumber)</dt>
+    <dd class="col-sm-9">@Html.DisplayFor(model => model.MinimumPlayerNumber)</dd>
+    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.MaximumPlayerNumber)</dt>
+    <dd class="col-sm-9">@Html.DisplayFor(model => model.MaximumPlayerNumber)</dd>
+    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Description)</dt>
+    <dd class="col-sm-9">@Html.DisplayFor(model => model.Description)</dd>
+    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.IsActive)</dt>
+    <dd class="col-sm-9">
+        @if (Model.IsActive)
+        {
+            <span class="badge bg-success status-badge">Active</span>
+        }
+        else
+        {
+            <span class="badge bg-secondary status-badge">Inactive</span>
+        }
+    </dd>
+</dl>
+    </div>
+</div>
+
+<div class="page-actions">
+    <a class="btn btn-warning" asp-action="Edit" asp-route-id="@Model?.Id">Edit</a>
+    <a class="btn btn-secondary" asp-action="Index">Back</a>
+</div>
