@@ -94,10 +94,45 @@ namespace BoardRentAndProperty.Api.Repositories
         public ImmutableList<Notification> GetNotificationsByUser(Guid accountId)
         {
             using var dbContext = this.dbContextFactory.CreateDbContext();
+
+            var account = dbContext.Accounts.FirstOrDefault(a => a.Id == accountId);
+
+            if (account == null || account.PamUserId == null)
+            {
+                return ImmutableList<Notification>.Empty;
+            }
+
             return NotificationsWithRecipient(dbContext)
-                .Where(notification => notification.Recipient != null && notification.Recipient.Id == accountId)
+                .Where(notification => notification.Recipient != null && notification.Recipient.PamUserId == account.PamUserId)
+                .OrderByDescending(notification => notification.Id)
                 .ToImmutableList();
         }
+
+
+        public (ImmutableList<Notification> Items, int TotalCount) GetPagedNotificationsByUser(Guid accountId, int page, int pageSize)
+        {
+            using var dbContext = this.dbContextFactory.CreateDbContext();
+
+            var account = dbContext.Accounts.FirstOrDefault(account => account.Id == accountId);
+            if (account == null || account.PamUserId == null)
+            {
+                return (ImmutableList<Notification>.Empty, 0);
+            }
+
+            var query = NotificationsWithRecipient(dbContext)
+                .Where(notification => notification.Recipient != null && notification.Recipient.PamUserId == account.PamUserId);
+
+            int totalCount = query.Count();
+
+            var items = query
+                .OrderByDescending(notification => notification.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToImmutableList();
+
+            return (items, totalCount);
+        }
+
 
         public void DeleteNotificationsLinkedToRequest(int relatedRequestId)
         {

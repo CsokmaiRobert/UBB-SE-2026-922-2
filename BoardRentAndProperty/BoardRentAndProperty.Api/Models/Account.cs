@@ -15,9 +15,9 @@ namespace BoardRentAndProperty.Api.Models
 
         public string PasswordHash { get; set; } = string.Empty;
 
-        public string PhoneNumber { get; set; } = string.Empty;
+        public string? PhoneNumber { get; set; } = string.Empty;
 
-        public string AvatarUrl { get; set; } = string.Empty;
+        public string? AvatarUrl { get; set; } = string.Empty;
 
         public bool IsSuspended { get; set; }
 
@@ -25,14 +25,16 @@ namespace BoardRentAndProperty.Api.Models
 
         public DateTime UpdatedAt { get; set; }
 
-        public string Country { get; set; } = string.Empty;
+        public string? Country { get; set; } = string.Empty;
 
-        public string City { get; set; } = string.Empty;
+        public string? City { get; set; } = string.Empty;
 
-        public string StreetName { get; set; } = string.Empty;
+        public string? StreetName { get; set; } = string.Empty;
 
-        public string StreetNumber { get; set; } = string.Empty;
+        public string? StreetNumber { get; set; } = string.Empty;
 
         public List<Role> Roles { get; set; } = new List<Role>();
+
+        public int? PamUserId { get; set; }
     }
 }
