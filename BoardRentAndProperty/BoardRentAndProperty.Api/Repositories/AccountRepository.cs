@@ -71,15 +71,15 @@ namespace BoardRentAndProperty.Api.Repositories
             existing.Username = account.Username;
             existing.Email = account.Email;
             existing.PasswordHash = account.PasswordHash;
-            existing.PhoneNumber = account.PhoneNumber;
-            existing.AvatarUrl = account.AvatarUrl;
+            existing.PhoneNumber = account.PhoneNumber ?? string.Empty;
+            existing.AvatarUrl = account.AvatarUrl ?? string.Empty;
             existing.IsSuspended = account.IsSuspended;
             existing.CreatedAt = account.CreatedAt;
             existing.UpdatedAt = account.UpdatedAt;
-            existing.Country = account.Country;
-            existing.City = account.City;
-            existing.StreetName = account.StreetName;
-            existing.StreetNumber = account.StreetNumber;
+            existing.Country = account.Country ?? string.Empty;
+            existing.City = account.City ?? string.Empty;
+            existing.StreetName = account.StreetName ?? string.Empty;
+            existing.StreetNumber = account.StreetNumber ?? string.Empty;
 
             await dbContext.SaveChangesAsync();
         }
