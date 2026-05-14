@@ -1,0 +1,142 @@
+@model MyRequestsViewModel
+
+@{
+    ViewData["Title"] = "My Requests";
+    const string placeholderImageSource = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Crect width='160' height='160' fill='%23e9ecef'/%3E%3Ccircle cx='58' cy='56' r='14' fill='%23ced4da'/%3E%3Cpath d='M38 118l30-34 20 23 16-18 18 18v11H38z' fill='%23adb5bd'/%3E%3C/svg%3E";
+}
+
+<div class="page-header">
+    <h1 class="page-title">My Requests</h1>
+    <div class="page-actions">
+        <a asp-action="Create" class="btn btn-primary">Create Request</a>
+    </div>
+</div>
+
+@if (TempData["ErrorMessage"] is string tempError)
+{
+    <div class="alert alert-danger" role="alert">@tempError</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+{
+    <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+}
+
+@if (Model.Requests is null || !Model.Requests.Any())
+{
+    <div class="empty-state">
+        <p>There are no requests made yet.</p>
+    </div>
+}
+else
+{
+    <div class="request-card-list">
+        @foreach (var item in Model.Requests)
+        {
+            string imageSource = placeholderImageSource;
+
+            if (item.Game?.Image is { Length: > 0 })
+            {
+                string mimeType = "image/jpeg";
+
+                if (item.Game.Image.Length >= 4 &&
+                    item.Game.Image[0] == 0x89 &&
+                    item.Game.Image[1] == 0x50 &&
+                    item.Game.Image[2] == 0x4E &&
+                    item.Game.Image[3] == 0x47)
+                {
+                    mimeType = "image/png";
+                }
+                else if (item.Game.Image.Length >= 3 &&
+                         item.Game.Image[0] == 0x47 &&
+                         item.Game.Image[1] == 0x49 &&
+                         item.Game.Image[2] == 0x46)
+                {
+                    mimeType = "image/gif";
+                }
+                else if (item.Game.Image.Length >= 2 &&
+                         item.Game.Image[0] == 0x42 &&
+                         item.Game.Image[1] == 0x4D)
+                {
+                    mimeType = "image/bmp";
+                }
+                else if (item.Game.Image.Length >= 12 &&
+                         item.Game.Image[0] == 0x52 &&
+                         item.Game.Image[1] == 0x49 &&
+                         item.Game.Image[2] == 0x46 &&
+                         item.Game.Image[3] == 0x46 &&
+                         item.Game.Image[8] == 0x57 &&
+                         item.Game.Image[9] == 0x45 &&
+                         item.Game.Image[10] == 0x42 &&
+                         item.Game.Image[11] == 0x50)
+                {
+                    mimeType = "image/webp";
+                }
+
+                imageSource = $"data:{mimeType};base64,{Convert.ToBase64String(item.Game.Image)}";
+            }
+
+            <div class="request-card" id="request-card-@item.Id">
+                <div class="request-card-image-wrap">
+                    <img class="request-card-image" src="@imageSource" alt="@item.Game?.Name" />
+                </div>
+                <div class="request-card-body">
+                    <h2 class="request-card-title">@item.Game?.Name</h2>
+                    <div class="request-card-meta">
+                        <span>Owner: @item.Owner?.DisplayName</span>
+                    </div>
+                    <div class="request-card-dates">
+                        <span>@item.StartDateDisplayLong</span>
+                        <span>@item.EndDateDisplayLong</span>
+                    </div>
+                </div>
+                <div class="request-card-actions">
+                    <button type="button"
+                            class="btn btn-danger btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#cancelModal"
+                            data-request-id="@item.Id">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="modal fade" id="cancelModal" tabindex="-1" aria-labelledby="cancelModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="cancelModalLabel">Cancel Request?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to cancel this request?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Go Back</button>
+                    <form id="cancelForm" asp-action="Cancel" asp-controller="Requests" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" id="cancelRequestIdInput" name="requestId" value="" />
+                        <button type="submit" class="btn btn-danger">Cancel Request</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        (function () {
+            var cancelModal = document.getElementById('cancelModal');
+            if (!cancelModal) { return; }
+            cancelModal.addEventListener('show.bs.modal', function (event) {
+                var triggerButton = event.relatedTarget;
+                var requestId = triggerButton ? triggerButton.getAttribute('data-request-id') : '';
+                var input = document.getElementById('cancelRequestIdInput');
+                if (input) { input.value = requestId; }
+            });
+        }());
+    </script>
+}
