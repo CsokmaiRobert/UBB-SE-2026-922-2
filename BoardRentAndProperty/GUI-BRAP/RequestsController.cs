@@ -1,157 +1,167 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
+using GUI_BRAP.Authorization;
+using GUI_BRAP.Infrastructure;
+using GUI_BRAP.Models;
+using GUI_BRAP.ProxyServices;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
-using BoardRentAndProperty.Api.Data;
-using BoardRentAndProperty.Api.Models;
 
 namespace GUI_BRAP
 {
+    [Authorize]
     public class RequestsController : Controller
     {
-        private readonly AppDbContext _context;
+        private readonly IRequestProxyService requestProxyService;
+        private readonly IGameProxyService gameProxyService;
 
-        public RequestsController(AppDbContext context)
+        public RequestsController(IRequestProxyService requestProxyService, IGameProxyService gameProxyService)
         {
-            _context = context;
+            this.requestProxyService = requestProxyService ?? throw new ArgumentNullException(nameof(requestProxyService));
+            this.gameProxyService = gameProxyService ?? throw new ArgumentNullException(nameof(gameProxyService));
         }
 
-        // GET: Requests
-        public async Task<IActionResult> Index()
+        [HttpGet]
+        public async Task<IActionResult> My()
         {
-            return View(await _context.Requests.ToListAsync());
-        }
+            Guid renterAccountId = User.GetAccountId();
 
-        // GET: Requests/Details/5
-        public async Task<IActionResult> Details(int? id)
-        {
-            if (id == null)
+            try
             {
-                return NotFound();
-            }
+                var requests = await this.requestProxyService.GetRequestsForRenterAsync(renterAccountId);
+                var sortedRequests = requests.OrderByDescending(request => request.StartDate).ToList();
 
-            var request = await _context.Requests
-                .FirstOrDefaultAsync(m => m.Id == id);
-            if (request == null)
+                return View(new MyRequestsViewModel
+                {
+                    Requests = sortedRequests,
+                });
+            }
+            catch (ProxyServiceException ex)
             {
-                return NotFound();
+                return View(new MyRequestsViewModel
+                {
+                    ErrorMessage = ex.Message,
+                });
             }
-
-            return View(request);
         }
 
-        // GET: Requests/Create
-        public IActionResult Create()
+        [HttpGet]
+        public async Task<IActionResult> Create()
         {
-            return View();
+            Guid renterAccountId = User.GetAccountId();
+
+            try
+            {
+                var availableGames = await this.gameProxyService.GetAvailableGamesForRenterAsync(renterAccountId);
+
+                return View(new CreateRequestViewModel
+                {
+                    AvailableGames = availableGames,
+                });
+            }
+            catch (ProxyServiceException ex)
+            {
+                return View(new CreateRequestViewModel
+                {
+                    ErrorMessage = ex.Message,
+                });
+            }
         }
 
-        // POST: Requests/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,StartDate,EndDate,Status")] Request request)
+        public async Task<IActionResult> Create(CreateRequestViewModel form)
         {
-            if (ModelState.IsValid)
+            Guid renterAccountId = User.GetAccountId();
+
+            var availableGames = await LoadAvailableGamesOrEmptyAsync(renterAccountId);
+
+            if (!ModelState.IsValid)
             {
-                _context.Add(request);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
+                return View(new CreateRequestViewModel
+                {
+                    GameId = form.GameId,
+                    StartDate = form.StartDate,
+                    EndDate = form.EndDate,
+                    AvailableGames = availableGames,
+                });
             }
-            return View(request);
+
+            GameDTO? selectedGame = availableGames.FirstOrDefault(game => game.Id == form.GameId);
+            if (selectedGame is null)
+            {
+                ModelState.AddModelError(nameof(form.GameId), "The selected game is not available.");
+                return View(new CreateRequestViewModel
+                {
+                    GameId = form.GameId,
+                    StartDate = form.StartDate,
+                    EndDate = form.EndDate,
+                    AvailableGames = availableGames,
+                });
+            }
+
+            var body = new CreateRequestDataTransferObject
+            {
+                GameId = selectedGame.Id,
+                RenterAccountId = renterAccountId,
+                OwnerAccountId = selectedGame.Owner?.Id ?? Guid.Empty,
+                StartDate = form.StartDate,
+                EndDate = form.EndDate,
+            };
+
+            try
+            {
+                await this.requestProxyService.CreateRequestAsync(body);
+                return RedirectToAction(nameof(My));
+            }
+            catch (ProxyServiceException ex)
+            {
+                return View(new CreateRequestViewModel
+                {
+                    GameId = form.GameId,
+                    StartDate = form.StartDate,
+                    EndDate = form.EndDate,
+                    AvailableGames = availableGames,
+                    ErrorMessage = ex.Message,
+                });
+            }
         }
 
-        // GET: Requests/Edit/5
-        public async Task<IActionResult> Edit(int? id)
-        {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var request = await _context.Requests.FindAsync(id);
-            if (request == null)
-            {
-                return NotFound();
-            }
-            return View(request);
-        }
-
-        // POST: Requests/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,StartDate,EndDate,Status")] Request request)
+        public async Task<IActionResult> Cancel(int requestId)
         {
-            if (id != request.Id)
+            Guid renterAccountId = User.GetAccountId();
+
+            var body = new RequestActionDataTransferObject
             {
-                return NotFound();
+                AccountId = renterAccountId,
+            };
+
+            try
+            {
+                await this.requestProxyService.CancelRequestAsync(requestId, body);
+            }
+            catch (ProxyServiceException ex)
+            {
+                TempData["ErrorMessage"] = ex.Message;
             }
 
-            if (ModelState.IsValid)
-            {
-                try
-                {
-                    _context.Update(request);
-                    await _context.SaveChangesAsync();
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!RequestExists(request.Id))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
-                return RedirectToAction(nameof(Index));
-            }
-            return View(request);
+            return RedirectToAction(nameof(My));
         }
 
-        // GET: Requests/Delete/5
-        public async Task<IActionResult> Delete(int? id)
+        private async Task<System.Collections.Generic.IReadOnlyList<GameDTO>> LoadAvailableGamesOrEmptyAsync(Guid renterAccountId)
         {
-            if (id == null)
+            try
             {
-                return NotFound();
+                return await this.gameProxyService.GetAvailableGamesForRenterAsync(renterAccountId);
             }
-
-            var request = await _context.Requests
-                .FirstOrDefaultAsync(m => m.Id == id);
-            if (request == null)
+            catch (ProxyServiceException)
             {
-                return NotFound();
+                return new System.Collections.Generic.List<GameDTO>();
             }
-
-            return View(request);
-        }
-
-        // POST: Requests/Delete/5
-        [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteConfirmed(int id)
-        {
-            var request = await _context.Requests.FindAsync(id);
-            if (request != null)
-            {
-                _context.Requests.Remove(request);
-            }
-
-            await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
-        }
-
-        private bool RequestExists(int id)
-        {
-            return _context.Requests.Any(e => e.Id == id);
         }
     }
 }
