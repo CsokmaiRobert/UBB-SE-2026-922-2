@@ -10,6 +10,7 @@ namespace GUI_BRAP.Infrastructure
             services.AddScoped<IAuthProxyService, AuthProxyService>();
             services.AddScoped<IGameProxyService, GameProxyService>();
             services.AddScoped<IAdminProxyService, AdminProxyService>();
+            services.AddScoped<IRequestProxyService, RequestProxyService>();
             return services;
         }
     }
