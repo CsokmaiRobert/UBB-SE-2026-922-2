@@ -300,8 +300,9 @@ namespace BoardRentAndProperty.Api.Services
             {
                 rentalId = this.requestDataRepository.ApproveAtomically(req, conflicts);
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"[ERROR] TryApproveOpenRequestAndNotify failed: {ex}");
                 rentalId = MissingForeignKeyId;
                 return false;
             }

@@ -160,58 +160,58 @@ namespace BoardRentAndProperty.Api.Repositories
 
         public int ApproveAtomically(Request approvedRequest, ImmutableList<Request> overlappingRequests)
         {
-            using var dbContext = this.dbContextFactory.CreateDbContext();
-            using var transaction = dbContext.Database.BeginTransaction();
-            try
+            using var strategyContext = this.dbContextFactory.CreateDbContext();
+            var executionStrategy = strategyContext.Database.CreateExecutionStrategy();
+            return executionStrategy.Execute(() =>
             {
-                foreach (var conflict in overlappingRequests)
+                using var dbContext = this.dbContextFactory.CreateDbContext();
+                using var transaction = dbContext.Database.BeginTransaction();
+                try
                 {
-                    var conflictNotifications = dbContext.Notifications
-                        .Where(notification => notification.RelatedRequest != null && notification.RelatedRequest.Id == conflict.Id)
-                        .ToList();
-                    dbContext.Notifications.RemoveRange(conflictNotifications);
-                }
-
-                var approvedNotifications = dbContext.Notifications
-                    .Where(notification => notification.RelatedRequest != null && notification.RelatedRequest.Id == approvedRequest.Id)
-                    .ToList();
-                dbContext.Notifications.RemoveRange(approvedNotifications);
-
-                var newRental = new Rental
-                {
-                    Game = ResolveGame(dbContext, approvedRequest.Game),
-                    Renter = ResolveAccount(dbContext, approvedRequest.Renter),
-                    Owner = ResolveAccount(dbContext, approvedRequest.Owner),
-                    StartDate = approvedRequest.StartDate,
-                    EndDate = approvedRequest.EndDate,
-                };
-                dbContext.Rentals.Add(newRental);
-                dbContext.SaveChanges();
-
-                foreach (var conflict in overlappingRequests)
-                {
-                    var conflictEntity = dbContext.Requests.FirstOrDefault(request => request.Id == conflict.Id);
-                    if (conflictEntity != null)
+                    foreach (var conflict in overlappingRequests)
                     {
-                        dbContext.Requests.Remove(conflictEntity);
+                        dbContext.Database.ExecuteSqlInterpolated(
+                            $"DELETE FROM Notifications WHERE related_request_id = {conflict.Id}");
                     }
-                }
 
-                var approvedEntity = dbContext.Requests.FirstOrDefault(request => request.Id == approvedRequest.Id);
-                if (approvedEntity != null)
+                    dbContext.Database.ExecuteSqlInterpolated(
+                        $"DELETE FROM Notifications WHERE related_request_id = {approvedRequest.Id}");
+
+                    var newRental = new Rental
+                    {
+                        Game = ResolveGame(dbContext, approvedRequest.Game),
+                        Renter = ResolveAccount(dbContext, approvedRequest.Renter),
+                        Owner = ResolveAccount(dbContext, approvedRequest.Owner),
+                        StartDate = approvedRequest.StartDate,
+                        EndDate = approvedRequest.EndDate,
+                    };
+                    dbContext.Rentals.Add(newRental);
+
+                    foreach (var conflict in overlappingRequests)
+                    {
+                        var conflictEntity = dbContext.Requests.FirstOrDefault(request => request.Id == conflict.Id);
+                        if (conflictEntity != null)
+                        {
+                            dbContext.Requests.Remove(conflictEntity);
+                        }
+                    }
+
+                    var approvedEntity = dbContext.Requests.FirstOrDefault(request => request.Id == approvedRequest.Id);
+                    if (approvedEntity != null)
+                    {
+                        dbContext.Requests.Remove(approvedEntity);
+                    }
+
+                    dbContext.SaveChanges();
+                    transaction.Commit();
+                    return newRental.Id;
+                }
+                catch
                 {
-                    dbContext.Requests.Remove(approvedEntity);
+                    transaction.Rollback();
+                    throw;
                 }
-
-                dbContext.SaveChanges();
-                transaction.Commit();
-                return newRental.Id;
-            }
-            catch
-            {
-                transaction.Rollback();
-                throw;
-            }
+            });
         }
 
         private static Account? ResolveAccount(AppDbContext dbContext, Account? account)

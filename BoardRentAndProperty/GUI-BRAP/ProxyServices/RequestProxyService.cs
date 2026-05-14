@@ -18,6 +18,27 @@ namespace GUI_BRAP.ProxyServices
             this.httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
         }
 
+        public async Task<IReadOnlyList<RequestDTO>> GetOpenRequestsForOwnerAsync(Guid ownerAccountId, CancellationToken cancellationToken = default)
+        {
+            HttpClient client = this.httpClientFactory.CreateClient(ApiClientNames.BoardRentApi);
+            using HttpResponseMessage response = await client.GetAsync($"api/requests/owner/{ownerAccountId}/open", cancellationToken);
+            var requests = await HttpResponseEnsurer.ReadJsonAsync<List<RequestDTO>>(response, cancellationToken);
+            return requests;
+        }
+
+        public async Task OfferGameAsync(int requestId, RequestActionDataTransferObject body, CancellationToken cancellationToken = default)
+        {
+            HttpClient client = this.httpClientFactory.CreateClient(ApiClientNames.BoardRentApi);
+            using HttpResponseMessage response = await client.PutAsJsonAsync($"api/requests/{requestId}/offer", body, cancellationToken);
+            await HttpResponseEnsurer.EnsureSuccessAsync(response, cancellationToken);
+        }
+
+        public async Task DenyRequestAsync(int requestId, RequestActionDataTransferObject body, CancellationToken cancellationToken = default)
+        {
+            HttpClient client = this.httpClientFactory.CreateClient(ApiClientNames.BoardRentApi);
+            using HttpResponseMessage response = await client.PutAsJsonAsync($"api/requests/{requestId}/deny", body, cancellationToken);
+            await HttpResponseEnsurer.EnsureSuccessAsync(response, cancellationToken);
+        }
         public async Task<IReadOnlyList<RequestDTO>> GetRequestsForRenterAsync(Guid renterAccountId, CancellationToken cancellationToken = default)
         {
             HttpClient client = this.httpClientFactory.CreateClient(ApiClientNames.BoardRentApi);

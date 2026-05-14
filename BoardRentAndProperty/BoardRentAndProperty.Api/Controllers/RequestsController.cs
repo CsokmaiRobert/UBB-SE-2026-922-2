@@ -121,6 +121,7 @@ namespace BoardRentAndProperty.Api.Controllers
             {
                 ApproveRequestError.NotFound => this.ApiNotFound("Request not found.", "request_not_found"),
                 ApproveRequestError.Unauthorized => this.ApiForbidden("You are not allowed to approve this request.", "request_forbidden"),
+                ApproveRequestError.TransactionFailed => this.ApiConflict("The request could not be approved due to a database error. Please try again.", "request_transaction_failed"),
                 _ => this.ApiConflict("The request could not be approved because the underlying data changed.", "request_conflict"),
             };
 
@@ -146,6 +147,7 @@ namespace BoardRentAndProperty.Api.Controllers
                 OfferError.NotFound => this.ApiNotFound("Request not found.", "request_not_found"),
                 OfferError.NotOwner => this.ApiForbidden("You are not allowed to offer for this request.", "request_forbidden"),
                 OfferError.RequestNotOpen => this.ApiConflict("The request is no longer open.", "request_not_open"),
+                OfferError.TransactionFailed => this.ApiConflict("The offer could not be completed due to a database error. Please try again.", "request_transaction_failed"),
                 _ => this.ApiConflict("The offer could not be completed because the underlying data changed.", "request_conflict"),
             };
 

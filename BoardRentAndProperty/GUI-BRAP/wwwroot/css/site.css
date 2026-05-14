@@ -339,11 +339,12 @@ main.container {
 }
 
 .request-card-dates {
-  color: #6c757d;
+  color: #495057;
   display: flex;
   flex-wrap: wrap;
   font-size: 0.875rem;
   gap: 0.25rem 1rem;
+  line-height: 1.4;
 }
 
 .request-card-actions {
@@ -356,7 +357,14 @@ main.container {
 }
 
 .request-card-actions .btn {
+  width: 100%;
   min-width: 7rem;
+}
+
+.empty-state {
+  color: #6c757d;
+  padding: 2rem 0;
+  text-align: center;
 }
 
 @media (max-width: 767.98px) {

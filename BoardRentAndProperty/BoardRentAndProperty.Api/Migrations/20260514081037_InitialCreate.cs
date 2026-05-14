@@ -334,29 +334,14 @@ namespace BoardRentAndProperty.Api.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "AccountRoles");
-
-            migrationBuilder.DropTable(
-                name: "FailedLoginAttempt");
-
-            migrationBuilder.DropTable(
-                name: "Notifications");
-
-            migrationBuilder.DropTable(
-                name: "Rentals");
-
-            migrationBuilder.DropTable(
-                name: "Role");
-
-            migrationBuilder.DropTable(
-                name: "Requests");
-
-            migrationBuilder.DropTable(
-                name: "Games");
-
-            migrationBuilder.DropTable(
-                name: "Account");
+            migrationBuilder.DropTable(name: "AccountRoles");
+            migrationBuilder.DropTable(name: "FailedLoginAttempt");
+            migrationBuilder.DropTable(name: "Notifications");
+            migrationBuilder.DropTable(name: "Rentals");
+            migrationBuilder.DropTable(name: "Role");
+            migrationBuilder.DropTable(name: "Requests");
+            migrationBuilder.DropTable(name: "Games");
+            migrationBuilder.DropTable(name: "Account");
         }
     }
 }

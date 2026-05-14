@@ -16,7 +16,11 @@ builder.Services.AddSwaggerGen();
 var connectionString = builder.Configuration.GetConnectionString("BoardRentAndProperty")
     ?? throw new InvalidOperationException("Connection string 'BoardRentAndProperty' was not found.");
 
-builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseSqlServer(connectionString));
+builder.Services.AddDbContextFactory<AppDbContext>(options => 
+    options.UseSqlServer(connectionString, sqlOptions => 
+    {
+        sqlOptions.EnableRetryOnFailure();
+    }));
 
 builder.Services.AddSingleton<UserMapper>();
 builder.Services.AddSingleton<GameMapper>();
@@ -44,11 +48,23 @@ builder.Services.AddSingleton<IAvatarStorageService, AvatarStorageService>();
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+Console.WriteLine("[STARTUP] About to run database migration...");
+try
 {
-    var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
-    using var dbContext = contextFactory.CreateDbContext();
-    dbContext.Database.Migrate();
+    using (var scope = app.Services.CreateScope())
+    {
+        var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        Console.WriteLine("[STARTUP] Created scope, getting DbContext...");
+        using var dbContext = contextFactory.CreateDbContext();
+        Console.WriteLine("[STARTUP] Got DbContext, calling Migrate()...");
+        dbContext.Database.Migrate();
+        Console.WriteLine("[STARTUP] Migration completed successfully!");
+    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"[STARTUP] Migration FAILED: {ex}");
+    throw;
 }
 
 if (app.Environment.IsDevelopment())

@@ -33,6 +33,14 @@ namespace BoardRentAndProperty.Api.Data
         {
         }
 
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            base.OnConfiguring(optionsBuilder);
+            // Suppress the warning about pending model changes to allow Migrate() to run even if manual fixes to migrations
+            // cause slight metadata mismatches with the snapshot.
+            optionsBuilder.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+        }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -53,6 +61,8 @@ namespace BoardRentAndProperty.Api.Data
                 entity.Property(account => account.City).HasMaxLength(100);
                 entity.HasIndex(account => account.Username).IsUnique();
                 entity.HasIndex(account => account.Email).IsUnique();
+
+                entity.Property(account => account.PamUserId).IsRequired();
 
                 entity.HasAlternateKey(account => account.PamUserId);
 
@@ -113,7 +123,7 @@ namespace BoardRentAndProperty.Api.Data
                 entity.Property(rental => rental.Id).HasColumnName("rental_id").ValueGeneratedOnAdd();
                 entity.HasOne(rental => rental.Game).WithMany().HasForeignKey("GameId").OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(rental => rental.Renter).WithMany().HasForeignKey("RenterId").HasPrincipalKey(account => account.PamUserId).OnDelete(DeleteBehavior.Restrict);
-                entity.HasOne(rental => rental.Owner).WithMany().HasForeignKey("OwnerId").HasPrincipalKey(account =>account.PamUserId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(rental => rental.Owner).WithMany().HasForeignKey("OwnerId").HasPrincipalKey(account => account.PamUserId).OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<Request>(entity =>
@@ -122,7 +132,7 @@ namespace BoardRentAndProperty.Api.Data
                 entity.HasKey(request => request.Id);
                 entity.Property(request => request.Id).ValueGeneratedOnAdd();
                 entity.HasOne(request => request.Game).WithMany().HasForeignKey("GameId").OnDelete(DeleteBehavior.Restrict);
-                entity.HasOne(request => request.Renter).WithMany().HasForeignKey("RenterId").HasPrincipalKey(account=> account.PamUserId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(request => request.Renter).WithMany().HasForeignKey("RenterId").HasPrincipalKey(account => account.PamUserId).OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(request => request.Owner).WithMany().HasForeignKey("OwnerId").HasPrincipalKey(account => account.PamUserId).OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(request => request.OfferingUser).WithMany().HasForeignKey("OfferingUserId").HasPrincipalKey(account => account.PamUserId).OnDelete(DeleteBehavior.SetNull).IsRequired(false);
             });

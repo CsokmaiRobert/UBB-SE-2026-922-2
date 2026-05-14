@@ -32,17 +32,21 @@ namespace BoardRentAndProperty.Tests.Api.Repository
                 .UseSqlServer(this.ConnectionString)
                 .Options;
 
-            this.DbContextFactory = new PooledDbContextFactory<AppDbContext>(options);
-
             try
             {
-                using var dbContext = this.DbContextFactory.CreateDbContext();
-                dbContext.Database.Migrate();
+                // Migrate must not run on a pooled context: AppDbContext.OnConfiguring mutates options,
+                // which EF disallows when pooling is enabled.
+                using (var migrator = new AppDbContext(options))
+                {
+                    migrator.Database.Migrate();
+                }
             }
             catch (SqlException)
             {
                 Assert.Ignore("SQL Server is not reachable.");
             }
+
+            this.DbContextFactory = new PooledDbContextFactory<AppDbContext>(options);
         }
 
         [SetUp]

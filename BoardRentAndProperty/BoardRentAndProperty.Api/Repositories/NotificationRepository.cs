@@ -97,7 +97,7 @@ namespace BoardRentAndProperty.Api.Repositories
 
             var account = dbContext.Accounts.FirstOrDefault(a => a.Id == accountId);
 
-            if (account == null || account.PamUserId == null)
+            if (account == null || account.PamUserId == 0)
             {
                 return ImmutableList<Notification>.Empty;
             }
@@ -114,7 +114,7 @@ namespace BoardRentAndProperty.Api.Repositories
             using var dbContext = this.dbContextFactory.CreateDbContext();
 
             var account = dbContext.Accounts.FirstOrDefault(account => account.Id == accountId);
-            if (account == null || account.PamUserId == null)
+            if (account == null || account.PamUserId == 0)
             {
                 return (ImmutableList<Notification>.Empty, 0);
             }
@@ -137,12 +137,8 @@ namespace BoardRentAndProperty.Api.Repositories
         public void DeleteNotificationsLinkedToRequest(int relatedRequestId)
         {
             using var dbContext = this.dbContextFactory.CreateDbContext();
-            var toDelete = dbContext.Notifications
-                .Where(notification => notification.RelatedRequest != null && notification.RelatedRequest.Id == relatedRequestId)
-                .ToList();
-
-            dbContext.Notifications.RemoveRange(toDelete);
-            dbContext.SaveChanges();
+            dbContext.Database.ExecuteSqlInterpolated(
+                $"DELETE FROM Notifications WHERE related_request_id = {relatedRequestId}");
         }
 
         private static Account? ResolveAccount(AppDbContext dbContext, Account? account)
@@ -152,18 +148,7 @@ namespace BoardRentAndProperty.Api.Repositories
                 return null;
             }
 
-            var cached = dbContext.Accounts.Local.FirstOrDefault(cachedAccount => cachedAccount.Id == account.Id);
-            if (cached != null)
-            {
-                return cached;
-            }
-
-            if (dbContext.Entry(account).State == EntityState.Detached)
-            {
-                dbContext.Attach(account);
-            }
-
-            return account;
+            return dbContext.Accounts.Find(account.Id);
         }
 
         private static Request? ResolveRequest(AppDbContext dbContext, Request? request)
@@ -173,18 +158,7 @@ namespace BoardRentAndProperty.Api.Repositories
                 return null;
             }
 
-            var cached = dbContext.Requests.Local.FirstOrDefault(cachedRequest => cachedRequest.Id == request.Id);
-            if (cached != null)
-            {
-                return cached;
-            }
-
-            if (dbContext.Entry(request).State == EntityState.Detached)
-            {
-                dbContext.Attach(request);
-            }
-
-            return request;
+            return dbContext.Requests.Find(request.Id);
         }
     }
 }

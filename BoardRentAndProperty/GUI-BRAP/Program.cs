@@ -21,7 +21,11 @@ builder.Services.AddControllersWithViews()
     });
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-  options.UseSqlServer(builder.Configuration.GetConnectionString("BoardRentAndProperty")));
+  options.UseSqlServer(builder.Configuration.GetConnectionString("BoardRentAndProperty"),
+    sqlServerOptionsAction: sqlOptions =>
+    {
+        sqlOptions.EnableRetryOnFailure();
+    }));
 
 string apiBaseUrl = builder.Configuration["ApiBaseUrl"]
     ?? throw new InvalidOperationException("Configuration value 'ApiBaseUrl' is required.");
@@ -61,9 +65,8 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
+    app.UseHttpsRedirection();
 }
-
-app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
 

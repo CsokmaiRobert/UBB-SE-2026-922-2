@@ -9,7 +9,7 @@ using GUI_BRAP.ProxyServices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace GUI_BRAP
+namespace GUI_BRAP.Controllers
 {
     [Authorize]
     public class RequestsController : Controller
@@ -45,6 +45,14 @@ namespace GUI_BRAP
                     ErrorMessage = ex.Message,
                 });
             }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Others()
+        {
+            Guid ownerAccountId = User.GetAccountId();
+            var openRequests = await this.requestProxyService.GetOpenRequestsForOwnerAsync(ownerAccountId);
+            return View(openRequests);
         }
 
         [HttpGet]
@@ -127,6 +135,51 @@ namespace GUI_BRAP
                     ErrorMessage = ex.Message,
                 });
             }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Offer(int id)
+        {
+            Guid ownerAccountId = User.GetAccountId();
+
+            try
+            {
+                await this.requestProxyService.OfferGameAsync(id, new RequestActionDataTransferObject
+                {
+                    AccountId = ownerAccountId,
+                });
+                TempData["SuccessMessage"] = "The request was approved and the rental was created.";
+            }
+            catch (ProxyServiceException proxyException)
+            {
+                TempData["ErrorMessage"] = proxyException.Message;
+            }
+
+            return RedirectToAction(nameof(Others));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Deny(int id, string? reason)
+        {
+            Guid ownerAccountId = User.GetAccountId();
+
+            try
+            {
+                await this.requestProxyService.DenyRequestAsync(id, new RequestActionDataTransferObject
+                {
+                    AccountId = ownerAccountId,
+                    Reason = reason ?? string.Empty,
+                });
+                TempData["SuccessMessage"] = "The request was declined.";
+            }
+            catch (ProxyServiceException proxyException)
+            {
+                TempData["ErrorMessage"] = proxyException.Message;
+            }
+
+            return RedirectToAction(nameof(Others));
         }
 
         [HttpPost]
