@@ -3,7 +3,7 @@ namespace BoardRentAndProperty.ViewModels
     using System;
     using System.Collections.Immutable;
     using System.Threading.Tasks;
-    using BoardRentAndProperty.DataTransferObjects;
+    using BoardRentAndProperty.Contracts.DataTransferObjects;
     using BoardRentAndProperty.Services;
     using CommunityToolkit.Mvvm.Input;
 

@@ -47,6 +47,13 @@ namespace GUI_BRAP.ProxyServices
             return games;
         }
 
+        public async Task<IReadOnlyList<GameDTO>> GetAvailableGamesForRenterAsync(Guid renterAccountId, CancellationToken cancellationToken = default)
+        {
+            HttpClient client = this.httpClientFactory.CreateClient(ApiClientNames.BoardRentApi);
+            using HttpResponseMessage response = await client.GetAsync($"api/games/renter/{renterAccountId}/available", cancellationToken);
+            return await HttpResponseEnsurer.ReadJsonAsync<List<GameDTO>>(response, cancellationToken);
+        }
+
         public async Task CreateGameAsync(GameDTO body, CancellationToken cancellationToken = default)
         {
             HttpClient client = this.httpClientFactory.CreateClient(ApiClientNames.BoardRentApi);

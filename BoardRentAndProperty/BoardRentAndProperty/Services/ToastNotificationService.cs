@@ -1,6 +1,4 @@
-using Microsoft.Windows.AppNotifications;
-using Microsoft.Windows.AppNotifications.Builder;
-using BoardRentAndProperty.Services;
+using Microsoft.Toolkit.Uwp.Notifications;
 
 namespace BoardRentAndProperty.Services
 {
@@ -11,13 +9,11 @@ namespace BoardRentAndProperty.Services
 
         public void Show(string notificationTitle, string notificationBody)
         {
-            var notification = new AppNotificationBuilder()
+            new ToastContentBuilder()
                 .AddArgument(NavigationKey, NotificationsPageKey)
                 .AddText(notificationTitle)
                 .AddText(notificationBody)
-                .BuildNotification();
-
-            AppNotificationManager.Default.Show(notification);
+                .Show();
         }
     }
 }

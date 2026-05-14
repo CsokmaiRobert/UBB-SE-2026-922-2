@@ -1,169 +1,145 @@
+using System;
+using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Threading.Tasks;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
+using BoardRentAndProperty.Utilities;
+
 namespace BoardRentAndProperty.Services
 {
-    using System;
-    using System.Collections.Generic;
-    using System.IO;
-    using System.Linq;
-    using System.Threading.Tasks;
-    using BoardRentAndProperty.Constants;
-    using BoardRentAndProperty.Data;
-    using BoardRentAndProperty.DataTransferObjects;
-    using BoardRentAndProperty.Mappers;
-    using BoardRentAndProperty.Models;
-    using BoardRentAndProperty.Repositories;
-    using BoardRentAndProperty.Utilities;
-
     public class AccountService : IAccountService
     {
-        private readonly IAccountRepository accountRepository;
-        private readonly IUnitOfWorkFactory unitOfWorkFactory;
+        private readonly HttpClient httpClient;
         private readonly ISessionContext sessionContext;
-        private readonly AccountProfileMapper accountProfileMapper;
 
-        public AccountService(IAccountRepository accountRepository, IUnitOfWorkFactory unitOfWorkFactory, ISessionContext sessionContext, AccountProfileMapper accountProfileMapper)
+        public AccountService(HttpClient httpClient, ISessionContext sessionContext)
         {
-            this.accountRepository = accountRepository;
-            this.unitOfWorkFactory = unitOfWorkFactory;
+            this.httpClient = httpClient;
             this.sessionContext = sessionContext;
-            this.accountProfileMapper = accountProfileMapper;
         }
 
         public async Task<ServiceResult<AccountProfileDataTransferObject>> GetProfileAsync(Guid accountId)
         {
-            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
+            var response = await this.httpClient.GetAsync($"api/accounts/{accountId}");
+            if (!response.IsSuccessStatusCode)
             {
-                await unitOfWork.OpenAsync();
-                this.accountRepository.SetUnitOfWork(unitOfWork);
-
-                Account accountEntity = await this.accountRepository.GetByIdAsync(accountId);
-                if (accountEntity == null)
-                {
-                    return ServiceResult<AccountProfileDataTransferObject>.Fail("Account not found.");
-                }
-
-                return ServiceResult<AccountProfileDataTransferObject>.Ok(this.accountProfileMapper.ToDataTransferObject(accountEntity));
+                return ServiceResult<AccountProfileDataTransferObject>.Fail(await ReadErrorAsync(response));
             }
+
+            var profile = await response.Content.ReadFromJsonAsync<AccountProfileDataTransferObject>();
+            if (profile == null)
+            {
+                return ServiceResult<AccountProfileDataTransferObject>.Fail("Profile response was empty.");
+            }
+
+            ApiUrlHelper.RebaseAvatarUrl(this.httpClient.BaseAddress!, profile);
+            return ServiceResult<AccountProfileDataTransferObject>.Ok(profile);
         }
 
         public async Task<ServiceResult<bool>> UpdateProfileAsync(Guid accountId, AccountProfileDataTransferObject profileUpdateData)
         {
-            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
+            var response = await this.httpClient.PutAsJsonAsync($"api/accounts/{accountId}", profileUpdateData);
+            if (!response.IsSuccessStatusCode)
             {
-                await unitOfWork.OpenAsync();
-                this.accountRepository.SetUnitOfWork(unitOfWork);
-
-                Account accountEntity = await this.accountRepository.GetByIdAsync(accountId);
-                if (accountEntity == null)
-                {
-                    return ServiceResult<bool>.Fail("Account not found.");
-                }
-
-                List<string> validationErrors = AccountProfileValidator.Validate(profileUpdateData);
-
-                if (!string.IsNullOrWhiteSpace(profileUpdateData.Email) && profileUpdateData.Email != accountEntity.Email)
-                {
-                    Account accountWithDuplicateEmail = await this.accountRepository.GetByEmailAsync(profileUpdateData.Email);
-                    if (accountWithDuplicateEmail != null && accountWithDuplicateEmail.Id != accountId)
-                    {
-                        validationErrors.Add("Email|This email address is already taken by another account.");
-                    }
-                }
-
-                if (validationErrors.Any())
-                {
-                    return ServiceResult<bool>.Fail(string.Join(";", validationErrors));
-                }
-
-                this.accountProfileMapper.ApplyToEntity(accountEntity, profileUpdateData);
-                await this.accountRepository.UpdateAsync(accountEntity);
-
-                return ServiceResult<bool>.Ok(true);
+                return ServiceResult<bool>.Fail(await ReadErrorAsync(response));
             }
+
+            if (this.sessionContext.AccountId == accountId)
+            {
+                var refreshed = await this.GetProfileAsync(accountId);
+                if (refreshed.Success && refreshed.Data != null)
+                {
+                    this.sessionContext.Populate(refreshed.Data);
+                }
+            }
+
+            return ServiceResult<bool>.Ok(true);
         }
 
         public async Task<ServiceResult<bool>> ChangePasswordAsync(Guid accountId, string currentPassword, string newPassword)
         {
-            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
+            var body = new ChangePasswordDataTransferObject
             {
-                await unitOfWork.OpenAsync();
-                this.accountRepository.SetUnitOfWork(unitOfWork);
+                CurrentPassword = currentPassword,
+                NewPassword = newPassword,
+                ConfirmPassword = newPassword,
+            };
 
-                Account accountEntity = await this.accountRepository.GetByIdAsync(accountId);
-                if (accountEntity == null)
-                {
-                    return ServiceResult<bool>.Fail("Account not found.");
-                }
-
-                if (!PasswordHasher.VerifyPassword(currentPassword, accountEntity.PasswordHash))
-                {
-                    return ServiceResult<bool>.Fail("Current password is incorrect.");
-                }
-
-                var (isPasswordValid, passwordErrorMessage) = PasswordValidator.Validate(newPassword);
-                if (!isPasswordValid)
-                {
-                    return ServiceResult<bool>.Fail(passwordErrorMessage);
-                }
-
-                accountEntity.PasswordHash = PasswordHasher.HashPassword(newPassword);
-                accountEntity.UpdatedAt = DateTime.UtcNow;
-
-                await this.accountRepository.UpdateAsync(accountEntity);
-                this.sessionContext.Clear();
-
-                return ServiceResult<bool>.Ok(true);
+            var response = await this.httpClient.PutAsJsonAsync($"api/accounts/{accountId}/password", body);
+            if (!response.IsSuccessStatusCode)
+            {
+                return ServiceResult<bool>.Fail(await ReadErrorAsync(response));
             }
+
+            this.sessionContext.Clear();
+            return ServiceResult<bool>.Ok(true);
         }
 
         public async Task<string> UploadAvatarAsync(Guid accountId, string sourceFilePath)
         {
-            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
+            using var multipartContent = new MultipartFormDataContent();
+            byte[] fileBytes = await File.ReadAllBytesAsync(sourceFilePath);
+            var byteContent = new ByteArrayContent(fileBytes);
+            byteContent.Headers.ContentType = new MediaTypeHeaderValue(GuessContentType(sourceFilePath));
+            multipartContent.Add(byteContent, "file", Path.GetFileName(sourceFilePath));
+
+            var response = await this.httpClient.PostAsync($"api/accounts/{accountId}/avatar", multipartContent);
+            if (!response.IsSuccessStatusCode)
             {
-                await unitOfWork.OpenAsync();
-                this.accountRepository.SetUnitOfWork(unitOfWork);
-
-                Account accountEntity = await this.accountRepository.GetByIdAsync(accountId);
-                if (accountEntity == null)
-                {
-                    throw new InvalidOperationException("Account not found.");
-                }
-
-                string fileName = $"{accountId}_{Path.GetFileName(sourceFilePath)}";
-                string localApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                string saveFolderPath = Path.Combine(localApplicationData, DomainConstants.ApplicationName, DomainConstants.AvatarFolderName);
-
-                Directory.CreateDirectory(saveFolderPath);
-                string destinationPath = Path.Combine(saveFolderPath, fileName);
-
-                File.Copy(sourceFilePath, destinationPath, true);
-
-                accountEntity.AvatarUrl = destinationPath;
-                accountEntity.UpdatedAt = DateTime.UtcNow;
-
-                await this.accountRepository.UpdateAsync(accountEntity);
-
-                return destinationPath;
+                throw new InvalidOperationException(await ReadErrorAsync(response));
             }
+
+            var payload = await response.Content.ReadFromJsonAsync<AvatarUploadResponseDataTransferObject>();
+            string relativeUrl = payload?.AvatarUrl ?? string.Empty;
+            return ApiUrlHelper.ToAbsoluteUrl(this.httpClient.BaseAddress!, relativeUrl);
         }
 
         public async Task RemoveAvatarAsync(Guid accountId)
         {
-            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
+            var response = await this.httpClient.DeleteAsync($"api/accounts/{accountId}/avatar");
+            if (!response.IsSuccessStatusCode)
             {
-                await unitOfWork.OpenAsync();
-                this.accountRepository.SetUnitOfWork(unitOfWork);
-
-                Account accountEntity = await this.accountRepository.GetByIdAsync(accountId);
-                if (accountEntity == null)
-                {
-                    throw new InvalidOperationException("Account not found.");
-                }
-
-                accountEntity.AvatarUrl = null;
-                accountEntity.UpdatedAt = DateTime.UtcNow;
-
-                await this.accountRepository.UpdateAsync(accountEntity);
+                throw new InvalidOperationException(await ReadErrorAsync(response));
             }
+        }
+
+        private static string GuessContentType(string filePath)
+        {
+            string extension = Path.GetExtension(filePath).ToLowerInvariant();
+            return extension switch
+            {
+                ".png" => "image/png",
+                ".jpg" => "image/jpeg",
+                ".jpeg" => "image/jpeg",
+                ".gif" => "image/gif",
+                ".bmp" => "image/bmp",
+                ".webp" => "image/webp",
+                _ => "application/octet-stream",
+            };
+        }
+
+        private static async Task<string> ReadErrorAsync(HttpResponseMessage response)
+        {
+            try
+            {
+                var errorEnvelope = await response.Content.ReadFromJsonAsync<ErrorEnvelope>();
+                if (!string.IsNullOrEmpty(errorEnvelope?.Error))
+                {
+                    return errorEnvelope!.Error!;
+                }
+            }
+            catch
+            {
+            }
+
+            return $"Server returned status {(int)response.StatusCode}.";
+        }
+
+        private sealed class ErrorEnvelope
+        {
+            public string? Error { get; set; }
         }
     }
 }

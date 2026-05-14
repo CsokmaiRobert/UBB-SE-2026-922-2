@@ -1,0 +1,45 @@
+@model LoginViewModel
+
+@{
+    ViewData["Title"] = "Sign in";
+    Layout = "_Layout";
+}
+
+<div class="page-header">
+    <h1 class="page-title">Sign in</h1>
+</div>
+
+<div class="form-section">
+    <form asp-action="Login" method="post">
+        <div asp-validation-summary="All" class="text-danger mb-3"></div>
+        <input type="hidden" asp-for="ReturnUrl" />
+        <div class="mb-3">
+            <label asp-for="UsernameOrEmail" class="form-label"></label>
+            <input asp-for="UsernameOrEmail" class="form-control" autocomplete="username" autofocus />
+            <span asp-validation-for="UsernameOrEmail" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Password" class="form-label"></label>
+            <input asp-for="Password" class="form-control" autocomplete="current-password" />
+            <span asp-validation-for="Password" class="text-danger"></span>
+        </div>
+        <div class="form-check mb-3">
+            <label class="form-check-label">
+                <input class="form-check-input" asp-for="RememberMe" /> @Html.DisplayNameFor(model => model.RememberMe)
+            </label>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Sign in</button>
+        </div>
+    </form>
+    <div class="mt-3">
+        <a asp-action="ForgotPassword">Forgot password?</a>
+    </div>
+    <div class="mt-2">
+        <a asp-action="Register">Don't have an account? Create an account</a>
+    </div>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}

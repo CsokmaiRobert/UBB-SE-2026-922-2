@@ -1,131 +1,154 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Json;
 using BoardRentAndProperty.Constants;
-using BoardRentAndProperty.DataTransferObjects;
-using BoardRentAndProperty.Mappers;
-using BoardRentAndProperty.Repositories;
-using BoardRentAndProperty.Services;
-using BoardRentAndProperty.Models;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
 
 namespace BoardRentAndProperty.Services
 {
     public class GameService : IGameService
     {
-        private readonly IGameRepository gameListingRepository;
-        private readonly IRentalRepository gameRentalRepository;
-        private readonly IMapper<Game, GameDTO> gameDtoMapper;
-        private readonly IRequestService rentalRequestService;
-        private const int NoActiveOrUpcomingRentals = 0;
-        private const int SingularRentalCount = 1;
+        private const int NoValidationErrors = 0;
 
-        public GameService(
-            IGameRepository gameRepository,
-            IRentalRepository rentalRepository,
-            IMapper<Game, GameDTO> gameMapper,
-            IRequestService requestService)
+        private readonly HttpClient httpClient;
+
+        public GameService(HttpClient httpClient)
         {
-            this.gameListingRepository = gameRepository;
-            this.gameRentalRepository = rentalRepository;
-            this.gameDtoMapper = gameMapper;
-            this.rentalRequestService = requestService;
+            this.httpClient = httpClient;
         }
 
         public List<string> ValidateGame(GameDTO gameDto)
         {
-            return GameInputHelper.BuildValidationErrors(
-                gameDto.Name,
-                gameDto.Price,
-                gameDto.MinimumPlayerNumber,
-                gameDto.MaximumPlayerNumber,
-                gameDto.Description,
-                DomainConstants.GameMinimumNameLength,
-                DomainConstants.GameMaximumNameLength,
-                DomainConstants.GameMinimumAllowedPrice,
-                DomainConstants.GameMinimumPlayerCount,
-                DomainConstants.GameMinimumDescriptionLength,
-                DomainConstants.GameMaximumDescriptionLength);
+            var errors = new List<string>();
+
+            if (string.IsNullOrWhiteSpace(gameDto.Name)
+                || gameDto.Name.Length < DomainConstants.GameMinimumNameLength
+                || gameDto.Name.Length > DomainConstants.GameMaximumNameLength)
+            {
+                errors.Add($"Name must be between {DomainConstants.GameMinimumNameLength} and {DomainConstants.GameMaximumNameLength} characters.");
+            }
+
+            if (gameDto.Price < DomainConstants.GameMinimumAllowedPrice)
+            {
+                errors.Add($"Price must be greater than or equal to {DomainConstants.GameMinimumAllowedPrice:0}.");
+            }
+
+            if (gameDto.MinimumPlayerNumber < DomainConstants.GameMinimumPlayerCount)
+            {
+                errors.Add($"Minimum player count must be at least {DomainConstants.GameMinimumPlayerCount}.");
+            }
+
+            if (gameDto.MaximumPlayerNumber < gameDto.MinimumPlayerNumber)
+            {
+                errors.Add("Maximum player count must be greater than or equal to minimum player count.");
+            }
+
+            if (string.IsNullOrWhiteSpace(gameDto.Description)
+                || gameDto.Description.Length < DomainConstants.GameMinimumDescriptionLength
+                || gameDto.Description.Length > DomainConstants.GameMaximumDescriptionLength)
+            {
+                errors.Add($"Description must be between {DomainConstants.GameMinimumDescriptionLength} and {DomainConstants.GameMaximumDescriptionLength} characters.");
+            }
+
+            return errors;
         }
 
         public void AddGame(GameDTO gameToAdd)
         {
-            var validationErrors = ValidateGame(gameToAdd);
-            if (validationErrors.Count > NoActiveOrUpcomingRentals)
+            var errors = ValidateGame(gameToAdd);
+            if (errors.Count > NoValidationErrors)
             {
-                throw new ArgumentException(string.Join(Environment.NewLine, validationErrors));
+                throw new ArgumentException(string.Join(Environment.NewLine, errors));
             }
 
-            gameToAdd.Image = GameInputHelper.EnsureImageOrDefault(gameToAdd.Image, AppDomain.CurrentDomain.BaseDirectory);
-            gameListingRepository.Add(gameDtoMapper.ToModel(gameToAdd));
+            var response = this.httpClient.PostAsJsonAsync("api/games", gameToAdd).GetAwaiter().GetResult();
+            EnsureSuccess(response, "Failed to create game.");
         }
 
         public void UpdateGameByIdentifier(int gameId, GameDTO updatedGameData)
         {
-            var validationErrors = ValidateGame(updatedGameData);
-            if (validationErrors.Count > NoActiveOrUpcomingRentals)
+            var errors = ValidateGame(updatedGameData);
+            if (errors.Count > NoValidationErrors)
             {
-                throw new ArgumentException(string.Join(Environment.NewLine, validationErrors));
+                throw new ArgumentException(string.Join(Environment.NewLine, errors));
             }
 
-            updatedGameData.Image = GameInputHelper.EnsureImageOrDefault(updatedGameData.Image, AppDomain.CurrentDomain.BaseDirectory);
-            gameListingRepository.Update(gameId, gameDtoMapper.ToModel(updatedGameData));
+            var response = this.httpClient.PutAsJsonAsync($"api/games/{gameId}", updatedGameData).GetAwaiter().GetResult();
+            EnsureSuccess(response, "Failed to update game.");
         }
 
         public GameDTO DeleteGameByIdentifier(int gameId)
         {
-            var gameRentals = gameRentalRepository.GetRentalsByGame(gameId);
-            var currentTime = DateTime.Now;
-            var activeOrUpcomingRentalsCount = gameRentals.Count(rental => rental.EndDate >= currentTime);
-            if (activeOrUpcomingRentalsCount > NoActiveOrUpcomingRentals)
+            var response = this.httpClient.DeleteAsync($"api/games/{gameId}").GetAwaiter().GetResult();
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
             {
-                var rentalWord = activeOrUpcomingRentalsCount == SingularRentalCount ? "rental" : "rentals";
-                throw new InvalidOperationException(
-                    $"There are {activeOrUpcomingRentalsCount} active {rentalWord} for this game and it cannot be removed now.");
+                throw new InvalidOperationException(ReadErrorEnvelope(response));
             }
 
-            foreach (var pastRental in gameRentals)
-            {
-                gameRentalRepository.Delete(pastRental.Id);
-            }
-
-            rentalRequestService.OnGameDeactivated(gameId);
-            return gameDtoMapper.ToDTO(gameListingRepository.Delete(gameId));
+            EnsureSuccess(response, "Failed to delete game.");
+            return response.Content.ReadFromJsonAsync<GameDTO>().GetAwaiter().GetResult() ?? new GameDTO { Id = gameId };
         }
 
         public GameDTO GetGameByIdentifier(int gameId)
         {
-            return gameDtoMapper.ToDTO(gameListingRepository.Get(gameId));
+            var response = this.httpClient.GetAsync($"api/games/{gameId}").GetAwaiter().GetResult();
+            EnsureSuccess(response, "Failed to fetch game.");
+            return response.Content.ReadFromJsonAsync<GameDTO>().GetAwaiter().GetResult() ?? new GameDTO();
         }
 
-        public ImmutableList<GameDTO> GetGamesForOwner(int ownerUserId)
+        public ImmutableList<GameDTO> GetGamesForOwner(Guid ownerAccountId) =>
+            FetchList($"api/games/owner/{ownerAccountId}");
+
+        public ImmutableList<GameDTO> GetAllGames() =>
+            FetchList("api/games");
+
+        public ImmutableList<GameDTO> GetAvailableGamesForRenter(Guid renterAccountId) =>
+            FetchList($"api/games/renter/{renterAccountId}/available");
+
+        public ImmutableList<GameDTO> GetActiveGamesForOwner(Guid ownerAccountId) =>
+            FetchList($"api/games/owner/{ownerAccountId}/active");
+
+        private ImmutableList<GameDTO> FetchList(string requestPath)
         {
-            return gameListingRepository
-                .GetGamesByOwner(ownerUserId)
-                .Select(game => gameDtoMapper.ToDTO(game))
-                .ToImmutableList();
+            var response = this.httpClient.GetAsync(requestPath).GetAwaiter().GetResult();
+            EnsureSuccess(response, "Failed to fetch games.");
+            var list = response.Content.ReadFromJsonAsync<List<GameDTO>>().GetAwaiter().GetResult() ?? new List<GameDTO>();
+            return list.ToImmutableList();
         }
 
-        public ImmutableList<GameDTO> GetAllGames()
+        private static void EnsureSuccess(HttpResponseMessage response, string genericMessage)
         {
-            return gameListingRepository
-                .GetAll()
-                .Select(game => gameDtoMapper.ToDTO(game))
-                .ToImmutableList();
+            if (response.IsSuccessStatusCode)
+            {
+                return;
+            }
+
+            string errorMessage = ReadErrorEnvelope(response);
+            throw new InvalidOperationException(string.IsNullOrEmpty(errorMessage) ? genericMessage : errorMessage);
         }
 
-        public ImmutableList<GameDTO> GetAvailableGamesForRenter(int renterUserId)
+        private static string ReadErrorEnvelope(HttpResponseMessage response)
         {
-            return GetAllGames()
-                .Where(game => game.IsActive && game.Owner?.Id != renterUserId)
-                .ToImmutableList();
+            try
+            {
+                var envelope = response.Content.ReadFromJsonAsync<ErrorEnvelope>().GetAwaiter().GetResult();
+                if (!string.IsNullOrEmpty(envelope?.Error))
+                {
+                    return envelope!.Error!;
+                }
+            }
+            catch
+            {
+            }
+
+            return $"Server returned status {(int)response.StatusCode}.";
         }
 
-        public ImmutableList<GameDTO> GetActiveGamesForOwner(int ownerUserId)
+        private sealed class ErrorEnvelope
         {
-            return GetGamesForOwner(ownerUserId)
-                .Where(game => game.IsActive)
-                .ToImmutableList();
+            public string? Error { get; set; }
         }
     }
 }

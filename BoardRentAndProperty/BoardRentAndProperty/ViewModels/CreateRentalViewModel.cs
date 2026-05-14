@@ -2,7 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using BoardRentAndProperty.DataTransferObjects;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Utilities;
 
@@ -14,10 +14,10 @@ namespace BoardRentAndProperty.ViewModels
 
         private readonly IGameService gameListingService;
         private readonly IRentalService rentalCreationService;
-        private readonly IUserService userLookupService;
+        private readonly IUserService userService;
         private readonly ICurrentUserContext currentUserContext;
 
-        public int CurrentUserId => currentUserContext.CurrentUserId;
+        public Guid CurrentUserId => currentUserContext.CurrentUserId;
 
         public ObservableCollection<GameDTO> OwnedActiveGames { get; set; } = new();
         public ObservableCollection<UserDTO> AvailableRenters { get; set; } = new();
@@ -33,13 +33,13 @@ namespace BoardRentAndProperty.ViewModels
             }
         }
 
-        private UserDTO selectedRenterUser;
+        private UserDTO selectedRenter;
         public UserDTO SelectedRenter
         {
-            get => selectedRenterUser;
+            get => selectedRenter;
             set
             {
-                selectedRenterUser = value;
+                selectedRenter = value;
                 OnPropertyChanged();
             }
         }
@@ -67,16 +67,16 @@ namespace BoardRentAndProperty.ViewModels
         }
 
         public CreateRentalViewModel(IGameService gameListingService, IRentalService rentalCreationService,
-                                     IUserService userLookupService, ICurrentUserContext currentUserContext)
+                                     IUserService userService, ICurrentUserContext currentUserContext)
         {
             this.gameListingService = gameListingService;
             this.rentalCreationService = rentalCreationService;
-            this.userLookupService = userLookupService;
+            this.userService = userService;
             this.currentUserContext = currentUserContext;
-            LoadRentalFormData();
+            _ = LoadRentalFormDataAsync();
         }
 
-        public void LoadRentalFormData()
+        public async System.Threading.Tasks.Task LoadRentalFormDataAsync()
         {
             OwnedActiveGames.Clear();
             foreach (var activeGame in gameListingService.GetActiveGamesForOwner(CurrentUserId))
@@ -85,10 +85,12 @@ namespace BoardRentAndProperty.ViewModels
             }
 
             AvailableRenters.Clear();
-            foreach (var potentialRenter in userLookupService.GetUsersExcept(CurrentUserId))
+            foreach (var potentialRenter in userService.GetUsersExcept(CurrentUserId))
             {
                 AvailableRenters.Add(potentialRenter);
             }
+
+            await System.Threading.Tasks.Task.CompletedTask;
         }
 
         public bool ValidateRentalInputs()
@@ -131,9 +133,24 @@ namespace BoardRentAndProperty.ViewModels
                     Constants.DialogTitles.ValidationError,
                     Constants.DialogMessages.CreateRentalValidationError);
             }
-            catch (Exception rentalCreationException)
+            catch (InvalidOperationException rentalCreationException)
             {
                 return ViewOperationResult.Failure(Constants.DialogTitles.RentalFailed, rentalCreationException.Message);
+            }
+            catch (System.Net.Http.HttpRequestException rentalCreationException)
+            {
+                return ViewOperationResult.Failure(Constants.DialogTitles.RentalFailed, rentalCreationException.Message);
+            }
+            #pragma warning restore CA1031
+            catch (Exception rentalCreationException)
+            #pragma warning restore CA1031 
+
+            {
+                return ViewOperationResult.Failure(
+                    Constants.DialogTitles.RentalFailed,
+                    string.IsNullOrWhiteSpace(rentalCreationException.Message)
+                        ? Constants.DialogMessages.UnexpectedErrorOccurred
+                        : rentalCreationException.Message);
             }
         }
 

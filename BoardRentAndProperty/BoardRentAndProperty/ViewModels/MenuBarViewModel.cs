@@ -2,11 +2,9 @@ namespace BoardRentAndProperty.ViewModels
 {
     using System;
     using System.Collections.Generic;
-    using System.ComponentModel;
-    using System.Runtime.CompilerServices;
     using BoardRentAndProperty.Utilities;
 
-    public class MenuBarViewModel : INotifyPropertyChanged
+    public class MenuBarViewModel : BaseViewModel
     {
         private const string AdministratorRoleName = "Administrator";
         private const string DefaultSelectedMenuLabel = "My Games";
@@ -23,8 +21,6 @@ namespace BoardRentAndProperty.ViewModels
         }
 
         public event Action<AppPage> RequestNavigation;
-
-        public event PropertyChangedEventHandler PropertyChanged;
 
         public Dictionary<string, Action> NavigationActionsByMenuLabel
         {
@@ -55,11 +51,6 @@ namespace BoardRentAndProperty.ViewModels
             this.NavigationActionsByMenuLabel = this.BuildNavigationActions();
             this.selectedMenuPageName = DefaultSelectedMenuLabel;
             this.OnPropertyChanged(nameof(this.SelectedPageName));
-        }
-
-        protected void OnPropertyChanged([CallerMemberName] string name = null)
-        {
-            this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
 
         private Dictionary<string, Action> BuildNavigationActions()

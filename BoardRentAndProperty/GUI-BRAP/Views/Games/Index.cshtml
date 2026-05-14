@@ -1,0 +1,120 @@
+@model IEnumerable<GameDTO>
+
+@{
+    ViewData["Title"] = "Games";
+    const string placeholderImageSource = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Crect width='160' height='160' fill='%23e9ecef'/%3E%3Ccircle cx='58' cy='56' r='14' fill='%23ced4da'/%3E%3Cpath d='M38 118l30-34 20 23 16-18 18 18v11H38z' fill='%23adb5bd'/%3E%3C/svg%3E";
+    bool showOwner = User.IsInRole("Administrator");
+}
+
+<div class="page-header">
+    <h1 class="page-title">Games</h1>
+    <div class="page-actions">
+        <a asp-action="Create" class="btn btn-primary">Create Game</a>
+    </div>
+</div>
+
+@if (TempData["DeleteError"] is string deleteError)
+{
+    <div class="alert alert-danger" role="alert">@deleteError</div>
+}
+
+@if (Model is null || !Model.Any())
+{
+    <div class="empty-state">
+        <p>No games available.</p>
+    </div>
+}
+else
+{
+    <div class="game-card-list">
+@foreach (var item in Model)
+{
+    string imageSource = placeholderImageSource;
+
+    if (item.Image is { Length: > 0 })
+    {
+        string mimeType = "image/jpeg";
+
+        if (item.Image.Length >= 4 &&
+            item.Image[0] == 0x89 &&
+            item.Image[1] == 0x50 &&
+            item.Image[2] == 0x4E &&
+            item.Image[3] == 0x47)
+        {
+            mimeType = "image/png";
+        }
+        else if (item.Image.Length >= 3 &&
+                 item.Image[0] == 0x47 &&
+                 item.Image[1] == 0x49 &&
+                 item.Image[2] == 0x46)
+        {
+            mimeType = "image/gif";
+        }
+        else if (item.Image.Length >= 2 &&
+                 item.Image[0] == 0x42 &&
+                 item.Image[1] == 0x4D)
+        {
+            mimeType = "image/bmp";
+        }
+        else if (item.Image.Length >= 12 &&
+                 item.Image[0] == 0x52 &&
+                 item.Image[1] == 0x49 &&
+                 item.Image[2] == 0x46 &&
+                 item.Image[3] == 0x46 &&
+                 item.Image[8] == 0x57 &&
+                 item.Image[9] == 0x45 &&
+                 item.Image[10] == 0x42 &&
+                 item.Image[11] == 0x50)
+        {
+            mimeType = "image/webp";
+        }
+
+        imageSource = $"data:{mimeType};base64,{Convert.ToBase64String(item.Image)}";
+    }
+
+        <div class="@(item.IsActive ? "game-card" : "game-card game-card-inactive")">
+            <a class="d-flex align-items-center gap-3 flex-grow-1 text-decoration-none text-reset" asp-action="Details" asp-route-id="@item.Id">
+                <div class="game-card-image-wrap">
+                    <img class="game-card-image" src="@imageSource" alt="@item.Name" />
+                </div>
+
+                <div class="game-card-body">
+                    <div class="game-card-title-row">
+                        <h2 class="game-card-title">@item.Name</h2>
+                        <div class="game-card-status">
+                            @if (item.IsActive)
+                            {
+                                <span class="badge bg-success status-badge">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary status-badge">Inactive</span>
+                            }
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(item.Description))
+                    {
+                        <p class="game-card-description">@item.Description</p>
+                    }
+
+                    <div class="game-card-meta">
+                        <span>Price: @item.Price</span>
+                        <span>Players: @item.MinimumPlayerNumber - @item.MaximumPlayerNumber</span>
+                    </div>
+
+                    @if (showOwner && !string.IsNullOrWhiteSpace(item.Owner?.DisplayName))
+                    {
+                        <div class="game-card-owner">Owner: @item.Owner.DisplayName</div>
+                    }
+                </div>
+            </a>
+
+            <div class="game-card-actions">
+                <a class="btn btn-warning btn-sm" asp-action="Edit" asp-route-id="@item.Id">Edit</a>
+                <a class="btn btn-danger btn-sm" asp-action="Delete" asp-route-id="@item.Id">Delete</a>
+            </div>
+        </div>
+}
+    </div>
+}

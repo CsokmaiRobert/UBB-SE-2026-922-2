@@ -1,88 +1,105 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
-using BoardRentAndProperty.Constants;
-using BoardRentAndProperty.DataTransferObjects;
-using BoardRentAndProperty.Mappers;
-using BoardRentAndProperty.Repositories;
-using BoardRentAndProperty.Services;
-using BoardRentAndProperty.Models;
+using System.Net.Http;
+using System.Net.Http.Json;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
 
 namespace BoardRentAndProperty.Services
 {
     public class RentalService : IRentalService
     {
-        private readonly IRentalRepository rentalDataRepository;
-        private readonly IGameRepository gameLookupRepository;
-        private readonly IMapper<Rental, RentalDTO> rentalDtoMapper;
+        private readonly HttpClient httpClient;
 
-        private const int NewRentalId = 0;
-
-        public RentalService(
-            IRentalRepository rentalRepository,
-            IGameRepository gameRepository,
-            IMapper<Rental, RentalDTO> rentalMapper)
+        public RentalService(HttpClient httpClient)
         {
-            this.rentalDataRepository = rentalRepository;
-            this.gameLookupRepository = gameRepository;
-            this.rentalDtoMapper = rentalMapper;
+            this.httpClient = httpClient;
         }
 
-        public bool IsSlotAvailable(int gameId, DateTime proposedStartDate, DateTime proposedEndDate)
+        public ImmutableList<RentalDTO> GetRentalsForRenter(Guid renterAccountId) =>
+            FetchList($"api/rentals/renter/{renterAccountId}");
+
+        public ImmutableList<RentalDTO> GetRentalsForOwner(Guid ownerAccountId) =>
+            FetchList($"api/rentals/owner/{ownerAccountId}");
+
+        public bool IsSlotAvailable(int gameId, DateTime startDate, DateTime endDate)
         {
-            foreach (var existingRental in rentalDataRepository.GetRentalsByGame(gameId))
+            var query = $"api/rentals/games/{gameId}/availability?startDate={Uri.EscapeDataString(startDate.ToString("o"))}&endDate={Uri.EscapeDataString(endDate.ToString("o"))}";
+            var response = this.httpClient.GetAsync(query).GetAwaiter().GetResult();
+            if (!response.IsSuccessStatusCode)
             {
-                var bufferStart = existingRental.StartDate.AddHours(-DomainConstants.RentalBufferHours);
-                var bufferEnd = existingRental.EndDate.AddHours(DomainConstants.RentalBufferHours);
-                if (proposedStartDate < bufferEnd && proposedEndDate > bufferStart)
-                {
-                    return false;
-                }
+                return false;
             }
 
-            return true;
+            return response.Content.ReadFromJsonAsync<bool>().GetAwaiter().GetResult();
         }
 
-        public void CreateConfirmedRental(int gameId, int renterUserId, int ownerUserId, DateTime rentalStartDate, DateTime rentalEndDate)
+        public void CreateConfirmedRental(int gameId, Guid renterAccountId, Guid ownerAccountId, DateTime startDate, DateTime endDate)
         {
-            if (!DateRangeValidationHelper.HasValidFutureDateRange(rentalStartDate, rentalEndDate))
+            var body = new CreateRentalDataTransferObject
             {
-                throw new ArgumentException("Start date must be before end date and not in the past.");
+                GameId = gameId,
+                RenterAccountId = renterAccountId,
+                OwnerAccountId = ownerAccountId,
+                StartDate = startDate,
+                EndDate = endDate,
+            };
+
+            var response = this.httpClient.PostAsJsonAsync("api/rentals", body).GetAwaiter().GetResult();
+            if (response.IsSuccessStatusCode)
+            {
+                return;
             }
 
-            var gameToRent = gameLookupRepository.Get(gameId);
-            if (gameToRent.Owner.Id != ownerUserId)
+            string errorMessage = ReadErrorEnvelope(response);
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
             {
-                throw new InvalidOperationException("Seller ID must match Game Owner ID [ENT-REN-04].");
+                throw new InvalidOperationException(string.IsNullOrEmpty(errorMessage) ? "Rental conflict." : errorMessage);
             }
 
-            if (!IsSlotAvailable(gameId, rentalStartDate, rentalEndDate))
-            {
-                throw new InvalidOperationException(
-                    $"Selected dates fall within the mandatory {DomainConstants.RentalBufferHours}-hour buffer of another rental.");
-            }
-
-            var confirmedRental = new Rental(
-                id: NewRentalId,
-                rentedGame: new Game { Id = gameId },
-                renterUser: new User { Id = renterUserId },
-                ownerUser: new User { Id = ownerUserId },
-                startDate: rentalStartDate,
-                endDate: rentalEndDate);
-
-            rentalDataRepository.AddConfirmed(confirmedRental);
+            throw new ArgumentException(string.IsNullOrEmpty(errorMessage) ? "Rental creation failed." : errorMessage);
         }
 
-        public ImmutableList<RentalDTO> GetRentalsForRenter(int renterUserId) =>
-            rentalDataRepository
-                .GetRentalsByRenter(renterUserId)
-                .Select(rental => rentalDtoMapper.ToDTO(rental))
-                .ToImmutableList();
+        private ImmutableList<RentalDTO> FetchList(string requestPath)
+        {
+            var response = this.httpClient.GetAsync(requestPath).GetAwaiter().GetResult();
+            if (!response.IsSuccessStatusCode)
+            {
+                return ImmutableList<RentalDTO>.Empty;
+            }
 
-        public ImmutableList<RentalDTO> GetRentalsForOwner(int ownerUserId) =>
-            rentalDataRepository
-                .GetRentalsByOwner(ownerUserId)
-                .Select(rental => rentalDtoMapper.ToDTO(rental))
-                .ToImmutableList();
+            var list = response.Content.ReadFromJsonAsync<List<RentalDTO>>().GetAwaiter().GetResult() ?? new List<RentalDTO>();
+            return list.ToImmutableList();
+        }
+
+        private static string ReadErrorEnvelope(HttpResponseMessage response)
+        {
+            try
+            {
+                var envelope = response.Content.ReadFromJsonAsync<ErrorEnvelope>().GetAwaiter().GetResult();
+                return envelope?.Error ?? string.Empty;
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                return string.Empty;
+            }
+            catch (NotSupportedException)
+            {
+                return string.Empty;
+            }
+            catch (InvalidOperationException)
+            {
+                return string.Empty;
+            }
+            catch (HttpRequestException)
+            {
+                return string.Empty;
+            }
+        }
+
+        private sealed class ErrorEnvelope
+        {
+            public string? Error { get; set; }
+        }
     }
 }

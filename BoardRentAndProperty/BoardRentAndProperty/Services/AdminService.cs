@@ -1,221 +1,94 @@
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Threading.Tasks;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
+using BoardRentAndProperty.Utilities;
+
 namespace BoardRentAndProperty.Services
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Threading.Tasks;
-    using BoardRentAndProperty.Data;
-    using BoardRentAndProperty.DataTransferObjects;
-    using BoardRentAndProperty.Models;
-    using BoardRentAndProperty.Repositories;
-    using BoardRentAndProperty.Utilities;
-
     public class AdminService : IAdminService
     {
-        private readonly IAccountRepository accountRepository;
-        private readonly IFailedLoginRepository failedLoginRepository;
-        private readonly IUnitOfWorkFactory unitOfWorkFactory;
-        private readonly ISessionContext sessionContext;
-        private readonly INotificationService notificationService;
+        private readonly HttpClient httpClient;
 
-        public AdminService(
-            IAccountRepository accountRepository,
-            IFailedLoginRepository failedLoginRepository,
-            IUnitOfWorkFactory unitOfWorkFactory,
-            ISessionContext sessionContext,
-            INotificationService notificationService)
+        public AdminService(HttpClient httpClient)
         {
-            this.accountRepository = accountRepository;
-            this.failedLoginRepository = failedLoginRepository;
-            this.unitOfWorkFactory = unitOfWorkFactory;
-            this.sessionContext = sessionContext;
-            this.notificationService = notificationService;
-        }
-
-        private bool IsAuthorized()
-        {
-            return this.sessionContext.IsLoggedIn && this.sessionContext.Role == "Administrator";
+            this.httpClient = httpClient;
         }
 
         public async Task<ServiceResult<List<AccountProfileDataTransferObject>>> GetAllAccountsAsync(int pageNumber, int pageSize)
         {
-            if (!this.IsAuthorized())
+            var response = await this.httpClient.GetAsync($"api/admin/accounts?page={pageNumber}&pageSize={pageSize}");
+            if (!response.IsSuccessStatusCode)
             {
-                return ServiceResult<List<AccountProfileDataTransferObject>>.Fail("Unauthorized access.");
+                return ServiceResult<List<AccountProfileDataTransferObject>>.Fail(await ReadErrorAsync(response));
             }
 
-            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
+            var profiles = await response.Content.ReadFromJsonAsync<List<AccountProfileDataTransferObject>>() ?? new List<AccountProfileDataTransferObject>();
+            foreach (var profile in profiles)
             {
-                await unitOfWork.OpenAsync();
-                this.accountRepository.SetUnitOfWork(unitOfWork);
-                this.failedLoginRepository.SetUnitOfWork(unitOfWork);
-
-                List<Account> accountEntities = await this.accountRepository.GetAllAsync(1, int.MaxValue);
-
-                List<AccountProfileDataTransferObject> accountProfileDtos = new List<AccountProfileDataTransferObject>();
-                foreach (Account accountEntity in accountEntities)
-                {
-                    Role firstRole = accountEntity.Roles?.FirstOrDefault();
-                    FailedLoginAttempt failedAttempt = await this.failedLoginRepository.GetByAccountIdAsync(accountEntity.Id);
-
-                    bool isLocked = failedAttempt != null
-                        && failedAttempt.LockedUntil.HasValue
-                        && failedAttempt.LockedUntil.Value > DateTime.UtcNow;
-
-                    accountProfileDtos.Add(new AccountProfileDataTransferObject
-                    {
-                        Id = accountEntity.Id,
-                        Username = accountEntity.Username,
-                        DisplayName = accountEntity.DisplayName,
-                        Email = accountEntity.Email,
-                        PhoneNumber = accountEntity.PhoneNumber,
-                        AvatarUrl = accountEntity.AvatarUrl,
-                        Role = new RoleDataTransferObject
-                        {
-                            Id = firstRole?.Id ?? Guid.Empty,
-                            Name = firstRole?.Name ?? "Standard User"
-                        },
-                        IsSuspended = accountEntity.IsSuspended,
-                        IsLocked = isLocked,
-                        Country = accountEntity.Country,
-                        City = accountEntity.City,
-                        StreetName = accountEntity.StreetName,
-                        StreetNumber = accountEntity.StreetNumber
-                    });
-                }
-
-                return ServiceResult<List<AccountProfileDataTransferObject>>.Ok(accountProfileDtos);
+                ApiUrlHelper.RebaseAvatarUrl(this.httpClient.BaseAddress!, profile);
             }
+
+            return ServiceResult<List<AccountProfileDataTransferObject>>.Ok(profiles);
         }
 
         public async Task<ServiceResult<bool>> SuspendAccountAsync(Guid accountId)
         {
-            if (!this.IsAuthorized())
-            {
-                return ServiceResult<bool>.Fail("Unauthorized access.");
-            }
-
-            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
-            {
-                await unitOfWork.OpenAsync();
-                this.accountRepository.SetUnitOfWork(unitOfWork);
-
-                Account accountEntity = await this.accountRepository.GetByIdAsync(accountId);
-                if (accountEntity == null)
-                {
-                    return ServiceResult<bool>.Fail("Account not found.");
-                }
-
-                accountEntity.IsSuspended = true;
-                await this.accountRepository.UpdateAsync(accountEntity);
-
-                this.NotifyUser(accountEntity, "Your account has been suspended by an administrator.");
-
-                return ServiceResult<bool>.Ok(true);
-            }
+            var response = await this.httpClient.PutAsync($"api/admin/accounts/{accountId}/suspend", content: null);
+            return await ToBoolResultAsync(response);
         }
 
         public async Task<ServiceResult<bool>> UnsuspendAccountAsync(Guid accountId)
         {
-            if (!this.IsAuthorized())
-            {
-                return ServiceResult<bool>.Fail("Unauthorized access.");
-            }
-
-            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
-            {
-                await unitOfWork.OpenAsync();
-                this.accountRepository.SetUnitOfWork(unitOfWork);
-
-                Account accountEntity = await this.accountRepository.GetByIdAsync(accountId);
-                if (accountEntity == null)
-                {
-                    return ServiceResult<bool>.Fail("Account not found.");
-                }
-
-                accountEntity.IsSuspended = false;
-                await this.accountRepository.UpdateAsync(accountEntity);
-
-                this.NotifyUser(accountEntity, "Your account has been unsuspended by an administrator.");
-
-                return ServiceResult<bool>.Ok(true);
-            }
+            var response = await this.httpClient.PutAsync($"api/admin/accounts/{accountId}/unsuspend", content: null);
+            return await ToBoolResultAsync(response);
         }
 
         public async Task<ServiceResult<bool>> ResetPasswordAsync(Guid accountId, string newPassword)
         {
-            if (!this.IsAuthorized())
-            {
-                return ServiceResult<bool>.Fail("Unauthorized access.");
-            }
-
-            var validationResult = PasswordValidator.Validate(newPassword);
-            if (!validationResult.IsValid)
-            {
-                return ServiceResult<bool>.Fail(validationResult.Error);
-            }
-
-            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
-            {
-                await unitOfWork.OpenAsync();
-                this.accountRepository.SetUnitOfWork(unitOfWork);
-
-                Account accountEntity = await this.accountRepository.GetByIdAsync(accountId);
-                if (accountEntity == null)
-                {
-                    return ServiceResult<bool>.Fail("Account not found.");
-                }
-
-                accountEntity.PasswordHash = PasswordHasher.HashPassword(newPassword);
-                await this.accountRepository.UpdateAsync(accountEntity);
-
-                this.NotifyUser(accountEntity, "Your password has been reset by an administrator.");
-
-                return ServiceResult<bool>.Ok(true);
-            }
+            var body = new ResetPasswordDataTransferObject { NewPassword = newPassword };
+            var response = await this.httpClient.PutAsJsonAsync($"api/admin/accounts/{accountId}/reset-password", body);
+            return await ToBoolResultAsync(response);
         }
 
         public async Task<ServiceResult<bool>> UnlockAccountAsync(Guid accountId)
         {
-            if (!this.IsAuthorized())
-            {
-                return ServiceResult<bool>.Fail("Unauthorized access.");
-            }
-
-            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
-            {
-                await unitOfWork.OpenAsync();
-                this.accountRepository.SetUnitOfWork(unitOfWork);
-                this.failedLoginRepository.SetUnitOfWork(unitOfWork);
-
-                Account accountEntity = await this.accountRepository.GetByIdAsync(accountId);
-                if (accountEntity == null)
-                {
-                    return ServiceResult<bool>.Fail("Account not found.");
-                }
-
-                await this.failedLoginRepository.ResetAsync(accountId);
-
-                this.NotifyUser(accountEntity, "Your account has been unlocked by an administrator.");
-
-                return ServiceResult<bool>.Ok(true);
-            }
+            var response = await this.httpClient.PutAsync($"api/admin/accounts/{accountId}/unlock", content: null);
+            return await ToBoolResultAsync(response);
         }
 
-        private void NotifyUser(Account account, string message)
+        private static async Task<ServiceResult<bool>> ToBoolResultAsync(HttpResponseMessage response)
         {
-            if (account.PamUserId.HasValue)
+            if (!response.IsSuccessStatusCode)
             {
-                var notification = new NotificationDTO
-                {
-                    Title = "System Notification",
-                    Body = message,
-                    Timestamp = DateTime.UtcNow,
-                    Type = NotificationType.Informational
-                };
-
-                this.notificationService.SendNotificationToUser(account.PamUserId.Value, notification);
+                return ServiceResult<bool>.Fail(await ReadErrorAsync(response));
             }
+
+            return ServiceResult<bool>.Ok(true);
+        }
+
+        private static async Task<string> ReadErrorAsync(HttpResponseMessage response)
+        {
+            try
+            {
+                var errorEnvelope = await response.Content.ReadFromJsonAsync<ErrorEnvelope>();
+                if (!string.IsNullOrEmpty(errorEnvelope?.Error))
+                {
+                    return errorEnvelope!.Error!;
+                }
+            }
+            catch
+            {
+            }
+
+            return $"Server returned status {(int)response.StatusCode}.";
+        }
+
+        private sealed class ErrorEnvelope
+        {
+            public string? Error { get; set; }
         }
     }
 }

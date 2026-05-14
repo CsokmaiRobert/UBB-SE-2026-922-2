@@ -1,0 +1,16 @@
+title User deletes a notification
+
+  actor User
+  participant NotificationsController
+  participant NotificationService
+  participant NotificationRepository
+  database Database
+
+  User -> NotificationsController: delete notification(id)
+  NotificationsController -> NotificationService: DeleteNotificationByIdentifier(id)
+  NotificationService -> NotificationRepository: Delete(id)
+  NotificationRepository -> Database: delete notification with id
+  Database --> NotificationRepository: ok
+  NotificationRepository --> NotificationService: deleted notification
+  NotificationService --> NotificationsController: notification dto
+  NotificationsController --> User: 200 OK

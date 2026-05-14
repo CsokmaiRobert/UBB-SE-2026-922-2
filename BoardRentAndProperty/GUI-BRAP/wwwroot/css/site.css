@@ -279,3 +279,141 @@ main.container {
     justify-content: flex-start;
   }
 }
+
+.request-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.request-card {
+  align-items: center;
+  background-color: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.125rem 0.5rem rgba(33, 37, 41, 0.04);
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+}
+
+.request-card:hover {
+  border-color: #d0d7de;
+  box-shadow: 0 0.25rem 0.85rem rgba(33, 37, 41, 0.08);
+}
+
+.request-card-image-wrap {
+  flex: 0 0 7rem;
+  width: 7rem;
+}
+
+.request-card-image {
+  border-radius: 0.375rem;
+  display: block;
+  height: 7rem;
+  object-fit: cover;
+  width: 100%;
+}
+
+.request-card-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.request-card-title {
+  color: #212529;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.request-card-meta {
+  color: #6c757d;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.request-card-dates {
+  color: #495057;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+  gap: 0.25rem 1rem;
+  line-height: 1.4;
+}
+
+.request-card-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.request-card-actions .btn {
+  width: 100%;
+  min-width: 7rem;
+}
+
+.empty-state {
+  color: #6c757d;
+  padding: 2rem 0;
+  text-align: center;
+}
+
+@media (max-width: 767.98px) {
+  .request-card {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .request-card-image-wrap {
+    flex-basis: 5.5rem;
+    width: 5.5rem;
+  }
+
+  .request-card-image {
+    height: 5.5rem;
+  }
+
+  .request-card-actions {
+    flex-basis: 100%;
+    flex-direction: row;
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .request-card-actions .btn {
+    width: auto;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .request-card {
+    padding: 0.875rem;
+  }
+
+  .request-card-image-wrap {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  .request-card-image {
+    height: 12rem;
+  }
+
+  .request-card-actions {
+    gap: 0.5rem;
+  }
+
+  .request-card-actions .btn {
+    flex: 1 1 auto;
+  }
+}

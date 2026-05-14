@@ -1,7 +1,8 @@
 namespace BoardRentAndProperty.Utilities
 {
+    using System;
     public interface ICurrentUserContext
     {
-        int CurrentUserId { get; }
+        Guid CurrentUserId { get; }
     }
 }

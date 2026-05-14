@@ -1,210 +1,121 @@
+using System;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Threading.Tasks;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
+using BoardRentAndProperty.Utilities;
+
 namespace BoardRentAndProperty.Services
 {
-    using System;
-    using System.Linq;
-    using System.Threading.Tasks;
-    using BoardRentAndProperty.Data;
-    using BoardRentAndProperty.DataTransferObjects;
-    using BoardRentAndProperty.Models;
-    using BoardRentAndProperty.Repositories;
-    using BoardRentAndProperty.Utilities;
-
     public class AuthService : IAuthService
     {
-        private const string StandardUserRoleName = "Standard User";
-
-        private readonly IAccountRepository accountRepository;
-        private readonly IFailedLoginRepository failedLoginRepository;
-        private readonly IUnitOfWorkFactory unitOfWorkFactory;
+        private readonly HttpClient httpClient;
         private readonly ISessionContext sessionContext;
-        private readonly IUserRepository pamUserRepository;
 
-        public AuthService(
-            IAccountRepository accountRepository,
-            IFailedLoginRepository failedLoginRepository,
-            IUnitOfWorkFactory unitOfWorkFactory,
-            ISessionContext sessionContext,
-            IUserRepository pamUserRepository)
+        public AuthService(HttpClient httpClient, ISessionContext sessionContext)
         {
-            this.accountRepository = accountRepository;
-            this.failedLoginRepository = failedLoginRepository;
-            this.unitOfWorkFactory = unitOfWorkFactory;
+            this.httpClient = httpClient;
             this.sessionContext = sessionContext;
-            this.pamUserRepository = pamUserRepository;
         }
 
         public async Task<ServiceResult<bool>> RegisterAsync(RegisterDataTransferObject registrationRequest)
         {
-            if (string.IsNullOrWhiteSpace(registrationRequest.Username) ||
-                string.IsNullOrWhiteSpace(registrationRequest.Email) ||
-                string.IsNullOrWhiteSpace(registrationRequest.DisplayName) ||
-                string.IsNullOrWhiteSpace(registrationRequest.Password))
+            var registerResponse = await this.httpClient.PostAsJsonAsync("api/auth/register", registrationRequest);
+            if (!registerResponse.IsSuccessStatusCode)
             {
-                return ServiceResult<bool>.Fail("Form|All fields are required.");
+                return ServiceResult<bool>.Fail(await ReadErrorAsync(registerResponse));
             }
 
-            if (registrationRequest.Password != registrationRequest.ConfirmPassword)
+            var loginAttempt = await this.LoginAsync(new LoginDataTransferObject
             {
-                return ServiceResult<bool>.Fail("Password|Passwords do not match.");
-            }
+                UsernameOrEmail = registrationRequest.Username,
+                Password = registrationRequest.Password,
+            });
 
-            string emailPattern = @"^[^@\s]+@[^@\s]+\.[^@\s]+$";
-            if (!System.Text.RegularExpressions.Regex.IsMatch(registrationRequest.Email, emailPattern))
-            {
-                return ServiceResult<bool>.Fail("Email|Please enter a valid email address.");
-            }
-
-            var passwordValidation = PasswordValidator.Validate(registrationRequest.Password);
-            if (!passwordValidation.IsValid)
-            {
-                return ServiceResult<bool>.Fail(passwordValidation.Error);
-            }
-
-            if (!string.IsNullOrWhiteSpace(registrationRequest.PhoneNumber))
-            {
-                if (!System.Text.RegularExpressions.Regex.IsMatch(registrationRequest.PhoneNumber, @"^\+?\d{7,15}$"))
-                {
-                    return ServiceResult<bool>.Fail("PhoneNumber|Phone number format is invalid.");
-                }
-            }
-
-            try
-            {
-                int linkedPamUserId = this.CreatePamUserForDisplayName(registrationRequest.DisplayName);
-
-                Account newAccount;
-
-                using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
-                {
-                    await unitOfWork.OpenAsync();
-                    this.accountRepository.SetUnitOfWork(unitOfWork);
-
-                    if (await this.accountRepository.GetByUsernameAsync(registrationRequest.Username) != null)
-                    {
-                        return ServiceResult<bool>.Fail("Username|Username is already taken.");
-                    }
-
-                    if (await this.accountRepository.GetByEmailAsync(registrationRequest.Email) != null)
-                    {
-                        return ServiceResult<bool>.Fail("Email|Email is already registered.");
-                    }
-
-                    newAccount = new Account
-                    {
-                        Id = Guid.NewGuid(),
-                        DisplayName = registrationRequest.DisplayName,
-                        Username = registrationRequest.Username,
-                        Email = registrationRequest.Email,
-                        PasswordHash = PasswordHasher.HashPassword(registrationRequest.Password),
-
-                        PhoneNumber = registrationRequest.PhoneNumber,
-                        Country = registrationRequest.Country,
-                        City = registrationRequest.City,
-                        StreetName = registrationRequest.StreetName,
-                        StreetNumber = registrationRequest.StreetNumber,
-
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow,
-                        IsSuspended = false,
-                        PamUserId = linkedPamUserId
-                    };
-
-                    await this.accountRepository.AddAsync(newAccount);
-                    await this.accountRepository.AddRoleAsync(newAccount.Id, StandardUserRoleName);
-                }
-
-                this.sessionContext.Populate(newAccount, StandardUserRoleName);
-
-                return ServiceResult<bool>.Ok(true);
-            }
-            catch (Exception ex)
-            {
-                return ServiceResult<bool>.Fail($"Database Error|{ex.Message}");
-            }
+            return loginAttempt.Success ? ServiceResult<bool>.Ok(true) : ServiceResult<bool>.Fail(loginAttempt.Error ?? "Registration succeeded but auto-login failed.");
         }
+
         public async Task<ServiceResult<AccountProfileDataTransferObject>> LoginAsync(LoginDataTransferObject loginRequest)
         {
-            using (IUnitOfWork unitOfWork = this.unitOfWorkFactory.Create())
+            HttpResponseMessage loginResponse;
+            try
             {
-                await unitOfWork.OpenAsync();
-                this.accountRepository.SetUnitOfWork(unitOfWork);
-                this.failedLoginRepository.SetUnitOfWork(unitOfWork);
-
-                Account accountEntity = await this.accountRepository.GetByUsernameAsync(loginRequest.UsernameOrEmail);
-                if (accountEntity == null)
-                {
-                    accountEntity = await this.accountRepository.GetByEmailAsync(loginRequest.UsernameOrEmail);
-                }
-
-                if (accountEntity == null)
-                {
-                    return ServiceResult<AccountProfileDataTransferObject>.Fail("Invalid username or password.");
-                }
-
-                if (accountEntity.IsSuspended)
-                {
-                    return ServiceResult<AccountProfileDataTransferObject>.Fail("This account has been suspended.");
-                }
-
-                if (!PasswordHasher.VerifyPassword(loginRequest.Password, accountEntity.PasswordHash))
-                {
-                    await this.failedLoginRepository.IncrementAsync(accountEntity.Id);
-                    return ServiceResult<AccountProfileDataTransferObject>.Fail("Invalid username or password.");
-                }
-
-                await this.failedLoginRepository.ResetAsync(accountEntity.Id);
-
-                if (accountEntity.PamUserId == null)
-                {
-                    int lazilyCreatedPamUserId = this.CreatePamUserForDisplayName(accountEntity.DisplayName);
-                    await this.accountRepository.SetPamUserIdAsync(accountEntity.Id, lazilyCreatedPamUserId);
-                    accountEntity.PamUserId = lazilyCreatedPamUserId;
-                }
-
-                string primaryRole = accountEntity.Roles?.FirstOrDefault()?.Name ?? StandardUserRoleName;
-                this.sessionContext.Populate(accountEntity, primaryRole);
-
-                AccountProfileDataTransferObject profileDto = new AccountProfileDataTransferObject
-                {
-                    Id = accountEntity.Id,
-                    Username = accountEntity.Username,
-                    DisplayName = accountEntity.DisplayName,
-                    Email = accountEntity.Email,
-
-                    PhoneNumber = accountEntity.PhoneNumber,
-                    Country = accountEntity.Country,
-                    City = accountEntity.City,
-                    StreetName = accountEntity.StreetName,
-                    StreetNumber = accountEntity.StreetNumber,
-                    AvatarUrl = accountEntity.AvatarUrl,
-
-                    Role = new RoleDataTransferObject { Name = primaryRole },
-                };
-
-                return ServiceResult<AccountProfileDataTransferObject>.Ok(profileDto);
+                loginResponse = await this.httpClient.PostAsJsonAsync("api/auth/login", loginRequest);
             }
+            catch (HttpRequestException)
+            {
+                return ServiceResult<AccountProfileDataTransferObject>.Fail("Cannot connect to the API. Start the API server and try again.");
+            }
+            catch (TaskCanceledException)
+            {
+                return ServiceResult<AccountProfileDataTransferObject>.Fail("The API did not respond in time. Check that the API server is running.");
+            }
+
+            if (!loginResponse.IsSuccessStatusCode)
+            {
+                return ServiceResult<AccountProfileDataTransferObject>.Fail(await ReadErrorAsync(loginResponse));
+            }
+
+            var profile = await loginResponse.Content.ReadFromJsonAsync<AccountProfileDataTransferObject>();
+            if (profile == null)
+            {
+                return ServiceResult<AccountProfileDataTransferObject>.Fail("Login response was empty.");
+            }
+
+            ApiUrlHelper.RebaseAvatarUrl(this.httpClient.BaseAddress!, profile);
+            this.sessionContext.Populate(profile);
+            return ServiceResult<AccountProfileDataTransferObject>.Ok(profile);
         }
 
-        public Task<ServiceResult<bool>> LogoutAsync()
+        public async Task<ServiceResult<bool>> LogoutAsync()
         {
             this.sessionContext.Clear();
-            return Task.FromResult(ServiceResult<bool>.Ok(true));
+            await this.httpClient.PostAsync("api/auth/logout", content: null);
+            return ServiceResult<bool>.Ok(true);
         }
 
-        public Task<ServiceResult<string>> ForgotPasswordAsync()
+        public async Task<ServiceResult<string>> ForgotPasswordAsync()
         {
-            return Task.FromResult(ServiceResult<string>.Ok("Please contact the Administrator at admin@boardrent.com."));
-        }
-
-        private int CreatePamUserForDisplayName(string displayName)
-        {
-            User pamUserToInsert = new User
+            var forgotResponse = await this.httpClient.GetAsync("api/auth/forgot-password");
+            if (!forgotResponse.IsSuccessStatusCode)
             {
-                DisplayName = displayName,
-            };
+                return ServiceResult<string>.Fail(await ReadErrorAsync(forgotResponse));
+            }
 
-            this.pamUserRepository.Add(pamUserToInsert);
-            return pamUserToInsert.Id;
+            string? message = await forgotResponse.Content.ReadFromJsonAsync<string>();
+            return ServiceResult<string>.Ok(message ?? string.Empty);
+        }
+
+        private static async Task<string> ReadErrorAsync(HttpResponseMessage response)
+        {
+            try
+            {
+                var errorEnvelope = await response.Content.ReadFromJsonAsync<ErrorEnvelope>();
+                if (!string.IsNullOrEmpty(errorEnvelope?.Error))
+                {
+                    return errorEnvelope!.Error!;
+                }
+            }
+            catch (JsonException)
+            {
+            }
+            catch (NotSupportedException)
+            {
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            catch (HttpRequestException)
+            {
+            }
+
+            return $"Server returned status {(int)response.StatusCode}.";
+        }
+
+        private sealed class ErrorEnvelope
+        {
+            public string? Error { get; set; }
         }
     }
 }

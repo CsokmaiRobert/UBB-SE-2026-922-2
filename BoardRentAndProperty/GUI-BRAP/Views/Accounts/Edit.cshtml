@@ -1,0 +1,89 @@
+@model BoardRentAndProperty.Api.Models.Account
+
+@{
+    ViewData["Title"] = "Edit Account";
+}
+
+<div class="page-header">
+    <h1 class="page-title">Edit Account</h1>
+</div>
+
+<div class="form-section">
+    <form asp-action="Edit">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+        <input type="hidden" asp-for="Id" />
+        <div class="mb-3">
+            <label asp-for="DisplayName" class="form-label"></label>
+            <input asp-for="DisplayName" class="form-control" />
+            <span asp-validation-for="DisplayName" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Username" class="form-label"></label>
+            <input asp-for="Username" class="form-control" />
+            <span asp-validation-for="Username" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Email" class="form-label"></label>
+            <input asp-for="Email" class="form-control" />
+            <span asp-validation-for="Email" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="PasswordHash" class="form-label"></label>
+            <input asp-for="PasswordHash" class="form-control" />
+            <span asp-validation-for="PasswordHash" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="PhoneNumber" class="form-label"></label>
+            <input asp-for="PhoneNumber" class="form-control" />
+            <span asp-validation-for="PhoneNumber" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="AvatarUrl" class="form-label"></label>
+            <input asp-for="AvatarUrl" class="form-control" />
+            <span asp-validation-for="AvatarUrl" class="text-danger"></span>
+        </div>
+        <div class="form-check mb-3">
+            <label class="form-check-label">
+                <input class="form-check-input" asp-for="IsSuspended" /> @Html.DisplayNameFor(model => model.IsSuspended)
+            </label>
+        </div>
+        <div class="mb-3">
+            <label asp-for="CreatedAt" class="form-label"></label>
+            <input asp-for="CreatedAt" class="form-control" />
+            <span asp-validation-for="CreatedAt" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="UpdatedAt" class="form-label"></label>
+            <input asp-for="UpdatedAt" class="form-control" />
+            <span asp-validation-for="UpdatedAt" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Country" class="form-label"></label>
+            <input asp-for="Country" class="form-control" />
+            <span asp-validation-for="Country" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="City" class="form-label"></label>
+            <input asp-for="City" class="form-control" />
+            <span asp-validation-for="City" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="StreetName" class="form-label"></label>
+            <input asp-for="StreetName" class="form-control" />
+            <span asp-validation-for="StreetName" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="StreetNumber" class="form-label"></label>
+            <input asp-for="StreetNumber" class="form-control" />
+            <span asp-validation-for="StreetNumber" class="text-danger"></span>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a class="btn btn-secondary" asp-action="Index">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

@@ -1,0 +1,44 @@
+@model BoardRentAndProperty.Api.Models.Notification
+
+@{
+    ViewData["Title"] = "Edit Notification";
+}
+
+<div class="page-header">
+    <h1 class="page-title">Edit Notification</h1>
+</div>
+
+<div class="form-section">
+    <form asp-action="Edit">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+        <input type="hidden" asp-for="Id" />
+        <div class="mb-3">
+            <label asp-for="Timestamp" class="form-label"></label>
+            <input asp-for="Timestamp" class="form-control" />
+            <span asp-validation-for="Timestamp" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Title" class="form-label"></label>
+            <input asp-for="Title" class="form-control" />
+            <span asp-validation-for="Title" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Body" class="form-label"></label>
+            <input asp-for="Body" class="form-control" />
+            <span asp-validation-for="Body" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Type" class="form-label"></label>
+            <select asp-for="Type" class="form-select"></select>
+            <span asp-validation-for="Type" class="text-danger"></span>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a class="btn btn-secondary" asp-action="Index">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

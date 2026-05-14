@@ -1,0 +1,62 @@
+@model CreateRequestViewModel
+
+@{
+    ViewData["Title"] = "Create Request";
+}
+
+<div class="page-header">
+    <h1 class="page-title">Create Request</h1>
+</div>
+
+<div class="form-section">
+    @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    <form asp-action="Create" method="post">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <div class="mb-3">
+            <label asp-for="GameId" class="form-label">Game</label>
+            @if (Model.AvailableGames is null || !Model.AvailableGames.Any())
+            {
+                <div class="alert alert-info">No games are currently available to request.</div>
+                <input type="hidden" asp-for="GameId" value="0" />
+            }
+            else
+            {
+                <select asp-for="GameId" class="form-select" id="GameId">
+                    <option value="0">— Select a game —</option>
+                    @foreach (var game in Model.AvailableGames)
+                    {
+                        <option value="@game.Id" selected="@(Model.GameId == game.Id)">@game.Name</option>
+                    }
+                </select>
+                <span asp-validation-for="GameId" class="text-danger"></span>
+            }
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="StartDate" class="form-label">Start Date</label>
+            <input asp-for="StartDate" class="form-control" type="date" id="StartDate" value="@(Model.StartDate == default ? DateTime.Today.ToString("yyyy-MM-dd") : Model.StartDate.ToString("yyyy-MM-dd"))" />
+            <span asp-validation-for="StartDate" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="EndDate" class="form-label">End Date</label>
+            <input asp-for="EndDate" class="form-control" type="date" id="EndDate" value="@(Model.EndDate == default ? DateTime.Today.ToString("yyyy-MM-dd") : Model.EndDate.ToString("yyyy-MM-dd"))" />
+            <span asp-validation-for="EndDate" class="text-danger"></span>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Create</button>
+            <a class="btn btn-secondary" asp-action="My">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}

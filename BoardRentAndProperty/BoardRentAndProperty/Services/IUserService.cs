@@ -1,10 +1,10 @@
-﻿using System.Collections.Immutable;
-using BoardRentAndProperty.DataTransferObjects;
-
+using System;
+using System.Collections.Immutable;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
 namespace BoardRentAndProperty.Services
 {
     public interface IUserService
     {
-        ImmutableList<UserDTO> GetUsersExcept(int excludeUserId);
+        ImmutableList<UserDTO> GetUsersExcept(Guid excludeAccountId);
     }
 }

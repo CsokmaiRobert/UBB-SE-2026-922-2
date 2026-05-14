@@ -13,7 +13,7 @@ namespace BoardRentAndProperty.Api.Data
         private static readonly Guid DariusAccountId = new Guid("00000000-0000-0000-0000-000000000011");
         private static readonly Guid MihaiAccountId = new Guid("00000000-0000-0000-0000-000000000012");
 
-        private const string    SeedDevPasswordHash = "uDsZUEmrma0uYI3Jszc4zA==:VX158vwbXUFhq/hkFoNOvOYZJgS5od0LYCbwn1dYF+8=";
+        private const string SeedDevPasswordHash = "uDsZUEmrma0uYI3Jszc4zA==:VX158vwbXUFhq/hkFoNOvOYZJgS5od0LYCbwn1dYF+8=";
 
         public DbSet<Account> Accounts { get; set; } = default!;
         public DbSet<Role> Roles { get; set; } = default!;
@@ -33,8 +33,18 @@ namespace BoardRentAndProperty.Api.Data
         {
         }
 
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            base.OnConfiguring(optionsBuilder);
+            // Suppress the warning about pending model changes to allow Migrate() to run even if manual fixes to migrations
+            // cause slight metadata mismatches with the snapshot.
+            optionsBuilder.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+        }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            base.OnModelCreating(modelBuilder);
+
             modelBuilder.Entity<Account>(entity =>
             {
                 entity.ToTable("Account");
@@ -51,6 +61,11 @@ namespace BoardRentAndProperty.Api.Data
                 entity.Property(account => account.City).HasMaxLength(100);
                 entity.HasIndex(account => account.Username).IsUnique();
                 entity.HasIndex(account => account.Email).IsUnique();
+
+                entity.Property(account => account.PamUserId).IsRequired();
+
+                entity.HasAlternateKey(account => account.PamUserId);
+
                 entity.HasMany(account => account.Roles)
                       .WithMany()
                       .UsingEntity<AccountRole>(
@@ -75,7 +90,10 @@ namespace BoardRentAndProperty.Api.Data
             {
                 entity.ToTable("FailedLoginAttempt");
                 entity.HasKey(failedLogin => failedLogin.AccountId);
-                entity.HasOne(failedLogin => failedLogin.Account).WithOne().HasForeignKey<FailedLoginAttempt>(failedLogin => failedLogin.AccountId).OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(failedLogin => failedLogin.Account)
+                      .WithOne()
+                      .HasForeignKey<FailedLoginAttempt>(failedLogin => failedLogin.AccountId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Game>(entity =>
@@ -86,17 +104,26 @@ namespace BoardRentAndProperty.Api.Data
                 entity.Property(game => game.Name).HasMaxLength(100).IsRequired();
                 entity.Property(game => game.Price).HasColumnType("decimal(10,2)");
                 entity.Property(game => game.Image).HasColumnType("varbinary(max)");
-                entity.HasOne(game => game.Owner).WithMany().HasForeignKey("OwnerId").OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(game => game.Owner)
+                      .WithMany()
+                      .HasForeignKey(game => game.OwnerId)
+                      .HasPrincipalKey(account => account.PamUserId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.Property(game => game.IsActive)
+                      .HasColumnName("is_active")
+                      .HasConversion<int>();
             });
 
             modelBuilder.Entity<Rental>(entity =>
             {
                 entity.ToTable("Rentals");
                 entity.HasKey(rental => rental.Id);
-                entity.Property(rental => rental.Id).ValueGeneratedOnAdd();
+                entity.Property(rental => rental.Id).HasColumnName("rental_id").ValueGeneratedOnAdd();
                 entity.HasOne(rental => rental.Game).WithMany().HasForeignKey("GameId").OnDelete(DeleteBehavior.Restrict);
-                entity.HasOne(rental => rental.Renter).WithMany().HasForeignKey("RenterId").OnDelete(DeleteBehavior.Restrict);
-                entity.HasOne(rental => rental.Owner).WithMany().HasForeignKey("OwnerId").OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(rental => rental.Renter).WithMany().HasForeignKey("RenterId").HasPrincipalKey(account => account.PamUserId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(rental => rental.Owner).WithMany().HasForeignKey("OwnerId").HasPrincipalKey(account => account.PamUserId).OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<Request>(entity =>
@@ -105,20 +132,32 @@ namespace BoardRentAndProperty.Api.Data
                 entity.HasKey(request => request.Id);
                 entity.Property(request => request.Id).ValueGeneratedOnAdd();
                 entity.HasOne(request => request.Game).WithMany().HasForeignKey("GameId").OnDelete(DeleteBehavior.Restrict);
-                entity.HasOne(request => request.Renter).WithMany().HasForeignKey("RenterId").OnDelete(DeleteBehavior.Restrict);
-                entity.HasOne(request => request.Owner).WithMany().HasForeignKey("OwnerId").OnDelete(DeleteBehavior.Restrict);
-                entity.HasOne(request => request.OfferingUser).WithMany().HasForeignKey("OfferingUserId").OnDelete(DeleteBehavior.SetNull).IsRequired(false);
+                entity.HasOne(request => request.Renter).WithMany().HasForeignKey("RenterId").HasPrincipalKey(account => account.PamUserId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(request => request.Owner).WithMany().HasForeignKey("OwnerId").HasPrincipalKey(account => account.PamUserId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(request => request.OfferingUser).WithMany().HasForeignKey("OfferingUserId").HasPrincipalKey(account => account.PamUserId).OnDelete(DeleteBehavior.SetNull).IsRequired(false);
             });
 
             modelBuilder.Entity<Notification>(entity =>
             {
                 entity.ToTable("Notifications");
                 entity.HasKey(notification => notification.Id);
-                entity.Property(notification => notification.Id).ValueGeneratedOnAdd();
+                entity.Property(notification => notification.Id)
+                      .HasColumnName("notification_id")
+                      .ValueGeneratedOnAdd();
                 entity.Property(notification => notification.Title).HasMaxLength(200).IsRequired();
                 entity.Property(notification => notification.Body).HasMaxLength(2000).IsRequired();
-                entity.HasOne(notification => notification.Recipient).WithMany().HasForeignKey("RecipientId").OnDelete(DeleteBehavior.Restrict);
-                entity.HasOne(notification => notification.RelatedRequest).WithMany().HasForeignKey("RelatedRequestId").OnDelete(DeleteBehavior.SetNull).IsRequired(false);
+
+                entity.HasOne(notification => notification.Recipient)
+                      .WithMany()
+                      .HasForeignKey("user_id")
+                      .HasPrincipalKey(account => account.PamUserId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(notification => notification.RelatedRequest)
+                      .WithMany()
+                      .HasForeignKey("related_request_id")
+                      .OnDelete(DeleteBehavior.SetNull)
+                      .IsRequired(false);
             });
 
             SeedData(modelBuilder);
@@ -144,6 +183,7 @@ namespace BoardRentAndProperty.Api.Data
                 new Account
                 {
                     Id = AdminAccountId,
+                    PamUserId = 4,
                     Username = "admin",
                     DisplayName = "Administrator",
                     Email = "admin@boardrent.com",
@@ -161,6 +201,7 @@ namespace BoardRentAndProperty.Api.Data
                 new Account
                 {
                     Id = DariusAccountId,
+                    PamUserId = 1,
                     Username = "darius",
                     DisplayName = "Darius Turcu",
                     Email = "darius@boardrent.com",
@@ -178,6 +219,7 @@ namespace BoardRentAndProperty.Api.Data
                 new Account
                 {
                     Id = MihaiAccountId,
+                    PamUserId = 2,
                     Username = "mihai",
                     DisplayName = "Mihai Tira",
                     Email = "mihai@boardrent.com",

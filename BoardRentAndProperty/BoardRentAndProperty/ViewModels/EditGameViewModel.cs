@@ -1,21 +1,21 @@
 using System;
 using System.Collections.Generic;
 using BoardRentAndProperty.Constants;
-using BoardRentAndProperty.DataTransferObjects;
+using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
 
 namespace BoardRentAndProperty.ViewModels
 {
     public class EditGameViewModel
     {
-        private const int MissingOwnerId = 0;
+        private static readonly Guid MissingOwnerId = Guid.Empty;
         private const int NoValidationErrors = 0;
         private const decimal ZeroPriceForEmptyOrInvalidInput = 0m;
 
         private readonly IGameService gameListingService;
 
         public int EditedGameId { get; private set; }
-        public int EditedGameOwnerId { get; private set; }
+        public Guid EditedGameOwnerId { get; private set; }
 
         public string GameName { get; set; } = string.Empty;
         public decimal GamePrice { get; set; }
