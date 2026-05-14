@@ -107,18 +107,7 @@ namespace BoardRentAndProperty.Api.Repositories
                 return null;
             }
 
-            var cached = dbContext.Accounts.Local.FirstOrDefault(cachedAccount => cachedAccount.Id == account.Id);
-            if (cached != null)
-            {
-                return cached;
-            }
-
-            if (dbContext.Entry(account).State == EntityState.Detached)
-            {
-                dbContext.Attach(account);
-            }
-
-            return account;
+            return dbContext.Accounts.Find(account.Id);
         }
     }
 }

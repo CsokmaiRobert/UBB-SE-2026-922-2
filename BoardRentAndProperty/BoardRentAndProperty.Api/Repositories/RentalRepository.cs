@@ -136,18 +136,7 @@ namespace BoardRentAndProperty.Api.Repositories
                 return null;
             }
 
-            var cached = dbContext.Accounts.Local.FirstOrDefault(cachedAccount => cachedAccount.Id == account.Id);
-            if (cached != null)
-            {
-                return cached;
-            }
-
-            if (dbContext.Entry(account).State == EntityState.Detached)
-            {
-                dbContext.Attach(account);
-            }
-
-            return account;
+            return dbContext.Accounts.Find(account.Id);
         }
 
         private static Game? ResolveGame(AppDbContext dbContext, Game? game)
@@ -157,18 +146,7 @@ namespace BoardRentAndProperty.Api.Repositories
                 return null;
             }
 
-            var cached = dbContext.Games.Local.FirstOrDefault(cachedGame => cachedGame.Id == game.Id);
-            if (cached != null)
-            {
-                return cached;
-            }
-
-            if (dbContext.Entry(game).State == EntityState.Detached)
-            {
-                dbContext.Attach(game);
-            }
-
-            return game;
+            return dbContext.Games.Find(game.Id);
         }
     }
 }
