@@ -29,8 +29,14 @@
                             <li class="nav-item">
                                 <a class="nav-link" asp-area="" asp-controller="Requests" asp-action="My">My Requests</a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Rentals" asp-action="Index">Rentals</a>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="rentalsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    Rentals
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="rentalsDropdown">
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Rentals" asp-action="My">My Rentals</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Rentals" asp-action="Others">Others' Rentals</a></li>
+                                </ul>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" asp-area="" asp-controller="Notifications" asp-action="Index">Notifications</a>
