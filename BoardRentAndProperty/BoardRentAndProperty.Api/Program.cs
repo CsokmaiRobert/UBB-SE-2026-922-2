@@ -1,7 +1,6 @@
 using System.IO;
 using BoardRentAndProperty.Api.Data;
 using BoardRentAndProperty.Api.Mappers;
-using BoardRentAndProperty.Api.Models;
 using BoardRentAndProperty.Api.Repositories;
 using BoardRentAndProperty.Api.Services;
 using Microsoft.EntityFrameworkCore;
@@ -17,7 +16,11 @@ builder.Services.AddSwaggerGen();
 var connectionString = builder.Configuration.GetConnectionString("BoardRentAndProperty")
     ?? throw new InvalidOperationException("Connection string 'BoardRentAndProperty' was not found.");
 
-builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseSqlServer(connectionString));
+builder.Services.AddDbContextFactory<AppDbContext>(options => 
+    options.UseSqlServer(connectionString, sqlOptions => 
+    {
+        sqlOptions.EnableRetryOnFailure();
+    }));
 
 builder.Services.AddSingleton<UserMapper>();
 builder.Services.AddSingleton<GameMapper>();
@@ -45,48 +48,23 @@ builder.Services.AddSingleton<IAvatarStorageService, AvatarStorageService>();
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+Console.WriteLine("[STARTUP] About to run database migration...");
+try
 {
-    var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
-    using var dbContext = contextFactory.CreateDbContext();
-    dbContext.Database.Migrate();
-
-    if (!dbContext.Games.Any())
+    using (var scope = app.Services.CreateScope())
     {
-        var adminId = new Guid("00000000-0000-0000-0000-000000000010");
-        var dariusId = new Guid("00000000-0000-0000-0000-000000000011");
-
-        var admin = dbContext.Accounts.Find(adminId);
-        var darius = dbContext.Accounts.Find(dariusId);
-
-        if (admin != null && darius != null)
-        {
-            var testGame = new Game
-            {
-                Name = "Catan",
-                Price = 15.0m,
-                Description = "A classic strategy game.",
-                Owner = admin,
-                IsActive = true,
-                MinimumPlayerNumber = 3,
-                MaximumPlayerNumber = 4
-            };
-            dbContext.Games.Add(testGame);
-            dbContext.SaveChanges();
-
-            var testRequest = new Request
-            {
-                Game = testGame,
-                Renter = darius,
-                Owner = admin,
-                StartDate = DateTime.UtcNow.AddDays(7),
-                EndDate = DateTime.UtcNow.AddDays(10),
-                Status = BoardRentAndProperty.Contracts.Models.RequestStatus.Open
-            };
-            dbContext.Requests.Add(testRequest);
-            dbContext.SaveChanges();
-        }
+        var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        Console.WriteLine("[STARTUP] Created scope, getting DbContext...");
+        using var dbContext = contextFactory.CreateDbContext();
+        Console.WriteLine("[STARTUP] Got DbContext, calling Migrate()...");
+        dbContext.Database.Migrate();
+        Console.WriteLine("[STARTUP] Migration completed successfully!");
     }
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"[STARTUP] Migration FAILED: {ex}");
+    throw;
 }
 
 if (app.Environment.IsDevelopment())

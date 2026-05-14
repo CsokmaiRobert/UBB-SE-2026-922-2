@@ -13,5 +13,11 @@ namespace GUI_BRAP.ProxyServices
         Task OfferGameAsync(int requestId, RequestActionDataTransferObject body, CancellationToken cancellationToken = default);
 
         Task DenyRequestAsync(int requestId, RequestActionDataTransferObject body, CancellationToken cancellationToken = default);
+
+        Task<IReadOnlyList<RequestDTO>> GetRequestsForRenterAsync(Guid renterAccountId, CancellationToken cancellationToken = default);
+
+        Task CreateRequestAsync(CreateRequestDataTransferObject body, CancellationToken cancellationToken = default);
+
+        Task CancelRequestAsync(int requestId, RequestActionDataTransferObject body, CancellationToken cancellationToken = default);
     }
 }

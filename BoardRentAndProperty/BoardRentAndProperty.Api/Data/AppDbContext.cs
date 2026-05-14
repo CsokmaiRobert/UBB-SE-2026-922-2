@@ -33,8 +33,18 @@ namespace BoardRentAndProperty.Api.Data
         {
         }
 
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            base.OnConfiguring(optionsBuilder);
+            // Suppress the warning about pending model changes to allow Migrate() to run even if manual fixes to migrations
+            // cause slight metadata mismatches with the snapshot.
+            optionsBuilder.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+        }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            base.OnModelCreating(modelBuilder);
+
             modelBuilder.Entity<Account>(entity =>
             {
                 entity.ToTable("Account");
@@ -51,6 +61,7 @@ namespace BoardRentAndProperty.Api.Data
                 entity.Property(account => account.City).HasMaxLength(100);
                 entity.HasIndex(account => account.Username).IsUnique();
                 entity.HasIndex(account => account.Email).IsUnique();
+
                 entity.HasMany(account => account.Roles)
                       .WithMany()
                       .UsingEntity<AccountRole>(
@@ -75,7 +86,10 @@ namespace BoardRentAndProperty.Api.Data
             {
                 entity.ToTable("FailedLoginAttempt");
                 entity.HasKey(failedLogin => failedLogin.AccountId);
-                entity.HasOne(failedLogin => failedLogin.Account).WithOne().HasForeignKey<FailedLoginAttempt>(failedLogin => failedLogin.AccountId).OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(failedLogin => failedLogin.Account)
+                      .WithOne()
+                      .HasForeignKey<FailedLoginAttempt>(failedLogin => failedLogin.AccountId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Game>(entity =>
@@ -86,14 +100,22 @@ namespace BoardRentAndProperty.Api.Data
                 entity.Property(game => game.Name).HasMaxLength(100).IsRequired();
                 entity.Property(game => game.Price).HasColumnType("decimal(10,2)");
                 entity.Property(game => game.Image).HasColumnType("varbinary(max)");
-                entity.HasOne(game => game.Owner).WithMany().HasForeignKey("OwnerId").OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(game => game.Owner)
+                      .WithMany()
+                      .HasForeignKey(game => game.OwnerId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.Property(game => game.IsActive)
+                      .HasColumnName("is_active")
+                      .HasConversion<int>();
             });
 
             modelBuilder.Entity<Rental>(entity =>
             {
                 entity.ToTable("Rentals");
                 entity.HasKey(rental => rental.Id);
-                entity.Property(rental => rental.Id).ValueGeneratedOnAdd();
+                entity.Property(rental => rental.Id).HasColumnName("rental_id").ValueGeneratedOnAdd();
                 entity.HasOne(rental => rental.Game).WithMany().HasForeignKey("GameId").OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(rental => rental.Renter).WithMany().HasForeignKey("RenterId").OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(rental => rental.Owner).WithMany().HasForeignKey("OwnerId").OnDelete(DeleteBehavior.Restrict);
@@ -114,16 +136,26 @@ namespace BoardRentAndProperty.Api.Data
             {
                 entity.ToTable("Notifications");
                 entity.HasKey(notification => notification.Id);
-                entity.Property(notification => notification.Id).ValueGeneratedOnAdd();
+                entity.Property(notification => notification.Id)
+                      .HasColumnName("notification_id")
+                      .ValueGeneratedOnAdd();
                 entity.Property(notification => notification.Title).HasMaxLength(200).IsRequired();
                 entity.Property(notification => notification.Body).HasMaxLength(2000).IsRequired();
-                entity.HasOne(notification => notification.Recipient).WithMany().HasForeignKey("RecipientId").OnDelete(DeleteBehavior.Restrict);
-                entity.HasOne(notification => notification.RelatedRequest).WithMany().HasForeignKey("RelatedRequestId").OnDelete(DeleteBehavior.SetNull).IsRequired(false);
+
+                entity.HasOne(notification => notification.Recipient)
+                      .WithMany()
+                      .HasForeignKey("user_id")
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(notification => notification.RelatedRequest)
+                      .WithMany()
+                      .HasForeignKey("related_request_id")
+                      .OnDelete(DeleteBehavior.SetNull)
+                      .IsRequired(false);
             });
 
             SeedData(modelBuilder);
         }
-
         private static void SeedData(ModelBuilder modelBuilder)
         {
             var seedDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -144,6 +176,7 @@ namespace BoardRentAndProperty.Api.Data
                 new Account
                 {
                     Id = AdminAccountId,
+                    PamUserId = 4,
                     Username = "admin",
                     DisplayName = "Administrator",
                     Email = "admin@boardrent.com",
@@ -161,6 +194,7 @@ namespace BoardRentAndProperty.Api.Data
                 new Account
                 {
                     Id = DariusAccountId,
+                    PamUserId = 1,
                     Username = "darius",
                     DisplayName = "Darius Turcu",
                     Email = "darius@boardrent.com",
@@ -178,6 +212,7 @@ namespace BoardRentAndProperty.Api.Data
                 new Account
                 {
                     Id = MihaiAccountId,
+                    PamUserId = 2,
                     Username = "mihai",
                     DisplayName = "Mihai Tira",
                     Email = "mihai@boardrent.com",

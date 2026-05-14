@@ -1,0 +1,19 @@
+sequenceDiagram
+    actor User
+    participant RentalsController
+    participant RentalService
+    participant RentalRepository
+    participant Database
+
+    User->>RentalsController: Create(CreateRentalDataTransferObject)
+    RentalsController->>RentalService: CreateConfirmedRental(gameId, renterId, ownerId, startDate, endDate)
+    
+    note right of RentalService: validate date/owner/slot
+    RentalService->>RentalService: Validate dates, owner, and slot availability
+    
+    RentalService->>RentalRepository: AddConfirmed(rental)
+    RentalRepository->>Database: SaveChanges()
+    Database-->>RentalRepository: Success
+    RentalRepository-->>RentalService: Success
+    RentalService-->>RentalsController: Success
+    RentalsController-->>User: OK
