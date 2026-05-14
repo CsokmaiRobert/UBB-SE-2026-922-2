@@ -8,6 +8,7 @@
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 <body>
     <header>
@@ -26,7 +27,7 @@
                                 <a class="nav-link" asp-area="" asp-controller="Games" asp-action="Index">Games</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Requests" asp-action="Index">Requests</a>
+                                <a class="nav-link" asp-area="" asp-controller="Requests" asp-action="My">My Requests</a>
                             </li>
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="rentalsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -40,10 +41,14 @@
                             <li class="nav-item">
                                 <a class="nav-link" asp-area="" asp-controller="Notifications" asp-action="Index">Notifications</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="Profile" asp-action="Index">Profile</a>
+                            </li>
+
                             @if (User.IsAdministrator())
                             {
                                 <li class="nav-item">
-                                    <a class="nav-link" asp-area="" asp-controller="Accounts" asp-action="Index">Accounts</a>
+                                    <a class="nav-link text-dark" asp-area="" asp-controller="Admin" asp-action="Index">Accounts Administration</a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link" asp-area="" asp-controller="Roles" asp-action="Index">Roles</a>
@@ -55,9 +60,9 @@
                         @if (User.Identity?.IsAuthenticated == true)
                         {
                             <li class="nav-item">
-                                <span class="navbar-text app-user-name">@User.GetDisplayNameOrUsername()</span>
+                                <span class="navbar-text app-user-name me-3">@User.GetDisplayNameOrUsername()</span>
                             </li>
-                            <li class="nav-item">
+                            <li class="nav-item ms-3">
                                 <form asp-controller="Auth" asp-action="Logout" method="post" class="d-inline">
                                     <button type="submit" class="btn btn-outline-secondary btn-sm">Logout</button>
                                 </form>

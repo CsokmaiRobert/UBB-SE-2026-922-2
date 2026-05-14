@@ -1,12 +1,12 @@
 using BoardRentAndProperty.Api.Data;
 using GUI_BRAP.Infrastructure;
+using GUI_BRAP.ProxyServices;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
-
 builder.Services.AddControllersWithViews()
     .ConfigureApplicationPartManager(manager =>
     {
@@ -21,7 +21,7 @@ builder.Services.AddControllersWithViews()
     });
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("BoardRentAndProperty")));
+  options.UseSqlServer(builder.Configuration.GetConnectionString("BoardRentAndProperty")));
 
 string apiBaseUrl = builder.Configuration["ApiBaseUrl"]
     ?? throw new InvalidOperationException("Configuration value 'ApiBaseUrl' is required.");
@@ -32,6 +32,7 @@ builder.Services.AddHttpClient(ApiClientNames.BoardRentApi, client =>
 });
 
 builder.Services.AddProxyServices();
+builder.Services.AddScoped<IAccountProxyService, AccountProxyService>();
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -72,4 +73,4 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-app.Run();
+app.Run("http://localhost:5175");
