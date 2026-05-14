@@ -1,0 +1,21 @@
+---
+config:
+  theme: redux
+---
+sequenceDiagram
+    autonumber
+    actor User
+    participant AC as AccountsController
+    participant AS as AccountService
+    participant AR as AccountRepository
+    participant DB as Database
+
+    User->>AC: UpdateProfile / ChangePassword
+    AC->>AS: UpdateAccountAsync / ChangePasswordAsync
+    Note over AS: Validation Logic
+    AS->>AR: UpdateAsync / UpdatePasswordAsync
+    AR->>DB: SQL Update
+    DB-->>AR: OK
+    AR-->>AS: Updated Entity
+    AS-->>AC: Success Result
+    AC-->>User: 200 OK / Redirect

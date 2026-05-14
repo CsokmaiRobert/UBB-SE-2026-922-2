@@ -221,7 +221,23 @@ namespace BoardRentAndProperty.Api.Repositories
                 return null;
             }
 
-            return dbContext.Accounts.Find(account.Id);
+            if (account.PamUserId != 0)
+            {
+                var trackedByPam = dbContext.Accounts.Local.FirstOrDefault(cached => cached.PamUserId == account.PamUserId);
+                if (trackedByPam != null) return trackedByPam;
+
+                return dbContext.Accounts.SingleOrDefault(a => a.PamUserId == account.PamUserId);
+            }
+
+            var trackedById = dbContext.Accounts.Local.FirstOrDefault(cachedAccount => cachedAccount.Id == account.Id);
+            if (trackedById != null) return trackedById;
+
+            if (account.Id != Guid.Empty)
+            {
+                return dbContext.Accounts.Find(account.Id);
+            }
+
+            return null;
         }
 
         private static Game? ResolveGame(AppDbContext dbContext, Game? game)
@@ -231,7 +247,18 @@ namespace BoardRentAndProperty.Api.Repositories
                 return null;
             }
 
-            return dbContext.Games.Find(game.Id);
+            var cached = dbContext.Games.Local.FirstOrDefault(cachedGame => cachedGame.Id == game.Id);
+            if (cached != null)
+            {
+                return cached;
+            }
+
+            if (game.Id != 0)
+            {
+                return dbContext.Games.Find(game.Id);
+            }
+
+            return null;
         }
 
         private static Account? FindAccountById(AppDbContext dbContext, Guid? accountId)

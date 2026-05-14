@@ -35,6 +35,7 @@ namespace BoardRentAndProperty.Api.Models
 
         public List<Role> Roles { get; set; } = new List<Role>();
 
-        public int? PamUserId { get; set; }
+        // PamUserId used as an alternate/principal key for several relationships. It must be non-nullable.
+        public int PamUserId { get; set; }
     }
 }

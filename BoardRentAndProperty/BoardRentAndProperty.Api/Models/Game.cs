@@ -10,9 +10,8 @@ namespace BoardRentAndProperty.Api.Models
         public int Id { get; set; }
 
         [Column("owner_id")]
-        public Guid OwnerId { get; set; }
+        public int OwnerId { get; set; }
 
-        [ForeignKey("OwnerId")]
         public Account? Owner { get; set; }
 
         [Column("name")]

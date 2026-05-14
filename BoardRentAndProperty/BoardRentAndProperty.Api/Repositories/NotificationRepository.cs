@@ -97,7 +97,7 @@ namespace BoardRentAndProperty.Api.Repositories
 
             var account = dbContext.Accounts.FirstOrDefault(a => a.Id == accountId);
 
-            if (account == null || account.PamUserId == null)
+            if (account == null || account.PamUserId == 0)
             {
                 return ImmutableList<Notification>.Empty;
             }
@@ -114,7 +114,7 @@ namespace BoardRentAndProperty.Api.Repositories
             using var dbContext = this.dbContextFactory.CreateDbContext();
 
             var account = dbContext.Accounts.FirstOrDefault(account => account.Id == accountId);
-            if (account == null || account.PamUserId == null)
+            if (account == null || account.PamUserId == 0)
             {
                 return (ImmutableList<Notification>.Empty, 0);
             }

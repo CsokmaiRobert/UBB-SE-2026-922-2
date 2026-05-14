@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BoardRentAndProperty.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260513112732_FixNotificationMappings")]
-    partial class FixNotificationMappings
+    [Migration("20260514081037_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -59,7 +59,7 @@ namespace BoardRentAndProperty.Api.Migrations
                     b.Property<bool>("IsSuspended")
                         .HasColumnType("bit");
 
-                    b.Property<int?>("PamUserId")
+                    b.Property<int>("PamUserId")
                         .HasColumnType("int");
 
                     b.Property<string>("PasswordHash")
@@ -96,6 +96,8 @@ namespace BoardRentAndProperty.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("Account", (string)null);
+
+                    b.HasAlternateKey("PamUserId");
 
                     b.HasData(
                         new
@@ -238,8 +240,8 @@ namespace BoardRentAndProperty.Api.Migrations
                         .HasColumnType("nvarchar(100)")
                         .HasColumnName("name");
 
-                    b.Property<Guid>("OwnerId")
-                        .HasColumnType("uniqueidentifier")
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("int")
                         .HasColumnName("owner_id");
 
                     b.Property<decimal>("Price")
@@ -281,8 +283,8 @@ namespace BoardRentAndProperty.Api.Migrations
                     b.Property<int?>("related_request_id")
                         .HasColumnType("int");
 
-                    b.Property<Guid?>("user_id")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<int?>("user_id")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -308,11 +310,11 @@ namespace BoardRentAndProperty.Api.Migrations
                     b.Property<int?>("GameId")
                         .HasColumnType("int");
 
-                    b.Property<Guid?>("OwnerId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<int?>("OwnerId")
+                        .HasColumnType("int");
 
-                    b.Property<Guid?>("RenterId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<int?>("RenterId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
@@ -342,14 +344,14 @@ namespace BoardRentAndProperty.Api.Migrations
                     b.Property<int?>("GameId")
                         .HasColumnType("int");
 
-                    b.Property<Guid?>("OfferingUserId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<int?>("OfferingUserId")
+                        .HasColumnType("int");
 
-                    b.Property<Guid?>("OwnerId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<int?>("OwnerId")
+                        .HasColumnType("int");
 
-                    b.Property<Guid?>("RenterId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<int?>("RenterId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
@@ -436,6 +438,7 @@ namespace BoardRentAndProperty.Api.Migrations
                     b.HasOne("BoardRentAndProperty.Api.Models.Account", "Owner")
                         .WithMany()
                         .HasForeignKey("OwnerId")
+                        .HasPrincipalKey("PamUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -452,6 +455,7 @@ namespace BoardRentAndProperty.Api.Migrations
                     b.HasOne("BoardRentAndProperty.Api.Models.Account", "Recipient")
                         .WithMany()
                         .HasForeignKey("user_id")
+                        .HasPrincipalKey("PamUserId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Recipient");
@@ -469,11 +473,13 @@ namespace BoardRentAndProperty.Api.Migrations
                     b.HasOne("BoardRentAndProperty.Api.Models.Account", "Owner")
                         .WithMany()
                         .HasForeignKey("OwnerId")
+                        .HasPrincipalKey("PamUserId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("BoardRentAndProperty.Api.Models.Account", "Renter")
                         .WithMany()
                         .HasForeignKey("RenterId")
+                        .HasPrincipalKey("PamUserId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Game");
@@ -493,16 +499,19 @@ namespace BoardRentAndProperty.Api.Migrations
                     b.HasOne("BoardRentAndProperty.Api.Models.Account", "OfferingUser")
                         .WithMany()
                         .HasForeignKey("OfferingUserId")
+                        .HasPrincipalKey("PamUserId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("BoardRentAndProperty.Api.Models.Account", "Owner")
                         .WithMany()
                         .HasForeignKey("OwnerId")
+                        .HasPrincipalKey("PamUserId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("BoardRentAndProperty.Api.Models.Account", "Renter")
                         .WithMany()
                         .HasForeignKey("RenterId")
+                        .HasPrincipalKey("PamUserId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Game");

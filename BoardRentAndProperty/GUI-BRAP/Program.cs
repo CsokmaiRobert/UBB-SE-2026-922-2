@@ -58,6 +58,7 @@ builder.Services.AddAuthorization(options =>
         .Build();
 });
 
+builder.WebHost.UseUrls("http://localhost:5175","https://localhost:5176");
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
@@ -76,4 +77,4 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-app.Run("http://localhost:5175");
+app.Run();
