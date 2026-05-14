@@ -358,6 +358,7 @@ main.container {
 
 .request-card-actions .btn {
   width: 100%;
+  min-width: 7rem;
 }
 
 .empty-state {

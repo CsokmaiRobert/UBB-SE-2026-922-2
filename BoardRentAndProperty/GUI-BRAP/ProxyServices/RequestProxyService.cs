@@ -39,7 +39,6 @@ namespace GUI_BRAP.ProxyServices
             using HttpResponseMessage response = await client.PutAsJsonAsync($"api/requests/{requestId}/deny", body, cancellationToken);
             await HttpResponseEnsurer.EnsureSuccessAsync(response, cancellationToken);
         }
-
         public async Task<IReadOnlyList<RequestDTO>> GetRequestsForRenterAsync(Guid renterAccountId, CancellationToken cancellationToken = default)
         {
             HttpClient client = this.httpClientFactory.CreateClient(ApiClientNames.BoardRentApi);
