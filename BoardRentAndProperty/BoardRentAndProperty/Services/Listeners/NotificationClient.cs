@@ -31,6 +31,12 @@ namespace BoardRentAndProperty.Services.Listeners
 
         public IPEndPoint ServerEndpoint => new IPEndPoint(IPAddress.Loopback, NotificationServerPort);
 
+        private NotificationConnectionStatus connectionStatus = NotificationConnectionStatus.Stopped;
+
+        public NotificationConnectionStatus ConnectionStatus => connectionStatus;
+
+        public event EventHandler<NotificationConnectionStatusChangedEventArgs>? ConnectionStatusChanged;
+
         public NotificationClient()
         {
             udpSocketClient = new UdpClient(AutoAssignLocalUdpPort);
@@ -85,12 +91,16 @@ namespace BoardRentAndProperty.Services.Listeners
         {
             int currentRetryCount = InitialRetryCount;
             var currentRetryDelay = InitialRetryDelay;
+            // entering listen loop - attempt to connect
+            UpdateConnectionStatus(NotificationConnectionStatus.Reconnecting);
 
             while (!ListenCancellationToken.IsCancellationRequested)
             {
                 try
                 {
                     var receivedResult = await udpSocketClient.ReceiveAsync(ListenCancellationToken);
+                    // successfully received data - consider connected
+                    UpdateConnectionStatus(NotificationConnectionStatus.Connected);
                     currentRetryCount = InitialRetryCount;
                     currentRetryDelay = InitialRetryDelay;
 
@@ -107,9 +117,13 @@ namespace BoardRentAndProperty.Services.Listeners
                 catch (SocketException socketException)
                 {
                     currentRetryCount++;
+                    // indicate reconnecting while retrying
+                    UpdateConnectionStatus(NotificationConnectionStatus.Reconnecting);
+
                     if (currentRetryCount > MaxRetries)
                     {
                         Console.WriteLine($"UDP client: max retries ({MaxRetries}) reached, stopping. Last error: {socketException.Message}");
+                        UpdateConnectionStatus(NotificationConnectionStatus.Offline);
                         break;
                     }
                     Console.WriteLine($"UDP client: SocketException ({socketException.Message}), retry {currentRetryCount}/{MaxRetries} in {currentRetryDelay.TotalSeconds}s");
@@ -125,12 +139,20 @@ namespace BoardRentAndProperty.Services.Listeners
                 }
                 catch (OperationCanceledException)
                 {
+                    UpdateConnectionStatus(NotificationConnectionStatus.Stopped);
                     break;
                 }
                 catch (ObjectDisposedException)
                 {
+                    UpdateConnectionStatus(NotificationConnectionStatus.Stopped);
                     break;
                 }
+            }
+
+            // loop finished - ensure stopped if not already offline
+            if (ConnectionStatus != NotificationConnectionStatus.Offline)
+            {
+                UpdateConnectionStatus(NotificationConnectionStatus.Stopped);
             }
         }
 
@@ -169,10 +191,18 @@ namespace BoardRentAndProperty.Services.Listeners
             }
 
             isDisposed = true;
-
             listenCancellationSource.Cancel();
             udpSocketClient.Close();
             listenCancellationSource.Dispose();
+
+            UpdateConnectionStatus(NotificationConnectionStatus.Stopped);
+        }
+
+        private void UpdateConnectionStatus(NotificationConnectionStatus newStatus)
+        {
+            if (connectionStatus == newStatus) return;
+            connectionStatus = newStatus;
+            ConnectionStatusChanged?.Invoke(this, new NotificationConnectionStatusChangedEventArgs(newStatus));
         }
 
         private sealed class Unsubscriber : IDisposable

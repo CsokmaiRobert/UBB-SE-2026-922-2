@@ -38,6 +38,9 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
+   <ItemGroup>
+    <Compile Remove="Repositories\**\*.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ServerCommunication\ServerCommunication.csproj" />
