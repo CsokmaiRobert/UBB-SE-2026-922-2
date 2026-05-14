@@ -1,0 +1,27 @@
+title User logs in
+
+  actor User
+  participant AuthController
+  participant AuthProxyService
+  participant ApiAuthController
+  participant AuthService
+  participant AccountRepository
+  participant FailedLoginRepository
+  database Database
+
+User -> AuthController: submits login form (username, password)
+  AuthController -> AuthProxyService: packages credentials and sends login request
+  AuthProxyService -> ApiAuthController: prepares the data(to Jason) and forwards to API
+  ApiAuthController -> AuthService: sends login request to service
+  AuthService -> AccountRepository: tries to find account by username or email
+  AccountRepository -> Database: looks for the acount joined role in the database
+  Database --> AccountRepository: returns account data
+  AccountRepository --> AuthService: returns account found
+  AuthService -> FailedLoginRepository:checks password and ask repo to clear failed attempts counter
+  FailedLoginRepository -> Database: modify counter in database
+  Database --> FailedLoginRepository: modified
+  FailedLoginRepository --> AuthService: done
+  AuthService --> ApiAuthController: warps account data in  ServiceResult
+  ApiAuthController --> AuthProxyService: unwarps it, returns 200 ok and jason 
+  AuthProxyService --> AuthController: transforms data from jason
+  AuthController --> User: build user identity from profile, redirects to Games

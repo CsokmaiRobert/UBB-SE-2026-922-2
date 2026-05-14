@@ -74,11 +74,99 @@ namespace GUI_BRAP.Controllers
             return RedirectToAction("Index", "Games");
         }
 
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult Register()
+        {
+            return View(new RegisterViewModel());
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Register(RegisterViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            try
+            {
+                await this.authProxyService.RegisterAsync(new RegisterDataTransferObject
+                {
+                    DisplayName = model.DisplayName,
+                    Username = model.Username,
+                    Email = model.Email,
+                    Password = model.Password,
+                    ConfirmPassword = model.ConfirmPassword,
+                    PhoneNumber = model.PhoneNumber ?? string.Empty,
+                    Country = model.Country ?? string.Empty,
+                    City = model.City ?? string.Empty,
+                    StreetName = model.StreetName ?? string.Empty,
+                    StreetNumber = model.StreetNumber ?? string.Empty,
+                });
+            }
+            catch (ProxyServiceException ex)
+            {
+                this.AddFieldErrors(ex.Message);
+                return View(model);
+            }
+
+            AccountProfileDataTransferObject profile;
+            try
+            {
+                profile = await this.authProxyService.LoginAsync(new LoginDataTransferObject
+                {
+                    UsernameOrEmail = model.Username,
+                    Password = model.Password,
+                });
+            }
+            catch (ProxyServiceException)
+            {
+                return RedirectToAction(nameof(Login));
+            }
+
+            ClaimsIdentity identity = BuildIdentity(profile);
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                new ClaimsPrincipal(identity),
+                new AuthenticationProperties { IsPersistent = false, AllowRefresh = true });
+
+            return RedirectToAction("Index", "Games");
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public async Task<IActionResult> ForgotPassword()
+        {
+            string message;
+            try
+            {
+                message = await this.authProxyService.ForgotPasswordAsync();
+            }
+            catch (ProxyServiceException)
+            {
+                message = "Please contact the administrator at admin@boardrent.com.";
+            }
+
+            ViewData["Message"] = message;
+            return View();
+        }
+
         [HttpPost]
         [Authorize]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Logout()
         {
+            try
+            {
+                await this.authProxyService.LogoutAsync();
+            }
+            catch (ProxyServiceException)
+            {
+            }
+
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return RedirectToAction(nameof(Login));
         }
@@ -104,6 +192,24 @@ namespace GUI_BRAP.Controllers
             }
 
             return identity;
+        }
+
+        private void AddFieldErrors(string errorMessage)
+        {
+            const int maximumSplitParts = 2;
+            string[] errors = errorMessage.Split(';', StringSplitOptions.RemoveEmptyEntries);
+            foreach (string error in errors)
+            {
+                string[] parts = error.Split('|', maximumSplitParts);
+                if (parts.Length == maximumSplitParts)
+                {
+                    ModelState.AddModelError(parts[0].Trim(), parts[1].Trim());
+                }
+                else
+                {
+                    ModelState.AddModelError(string.Empty, error.Trim());
+                }
+            }
         }
     }
 }

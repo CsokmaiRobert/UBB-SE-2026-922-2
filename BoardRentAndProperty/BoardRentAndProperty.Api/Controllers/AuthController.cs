@@ -1,8 +1,9 @@
-using System.Threading.Tasks;
 using BoardRentAndProperty.Api.Services;
 using BoardRentAndProperty.Api.Utilities;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Threading.Tasks;
 
 namespace BoardRentAndProperty.Api.Controllers
 {
@@ -16,7 +17,7 @@ namespace BoardRentAndProperty.Api.Controllers
         {
             this.authService = authService;
         }
-
+  
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDataTransferObject body)
         {
@@ -28,10 +29,11 @@ namespace BoardRentAndProperty.Api.Controllers
 
             return Ok(new { result.Data });
         }
-
+   
         [HttpPost("login")]
         public async Task<ActionResult<AccountProfileDataTransferObject>> Login([FromBody] LoginDataTransferObject body)
         {
+
             var result = await this.authService.LoginAsync(body);
             if (!result.Success)
             {
