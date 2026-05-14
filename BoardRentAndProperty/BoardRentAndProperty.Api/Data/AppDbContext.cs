@@ -54,6 +54,8 @@ namespace BoardRentAndProperty.Api.Data
                 entity.HasIndex(account => account.Username).IsUnique();
                 entity.HasIndex(account => account.Email).IsUnique();
 
+                entity.HasAlternateKey(account => account.PamUserId);
+
                 entity.HasMany(account => account.Roles)
                       .WithMany()
                       .UsingEntity<AccountRole>(

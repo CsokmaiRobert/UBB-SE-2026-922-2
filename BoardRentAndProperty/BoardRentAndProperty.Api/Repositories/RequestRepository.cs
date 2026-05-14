@@ -221,18 +221,23 @@ namespace BoardRentAndProperty.Api.Repositories
                 return null;
             }
 
-            var cached = dbContext.Accounts.Local.FirstOrDefault(cachedAccount => cachedAccount.Id == account.Id);
-            if (cached != null)
+            if (account.PamUserId != 0)
             {
-                return cached;
+                var trackedByPam = dbContext.Accounts.Local.FirstOrDefault(cached => cached.PamUserId == account.PamUserId);
+                if (trackedByPam != null) return trackedByPam;
+
+                return dbContext.Accounts.SingleOrDefault(a => a.PamUserId == account.PamUserId);
             }
 
-            if (dbContext.Entry(account).State == EntityState.Detached)
+            var trackedById = dbContext.Accounts.Local.FirstOrDefault(cachedAccount => cachedAccount.Id == account.Id);
+            if (trackedById != null) return trackedById;
+
+            if (account.Id != Guid.Empty)
             {
-                dbContext.Attach(account);
+                return dbContext.Accounts.Find(account.Id);
             }
 
-            return account;
+            return null;
         }
 
         private static Game? ResolveGame(AppDbContext dbContext, Game? game)
@@ -248,12 +253,12 @@ namespace BoardRentAndProperty.Api.Repositories
                 return cached;
             }
 
-            if (dbContext.Entry(game).State == EntityState.Detached)
+            if (game.Id != 0)
             {
-                dbContext.Attach(game);
+                return dbContext.Games.Find(game.Id);
             }
 
-            return game;
+            return null;
         }
 
         private static Account? FindAccountById(AppDbContext dbContext, Guid? accountId)

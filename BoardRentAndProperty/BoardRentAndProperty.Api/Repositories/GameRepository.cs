@@ -30,15 +30,16 @@ namespace BoardRentAndProperty.Api.Repositories
         {
             using var dbContext = this.dbContextFactory.CreateDbContext();
 
-            game.Owner = ResolveAccount(dbContext, game.Owner);
+            if (game.Owner != null)
+            {
+                var owner = ResolveAccount(dbContext, game.Owner);
+                // ensure FK uses existing PamUserId
+                game.Owner = owner;
+                game.OwnerId = owner.PamUserId;
+            }
+
             dbContext.Games.Add(game);
             dbContext.SaveChanges();
-
-            var saved = GamesWithOwner(dbContext).FirstOrDefault(savedGame => savedGame.Id == game.Id);
-            if (saved != null)
-            {
-                game.Owner = saved.Owner;
-            }
         }
 
         public ImmutableList<Game> GetGamesByOwner(Guid ownerAccountId)
@@ -100,25 +101,29 @@ namespace BoardRentAndProperty.Api.Repositories
             return game;
         }
 
-        private static Account? ResolveAccount(AppDbContext dbContext, Account? account)
+        private Account ResolveAccount(AppDbContext dbContext, Account account)
         {
-            if (account == null)
+            if (account == null) return null!;
+
+            // Prefer PamUserId (non-nullable int). Treat 0 as not provided.
+            if (account.PamUserId != 0)
             {
-                return null;
+                var tracked = dbContext.Accounts.Local.FirstOrDefault(a => a.PamUserId == account.PamUserId)
+                             ?? dbContext.Accounts.SingleOrDefault(a => a.PamUserId == account.PamUserId);
+                if (tracked != null) return tracked;
+                throw new InvalidOperationException($"Account with PamUserId {account.PamUserId} was not found.");
             }
 
-            var cached = dbContext.Accounts.Local.FirstOrDefault(cachedAccount => cachedAccount.Id == account.Id);
-            if (cached != null)
+            // Fallback to GUID Id
+            if (account.Id != Guid.Empty)
             {
-                return cached;
+                var tracked = dbContext.Accounts.Local.FirstOrDefault(a => a.Id == account.Id)
+                             ?? dbContext.Accounts.SingleOrDefault(a => a.Id == account.Id);
+                if (tracked != null) return tracked;
+                throw new InvalidOperationException($"Account with Id {account.Id} was not found.");
             }
 
-            if (dbContext.Entry(account).State == EntityState.Detached)
-            {
-                dbContext.Attach(account);
-            }
-
-            return account;
+            throw new InvalidOperationException("Owner must include a valid PamUserId or Id.");
         }
     }
 }

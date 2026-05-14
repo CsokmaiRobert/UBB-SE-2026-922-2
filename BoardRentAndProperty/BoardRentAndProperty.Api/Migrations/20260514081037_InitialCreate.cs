@@ -1,14 +1,16 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-#pragma warning disable CA1814
+#pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
 
 namespace BoardRentAndProperty.Api.Migrations
 {
+    /// <inheritdoc />
     public partial class InitialCreate : Migration
     {
+        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
@@ -20,19 +22,21 @@ namespace BoardRentAndProperty.Api.Migrations
                     Username = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Email = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     PasswordHash = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
-                    PhoneNumber = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    AvatarUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    PhoneNumber = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    AvatarUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     IsSuspended = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    Country = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    City = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    StreetName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
-                    StreetNumber = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false)
+                    Country = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    City = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    StreetName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    StreetNumber = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    PamUserId = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Account", entity => entity.Id);
+                    table.PrimaryKey("PK_Account", x => x.Id);
+                    table.UniqueConstraint("AK_Account_PamUserId", x => x.PamUserId);
                 });
 
             migrationBuilder.CreateTable(
@@ -44,7 +48,7 @@ namespace BoardRentAndProperty.Api.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Role", entity => entity.Id);
+                    table.PrimaryKey("PK_Role", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -57,10 +61,10 @@ namespace BoardRentAndProperty.Api.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_FailedLoginAttempt", entity => entity.AccountId);
+                    table.PrimaryKey("PK_FailedLoginAttempt", x => x.AccountId);
                     table.ForeignKey(
                         name: "FK_FailedLoginAttempt_Account_AccountId",
-                        column: entity => entity.AccountId,
+                        column: x => x.AccountId,
                         principalTable: "Account",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -70,25 +74,25 @@ namespace BoardRentAndProperty.Api.Migrations
                 name: "Games",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
+                    game_id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    OwnerId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Price = table.Column<decimal>(type: "decimal(10,2)", nullable: false),
-                    MinimumPlayerNumber = table.Column<int>(type: "int", nullable: false),
-                    MaximumPlayerNumber = table.Column<int>(type: "int", nullable: false),
-                    Description = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Image = table.Column<byte[]>(type: "varbinary(max)", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false)
+                    owner_id = table.Column<int>(type: "int", nullable: false),
+                    name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    price = table.Column<decimal>(type: "decimal(10,2)", nullable: false),
+                    minimum_player_number = table.Column<int>(type: "int", nullable: false),
+                    maximum_player_number = table.Column<int>(type: "int", nullable: false),
+                    description = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    image = table.Column<byte[]>(type: "varbinary(max)", nullable: true),
+                    is_active = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Games", entity => entity.Id);
+                    table.PrimaryKey("PK_Games", x => x.game_id);
                     table.ForeignKey(
-                        name: "FK_Games_Account_OwnerId",
-                        column: entity => entity.OwnerId,
+                        name: "FK_Games_Account_owner_id",
+                        column: x => x.owner_id,
                         principalTable: "Account",
-                        principalColumn: "Id",
+                        principalColumn: "PamUserId",
                         onDelete: ReferentialAction.Restrict);
                 });
 
@@ -101,16 +105,16 @@ namespace BoardRentAndProperty.Api.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AccountRoles", entity => new { entity.AccountId, entity.RoleId });
+                    table.PrimaryKey("PK_AccountRoles", x => new { x.AccountId, x.RoleId });
                     table.ForeignKey(
                         name: "FK_AccountRoles_Account_AccountId",
-                        column: entity => entity.AccountId,
+                        column: x => x.AccountId,
                         principalTable: "Account",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_AccountRoles_Role_RoleId",
-                        column: entity => entity.RoleId,
+                        column: x => x.RoleId,
                         principalTable: "Role",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -120,34 +124,34 @@ namespace BoardRentAndProperty.Api.Migrations
                 name: "Rentals",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
+                    rental_id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     GameId = table.Column<int>(type: "int", nullable: true),
-                    RenterId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    OwnerId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    RenterId = table.Column<int>(type: "int", nullable: true),
+                    OwnerId = table.Column<int>(type: "int", nullable: true),
                     StartDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     EndDate = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Rentals", entity => entity.Id);
+                    table.PrimaryKey("PK_Rentals", x => x.rental_id);
                     table.ForeignKey(
                         name: "FK_Rentals_Account_OwnerId",
-                        column: entity => entity.OwnerId,
+                        column: x => x.OwnerId,
                         principalTable: "Account",
-                        principalColumn: "Id",
+                        principalColumn: "PamUserId",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Rentals_Account_RenterId",
-                        column: entity => entity.RenterId,
+                        column: x => x.RenterId,
                         principalTable: "Account",
-                        principalColumn: "Id",
+                        principalColumn: "PamUserId",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Rentals_Games_GameId",
-                        column: entity => entity.GameId,
+                        column: x => x.GameId,
                         principalTable: "Games",
-                        principalColumn: "Id",
+                        principalColumn: "game_id",
                         onDelete: ReferentialAction.Restrict);
                 });
 
@@ -158,39 +162,39 @@ namespace BoardRentAndProperty.Api.Migrations
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     GameId = table.Column<int>(type: "int", nullable: true),
-                    RenterId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    OwnerId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    RenterId = table.Column<int>(type: "int", nullable: true),
+                    OwnerId = table.Column<int>(type: "int", nullable: true),
                     StartDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     EndDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     Status = table.Column<int>(type: "int", nullable: false),
-                    OfferingUserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true)
+                    OfferingUserId = table.Column<int>(type: "int", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Requests", entity => entity.Id);
+                    table.PrimaryKey("PK_Requests", x => x.Id);
                     table.ForeignKey(
                         name: "FK_Requests_Account_OfferingUserId",
-                        column: entity => entity.OfferingUserId,
+                        column: x => x.OfferingUserId,
                         principalTable: "Account",
-                        principalColumn: "Id",
+                        principalColumn: "PamUserId",
                         onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_Requests_Account_OwnerId",
-                        column: entity => entity.OwnerId,
+                        column: x => x.OwnerId,
                         principalTable: "Account",
-                        principalColumn: "Id",
+                        principalColumn: "PamUserId",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Requests_Account_RenterId",
-                        column: entity => entity.RenterId,
+                        column: x => x.RenterId,
                         principalTable: "Account",
-                        principalColumn: "Id",
+                        principalColumn: "PamUserId",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Requests_Games_GameId",
-                        column: entity => entity.GameId,
+                        column: x => x.GameId,
                         principalTable: "Games",
-                        principalColumn: "Id",
+                        principalColumn: "game_id",
                         onDelete: ReferentialAction.Restrict);
                 });
 
@@ -198,27 +202,27 @@ namespace BoardRentAndProperty.Api.Migrations
                 name: "Notifications",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
+                    notification_id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    RecipientId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    user_id = table.Column<int>(type: "int", nullable: true),
                     Timestamp = table.Column<DateTime>(type: "datetime2", nullable: false),
                     Title = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     Body = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: false),
                     Type = table.Column<int>(type: "int", nullable: false),
-                    RelatedRequestId = table.Column<int>(type: "int", nullable: true)
+                    related_request_id = table.Column<int>(type: "int", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Notifications", entity => entity.Id);
+                    table.PrimaryKey("PK_Notifications", x => x.notification_id);
                     table.ForeignKey(
-                        name: "FK_Notifications_Account_RecipientId",
-                        column: entity => entity.RecipientId,
+                        name: "FK_Notifications_Account_user_id",
+                        column: x => x.user_id,
                         principalTable: "Account",
-                        principalColumn: "Id",
+                        principalColumn: "PamUserId",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_Notifications_Requests_RelatedRequestId",
-                        column: entity => entity.RelatedRequestId,
+                        name: "FK_Notifications_Requests_related_request_id",
+                        column: x => x.related_request_id,
                         principalTable: "Requests",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.SetNull);
@@ -226,12 +230,12 @@ namespace BoardRentAndProperty.Api.Migrations
 
             migrationBuilder.InsertData(
                 table: "Account",
-                columns: new[] { "Id", "AvatarUrl", "City", "Country", "CreatedAt", "DisplayName", "Email", "IsSuspended", "PasswordHash", "PhoneNumber", "StreetName", "StreetNumber", "UpdatedAt", "Username" },
+                columns: new[] { "Id", "AvatarUrl", "City", "Country", "CreatedAt", "DisplayName", "Email", "IsSuspended", "PamUserId", "PasswordHash", "PhoneNumber", "StreetName", "StreetNumber", "UpdatedAt", "Username" },
                 values: new object[,]
                 {
-                    { new Guid("00000000-0000-0000-0000-000000000010"), "", "", "", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Administrator", "admin@boardrent.com", false, "uDsZUEmrma0uYI3Jszc4zA==:VX158vwbXUFhq/hkFoNOvOYZJgS5od0LYCbwn1dYF+8=", "", "", "", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "admin" },
-                    { new Guid("00000000-0000-0000-0000-000000000011"), "", "", "", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Darius Turcu", "darius@boardrent.com", false, "uDsZUEmrma0uYI3Jszc4zA==:VX158vwbXUFhq/hkFoNOvOYZJgS5od0LYCbwn1dYF+8=", "", "", "", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "darius" },
-                    { new Guid("00000000-0000-0000-0000-000000000012"), "", "", "", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Mihai Tira", "mihai@boardrent.com", false, "uDsZUEmrma0uYI3Jszc4zA==:VX158vwbXUFhq/hkFoNOvOYZJgS5od0LYCbwn1dYF+8=", "", "", "", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "mihai" }
+                    { new Guid("00000000-0000-0000-0000-000000000010"), "", "", "", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Administrator", "admin@boardrent.com", false, 4, "uDsZUEmrma0uYI3Jszc4zA==:VX158vwbXUFhq/hkFoNOvOYZJgS5od0LYCbwn1dYF+8=", "", "", "", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "admin" },
+                    { new Guid("00000000-0000-0000-0000-000000000011"), "", "", "", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Darius Turcu", "darius@boardrent.com", false, 1, "uDsZUEmrma0uYI3Jszc4zA==:VX158vwbXUFhq/hkFoNOvOYZJgS5od0LYCbwn1dYF+8=", "", "", "", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "darius" },
+                    { new Guid("00000000-0000-0000-0000-000000000012"), "", "", "", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Mihai Tira", "mihai@boardrent.com", false, 2, "uDsZUEmrma0uYI3Jszc4zA==:VX158vwbXUFhq/hkFoNOvOYZJgS5od0LYCbwn1dYF+8=", "", "", "", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "mihai" }
                 });
 
             migrationBuilder.InsertData(
@@ -271,19 +275,19 @@ namespace BoardRentAndProperty.Api.Migrations
                 column: "RoleId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Games_OwnerId",
+                name: "IX_Games_owner_id",
                 table: "Games",
-                column: "OwnerId");
+                column: "owner_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Notifications_RecipientId",
+                name: "IX_Notifications_related_request_id",
                 table: "Notifications",
-                column: "RecipientId");
+                column: "related_request_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Notifications_RelatedRequestId",
+                name: "IX_Notifications_user_id",
                 table: "Notifications",
-                column: "RelatedRequestId");
+                column: "user_id");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Rentals_GameId",
@@ -327,6 +331,7 @@ namespace BoardRentAndProperty.Api.Migrations
                 unique: true);
         }
 
+        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(

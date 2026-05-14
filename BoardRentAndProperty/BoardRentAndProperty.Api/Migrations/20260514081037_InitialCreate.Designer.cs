@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BoardRentAndProperty.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260513112732_FixNotificationMappings")]
-    partial class FixNotificationMappings
+    [Migration("20260514081037_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
