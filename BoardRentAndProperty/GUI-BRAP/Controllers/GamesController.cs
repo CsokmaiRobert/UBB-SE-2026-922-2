@@ -21,8 +21,15 @@ namespace GUI_BRAP.Controllers
 
         public async Task<IActionResult> Index()
         {
-            var games = await this.gameProxyService.GetAllGamesAsync();
-            return View(games);
+            if (User.IsAdministrator())
+            {
+                var allGames = await this.gameProxyService.GetAllGamesAsync();
+                return View(allGames);
+            }
+
+            var ownerId = User.GetAccountId();
+            var myGames = await this.gameProxyService.GetGamesByOwnerAsync(ownerId);
+            return View(myGames);
         }
 
         public async Task<IActionResult> Details(int id)
@@ -44,11 +51,18 @@ namespace GUI_BRAP.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(GameDTO body)
+        public async Task<IActionResult> Create(GameDTO body, Microsoft.AspNetCore.Http.IFormFile? imageFile)
         {
             if (!ModelState.IsValid)
             {
                 return View(body);
+            }
+
+            if (imageFile != null && imageFile.Length > 0)
+            {
+                using var memoryStream = new System.IO.MemoryStream();
+                await imageFile.CopyToAsync(memoryStream);
+                body.Image = memoryStream.ToArray();
             }
 
             body.Owner = new UserDTO
@@ -83,7 +97,7 @@ namespace GUI_BRAP.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, GameDTO body)
+        public async Task<IActionResult> Edit(int id, GameDTO body, Microsoft.AspNetCore.Http.IFormFile? imageFile)
         {
             if (id != body.Id)
             {
@@ -101,7 +115,23 @@ namespace GUI_BRAP.Controllers
                 return NotFound();
             }
 
+            if (!User.IsAdministrator() && existing.Owner.Id != User.GetAccountId())
+            {
+                return Forbid();
+            }
+
             body.Owner = existing.Owner;
+
+            if (imageFile != null && imageFile.Length > 0)
+            {
+                using var memoryStream = new System.IO.MemoryStream();
+                await imageFile.CopyToAsync(memoryStream);
+                body.Image = memoryStream.ToArray();
+            }
+            else
+            {
+                body.Image = existing.Image;
+            }
 
             try
             {
@@ -132,6 +162,17 @@ namespace GUI_BRAP.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
+            GameDTO? existing = await this.gameProxyService.GetGameByIdAsync(id);
+            if (existing is null)
+            {
+                return NotFound();
+            }
+
+            if (!User.IsAdministrator() && existing.Owner.Id != User.GetAccountId())
+            {
+                return Forbid();
+            }
+
             try
             {
                 await this.gameProxyService.DeleteGameAsync(id);

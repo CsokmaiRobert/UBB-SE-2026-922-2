@@ -120,6 +120,7 @@ main.container {
   background-color: #f8f9fa;
   border-color: #dee2e6;
   color: #495057;
+  filter: grayscale(50%);
 }
 
 .game-card-image-wrap {
@@ -416,4 +417,3 @@ main.container {
     flex: 1 1 auto;
   }
 }
-

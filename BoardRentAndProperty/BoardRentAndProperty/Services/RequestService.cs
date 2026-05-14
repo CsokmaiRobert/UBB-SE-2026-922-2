@@ -175,11 +175,7 @@ namespace BoardRentAndProperty.Services
         private static TEnum ParseEnum<TEnum>(string value, TEnum fallback)
             where TEnum : struct, Enum
         {
-            if (string.IsNullOrEmpty(value))
-            {
-                return fallback;
-            }
-
+            if (string.IsNullOrEmpty(value)) return fallback;
             return Enum.TryParse<TEnum>(value, out var parsed) ? parsed : fallback;
         }
 
@@ -190,37 +186,14 @@ namespace BoardRentAndProperty.Services
                 var envelope = response.Content.ReadFromJsonAsync<ErrorEnvelope>().GetAwaiter().GetResult();
                 return envelope?.Error ?? string.Empty;
             }
-            catch (System.Text.Json.JsonException)
-            {
-                return string.Empty;
-            }
-            catch (NotSupportedException)
-            {
-                return string.Empty;
-            }
-            catch (InvalidOperationException)
-            {
-                return string.Empty;
-            }
-            catch (HttpRequestException)
-            {
-                return string.Empty;
-            }
+            catch (System.Text.Json.JsonException) { return string.Empty; }
+            catch (NotSupportedException) { return string.Empty; }
+            catch (InvalidOperationException) { return string.Empty; }
+            catch (HttpRequestException) { return string.Empty; }
         }
 
-        private sealed class ErrorEnvelope
-        {
-            public string? Error { get; set; }
-        }
-
-        private sealed class IdEnvelope
-        {
-            public int Id { get; set; }
-        }
-
-        private sealed class RentalIdEnvelope
-        {
-            public int RentalId { get; set; }
-        }
+        private sealed class ErrorEnvelope { public string? Error { get; set; } }
+        private sealed class IdEnvelope { public int Id { get; set; } }
+        private sealed class RentalIdEnvelope { public int RentalId { get; set; } }
     }
 }

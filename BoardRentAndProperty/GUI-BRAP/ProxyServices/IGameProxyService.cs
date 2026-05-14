@@ -12,6 +12,8 @@ namespace GUI_BRAP.ProxyServices
 
         Task<GameDTO?> GetGameByIdAsync(int gameId, CancellationToken cancellationToken = default);
 
+        Task<IReadOnlyList<GameDTO>> GetGamesByOwnerAsync(Guid ownerId, CancellationToken cancellationToken = default);
+
         Task<IReadOnlyList<GameDTO>> GetAvailableGamesForRenterAsync(Guid renterAccountId, CancellationToken cancellationToken = default);
 
         Task CreateGameAsync(GameDTO body, CancellationToken cancellationToken = default);

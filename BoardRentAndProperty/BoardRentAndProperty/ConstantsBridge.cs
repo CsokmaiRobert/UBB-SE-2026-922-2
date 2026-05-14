@@ -49,7 +49,6 @@ namespace BoardRentAndProperty.Constants
         public const string RentalRequestDeclined = global::BoardRentAndProperty.Resources.Constants.NotificationTitles.RentalRequestDeclined;
         public const string RentalRequestCancelled = global::BoardRentAndProperty.Resources.Constants.NotificationTitles.RentalRequestCancelled;
         public const string RentalRequestApproved = global::BoardRentAndProperty.Resources.Constants.NotificationTitles.RentalRequestApproved;
-        public const string RentalRequestReceived = global::BoardRentAndProperty.Resources.Constants.NotificationTitles.RentalRequestReceived;
         public const string OfferReceived = global::BoardRentAndProperty.Resources.Constants.NotificationTitles.OfferReceived;
         public const string OfferAccepted = global::BoardRentAndProperty.Resources.Constants.NotificationTitles.OfferAccepted;
         public const string RentalConfirmed = global::BoardRentAndProperty.Resources.Constants.NotificationTitles.RentalConfirmed;

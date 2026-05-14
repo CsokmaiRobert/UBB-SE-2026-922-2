@@ -22,19 +22,19 @@ namespace BoardRentAndProperty.Views
             if (navigationEventArgs.Parameter is NotificationsViewModel navigatedViewModel)
             {
                 DataContext = navigatedViewModel;
-                navigatedViewModel.LoadCurrentUserNotifications();
+                navigatedViewModel.LoadNotificationsForUser(navigatedViewModel.CurrentUserId);
                 return;
             }
 
             if (DataContext is NotificationsViewModel existingViewModel)
             {
-                existingViewModel.LoadCurrentUserNotifications();
+                existingViewModel.LoadNotificationsForUser(existingViewModel.CurrentUserId);
                 return;
             }
 
             var resolvedViewModel = App.Services.GetRequiredService<NotificationsViewModel>();
             DataContext = resolvedViewModel;
-            resolvedViewModel.LoadCurrentUserNotifications();
+            resolvedViewModel.LoadNotificationsForUser(resolvedViewModel.CurrentUserId);
         }
 
         private NotificationsViewModel? ResolveViewModel()

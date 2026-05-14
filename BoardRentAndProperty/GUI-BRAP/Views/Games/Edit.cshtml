@@ -9,7 +9,7 @@
 </div>
 
 <div class="form-section">
-    <form asp-action="Edit">
+    <form asp-action="Edit" enctype="multipart/form-data">
         <div asp-validation-summary="All" class="text-danger mb-3"></div>
         <input type="hidden" asp-for="Id" />
         <div class="mb-3">
@@ -36,6 +36,10 @@
             <label asp-for="Description" class="form-label"></label>
             <input asp-for="Description" class="form-control" />
             <span asp-validation-for="Description" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Update Image (optional)</label>
+            <input type="file" name="imageFile" class="form-control" accept="image/*" />
         </div>
         <div class="form-check mb-3">
             <label class="form-check-label">

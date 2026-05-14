@@ -162,6 +162,7 @@ namespace BoardRentAndProperty.Api.Data
 
             SeedData(modelBuilder);
         }
+
         private static void SeedData(ModelBuilder modelBuilder)
         {
             var seedDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);

@@ -78,12 +78,6 @@ namespace BoardRentAndProperty.ViewModels
 
         protected override void Reload()
         {
-            if (CurrentUserId == InvalidOrUnknownUserId)
-            {
-                SetAllItems(ImmutableList<NotificationDTO>.Empty);
-                return;
-            }
-
             var userNotificationsSortedByNewest = notificationLookupService
                 .GetNotificationsForUser(CurrentUserId)
                 .OrderByDescending(notification => notification.Id)

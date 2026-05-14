@@ -5,7 +5,7 @@ namespace BoardRentAndProperty.Contracts.DataTransferObjects
 {
     public class NotificationDTO
     {
-        private const string TimeDisplayFormat = "dd MMM yyyy, HH:mm";
+        private const string TimeDisplayFormat = "hh:mm tt";
 
         public int Id { get; set; }
         public UserDTO Recipient { get; set; }
@@ -16,7 +16,7 @@ namespace BoardRentAndProperty.Contracts.DataTransferObjects
         public NotificationType Type { get; set; } = NotificationType.Informational;
         public int? RelatedRequestId { get; set; }
 
-        public string TimeDisplay => Timestamp.ToLocalTime().ToString(TimeDisplayFormat);
+        public string TimeDisplay => Timestamp.ToString(TimeDisplayFormat);
 
         public NotificationDTO()
         {
