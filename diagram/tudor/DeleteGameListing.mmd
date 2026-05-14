@@ -1,0 +1,52 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant GamesController
+    participant GameService
+    participant GameRentalRepository
+    participant RentalRequestService
+    participant GameRepository as GameListingRepository
+    participant Database
+
+    User->>GamesController: DELETE /api/games/{gameId}
+    activate GamesController
+    GamesController->>GameService: DeleteGameByIdentifier(gameId)
+    activate GameService
+
+    GameService->>GameRentalRepository: GetRentalsByGame(gameId)
+    activate GameRentalRepository
+    GameRentalRepository->>Database: SELECT rentals WHERE gameId = ?
+    Database-->>GameRentalRepository: rentals[]
+    GameRentalRepository-->>GameService: rentals[]
+    deactivate GameRentalRepository
+
+    alt activeCount > 0 (EndDate >= now)
+        GameService-->>GamesController: throw InvalidOperationException
+        GamesController-->>User: 409 Conflict (game_delete_conflict)
+    else no active rentals
+        loop for each past rental
+            GameService->>GameRentalRepository: Delete(rental.Id)
+            GameRentalRepository->>Database: DELETE rental
+            Database-->>GameRentalRepository: ok
+            GameRentalRepository-->>GameService: ok
+        end
+
+        GameService->>RentalRequestService: OnGameDeactivated(gameId)
+        activate RentalRequestService
+        RentalRequestService->>Database: UPDATE pending requests -> Cancelled
+        Database-->>RentalRequestService: ok
+        RentalRequestService-->>GameService: ok
+        deactivate RentalRequestService
+
+        GameService->>GameRepository: Delete(gameId)
+        activate GameRepository
+        GameRepository->>Database: DELETE game listing
+        Database-->>GameRepository: deletedGame
+        GameRepository-->>GameService: deletedGame
+        deactivate GameRepository
+
+        GameService-->>GamesController: GameDTO
+        deactivate GameService
+        GamesController-->>User: 200 OK (GameDTO)
+        deactivate GamesController
+    end
