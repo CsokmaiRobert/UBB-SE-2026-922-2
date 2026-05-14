@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
-
 builder.Services.AddControllersWithViews()
     .ConfigureApplicationPartManager(manager =>
     {
@@ -22,7 +21,7 @@ builder.Services.AddControllersWithViews()
     });
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("BoardRentAndProperty")));
+  options.UseSqlServer(builder.Configuration.GetConnectionString("BoardRentAndProperty")));
 
 string apiBaseUrl = builder.Configuration["ApiBaseUrl"]
     ?? throw new InvalidOperationException("Configuration value 'ApiBaseUrl' is required.");
