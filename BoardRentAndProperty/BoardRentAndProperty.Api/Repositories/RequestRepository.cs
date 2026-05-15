@@ -226,7 +226,7 @@ namespace BoardRentAndProperty.Api.Repositories
                 var trackedByPam = dbContext.Accounts.Local.FirstOrDefault(cached => cached.PamUserId == account.PamUserId);
                 if (trackedByPam != null) return trackedByPam;
 
-                return dbContext.Accounts.SingleOrDefault(a => a.PamUserId == account.PamUserId);
+                return dbContext.Accounts.SingleOrDefault(inputAccount => inputAccount.PamUserId == account.PamUserId);
             }
 
             var trackedById = dbContext.Accounts.Local.FirstOrDefault(cachedAccount => cachedAccount.Id == account.Id);

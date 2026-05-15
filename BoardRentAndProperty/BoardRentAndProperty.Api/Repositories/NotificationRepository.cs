@@ -95,7 +95,7 @@ namespace BoardRentAndProperty.Api.Repositories
         {
             using var dbContext = this.dbContextFactory.CreateDbContext();
 
-            var account = dbContext.Accounts.FirstOrDefault(a => a.Id == accountId);
+            var account = dbContext.Accounts.FirstOrDefault(inputAccount => inputAccount.Id == accountId);
 
             if (account == null || account.PamUserId == 0)
             {

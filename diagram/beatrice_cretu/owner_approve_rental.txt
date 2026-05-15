@@ -1,0 +1,97 @@
+@startuml
+title Owner Approves a Rental Request
+skinparam monochrome true
+hide footbox
+
+actor Owner
+participant RequestsController
+participant RequestService
+participant RequestRepository
+participant NotificationService
+database Database
+
+Owner -> RequestsController: PUT /api/requests/{requestId}/approve\nbody: AccountId
+activate RequestsController
+
+RequestsController -> RequestService: ApproveRequest(requestId, body.AccountId)
+activate RequestService
+
+RequestService -> RequestRepository: Get(requestId)
+activate RequestRepository
+RequestRepository -> Database: SELECT request with owner, renter, game
+activate Database
+Database --> RequestRepository: request data
+deactivate Database
+RequestRepository --> RequestService: request
+deactivate RequestRepository
+
+note over RequestService
+Validate:
+1. owner == request.Owner
+2. request.Status == Open
+end note
+
+RequestService -> RequestRepository: GetOverlappingRequests(gameId, requestId, bufferedStart, bufferedEnd)
+activate RequestRepository
+RequestRepository -> Database: SELECT overlapping requests
+activate Database
+Database --> RequestRepository: conflicting requests
+deactivate Database
+RequestRepository --> RequestService: conflicts
+deactivate RequestRepository
+
+critical Single transaction
+    RequestService -> RequestRepository: ApproveAtomically(request, conflicts)
+    activate RequestRepository
+
+    RequestRepository -> Database: DELETE notifications for conflicting requests
+    activate Database
+    Database --> RequestRepository: conflicting request notifications deleted
+
+    RequestRepository -> Database: DELETE notifications for approved request
+    Database --> RequestRepository: approved request notifications deleted
+
+    RequestRepository -> Database: INSERT new rental
+    Database --> RequestRepository: rentalId
+
+    RequestRepository -> Database: DELETE approved request
+    Database --> RequestRepository: approved request deleted
+
+    RequestRepository -> Database: DELETE conflicting requests
+    Database --> RequestRepository: conflicting requests deleted
+
+    RequestRepository -> Database: COMMIT
+    Database --> RequestRepository: transaction committed
+    deactivate Database
+
+    RequestRepository --> RequestService: rentalId
+    deactivate RequestRepository
+end
+
+loop for each conflicting request
+    RequestService -> NotificationService: SendNotificationToUser(conflict.RenterId, BookingUnavailable)
+    activate NotificationService
+    NotificationService -> Database: INSERT notification
+    activate Database
+    Database --> NotificationService: notification saved
+    deactivate Database
+    NotificationService --> RequestService: notification sent
+    deactivate NotificationService
+end
+
+RequestService -> NotificationService: SendNotificationToUser(request.RenterId, RentalRequestApproved)
+activate NotificationService
+NotificationService -> Database: INSERT notification
+activate Database
+Database --> NotificationService: notification saved
+deactivate Database
+NotificationService --> RequestService: notification sent
+deactivate NotificationService
+
+RequestService --> RequestsController: Success(rentalId)
+deactivate RequestService
+
+RequestsController --> Owner: 200 OK { RentalId }
+deactivate RequestsController
+
+@enduml

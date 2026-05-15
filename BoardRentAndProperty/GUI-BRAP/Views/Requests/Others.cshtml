@@ -28,7 +28,7 @@
 else
 {
     <div class="request-card-list">
-    @foreach (var request in Model.OrderByDescending(r => r.StartDate))
+    @foreach (var request in Model.OrderByDescending(request => request.StartDate))
     {
         string imageSource = placeholderImageSource;
 

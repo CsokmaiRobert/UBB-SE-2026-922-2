@@ -34,7 +34,7 @@ namespace GUI_BRAP
             }
 
             var account = await _context.Accounts
-                .FirstOrDefaultAsync(m => m.Id == id);
+                .FirstOrDefaultAsync(inputAccount => inputAccount.Id == id);
             if (account == null)
             {
                 return NotFound();
@@ -50,8 +50,6 @@ namespace GUI_BRAP
         }
 
         // POST: Accounts/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("Id,DisplayName,Username,Email,PasswordHash,PhoneNumber,AvatarUrl,IsSuspended,CreatedAt,UpdatedAt,Country,City,StreetName,StreetNumber")] Account account)
@@ -83,8 +81,6 @@ namespace GUI_BRAP
         }
 
         // POST: Accounts/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(Guid id, [Bind("Id,DisplayName,Username,Email,PasswordHash,PhoneNumber,AvatarUrl,IsSuspended,CreatedAt,UpdatedAt,Country,City,StreetName,StreetNumber")] Account account)
@@ -152,7 +148,7 @@ namespace GUI_BRAP
 
         private bool AccountExists(Guid id)
         {
-            return _context.Accounts.Any(e => e.Id == id);
+            return _context.Accounts.Any(account => account.Id == id);
         }
     }
 }

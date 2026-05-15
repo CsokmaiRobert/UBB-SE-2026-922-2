@@ -33,7 +33,6 @@ namespace BoardRentAndProperty.Api.Repositories
             if (game.Owner != null)
             {
                 var owner = ResolveAccount(dbContext, game.Owner);
-                // ensure FK uses existing PamUserId
                 game.Owner = owner;
                 game.OwnerId = owner.PamUserId;
             }
@@ -105,7 +104,6 @@ namespace BoardRentAndProperty.Api.Repositories
         {
             if (account == null) return null!;
 
-            // Prefer PamUserId (non-nullable int). Treat 0 as not provided.
             if (account.PamUserId != 0)
             {
                 var tracked = dbContext.Accounts.Local.FirstOrDefault(a => a.PamUserId == account.PamUserId)
@@ -114,11 +112,10 @@ namespace BoardRentAndProperty.Api.Repositories
                 throw new InvalidOperationException($"Account with PamUserId {account.PamUserId} was not found.");
             }
 
-            // Fallback to GUID Id
             if (account.Id != Guid.Empty)
             {
-                var tracked = dbContext.Accounts.Local.FirstOrDefault(a => a.Id == account.Id)
-                             ?? dbContext.Accounts.SingleOrDefault(a => a.Id == account.Id);
+                var tracked = dbContext.Accounts.Local.FirstOrDefault(inputAccount => inputAccount.Id == account.Id)
+                             ?? dbContext.Accounts.SingleOrDefault(inputAccount => inputAccount.Id == account.Id);
                 if (tracked != null) return tracked;
                 throw new InvalidOperationException($"Account with Id {account.Id} was not found.");
             }
