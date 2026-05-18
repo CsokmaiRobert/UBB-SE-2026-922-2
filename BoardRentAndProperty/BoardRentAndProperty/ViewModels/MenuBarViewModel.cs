@@ -2,21 +2,20 @@ namespace BoardRentAndProperty.ViewModels
 {
     using System;
     using System.Collections.Generic;
-    using BoardRentAndProperty.Utilities;
+    using BoardRentAndProperty.Services;
 
     public class MenuBarViewModel : BaseViewModel
     {
-        private const string AdministratorRoleName = "Administrator";
         private const string DefaultSelectedMenuLabel = "My Games";
 
-        private readonly ISessionContext sessionContext;
+        private readonly IDesktopAuthorizationService authorizationService;
 
         private Dictionary<string, Action> navigationActionsByMenuLabel;
         private string selectedMenuPageName;
 
-        public MenuBarViewModel(ISessionContext sessionContext)
+        public MenuBarViewModel(IDesktopAuthorizationService authorizationService)
         {
-            this.sessionContext = sessionContext;
+            this.authorizationService = authorizationService;
             this.navigationActionsByMenuLabel = this.BuildNavigationActions();
         }
 
@@ -66,7 +65,7 @@ namespace BoardRentAndProperty.ViewModels
                 { "Profile",          () => this.RequestNavigation?.Invoke(AppPage.Profile) },
             };
 
-            if (this.sessionContext.Role == AdministratorRoleName)
+            if (this.authorizationService.IsAdministrator)
             {
                 actions.Add("Admin", () => this.RequestNavigation?.Invoke(AppPage.Admin));
             }

@@ -12,27 +12,43 @@ namespace BoardRentAndProperty.ViewModels
             "There are {0} active rentals for this game. It was removed successfully.";
 
         private readonly IGameService gameListingService;
-        private readonly Guid currentOwnerUserId;
+        private readonly IDesktopAuthorizationService authorizationService;
 
-        public ListingsViewModel(IGameService gameListingService, Guid currentOwnerUserId)
+        public ListingsViewModel(IGameService gameListingService, IDesktopAuthorizationService authorizationService)
         {
             this.gameListingService = gameListingService;
-            this.currentOwnerUserId = currentOwnerUserId;
+            this.authorizationService = authorizationService;
             Reload();
         }
+
+        public string PageTitle => this.authorizationService.IsAdministrator ? "Games" : "My Listings";
 
         public void LoadGames() => Reload();
 
         protected override void Reload()
         {
-            var ownerGameListings = gameListingService.GetGamesForOwner(currentOwnerUserId);
-            SetAllItems(ownerGameListings.ToImmutableList());
+            if (!this.authorizationService.IsLoggedIn)
+            {
+                SetAllItems(ImmutableList<GameDTO>.Empty);
+                return;
+            }
+
+            var gameListings = this.authorizationService.IsAdministrator
+                ? this.gameListingService.GetAllGames()
+                : this.gameListingService.GetGamesForOwner(this.authorizationService.CurrentAccountId);
+
+            SetAllItems(gameListings.ToImmutableList());
         }
 
         public override string ShowingText => $"Showing {DisplayedCount} of {TotalCount} games";
 
         public void DeleteGame(GameDTO gameToDelete)
         {
+            if (!this.CanManageGame(gameToDelete))
+            {
+                throw new UnauthorizedAccessException("You are not authorized to delete this game.");
+            }
+
             gameListingService.DeleteGameByIdentifier(gameToDelete.Id);
             Reload();
         }
@@ -60,6 +76,12 @@ namespace BoardRentAndProperty.ViewModels
                         ? Constants.DialogMessages.UnexpectedErrorOccurred
                         : unexpectedException.Message);
             }
+        }
+
+        private bool CanManageGame(GameDTO gameToManage)
+        {
+            return this.authorizationService.IsAdministrator
+                || gameToManage.Owner?.Id == this.authorizationService.CurrentAccountId;
         }
     }
 }

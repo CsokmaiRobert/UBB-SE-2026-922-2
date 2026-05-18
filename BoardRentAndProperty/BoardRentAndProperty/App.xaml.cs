@@ -100,6 +100,7 @@ namespace BoardRentAndProperty
 
             serviceCollection.AddSingleton<ISessionContext, SessionContext>();
             serviceCollection.AddSingleton<ICurrentUserContext, CurrentUserContext>();
+            serviceCollection.AddSingleton<IDesktopAuthorizationService, DesktopAuthorizationService>();
             serviceCollection.AddSingleton<IToastNotificationService, ToastNotificationService>();
             serviceCollection.AddSingleton<IServerClient, NotificationClient>();
             serviceCollection.AddSingleton<IFilePickerService, FilePickerService>();
@@ -117,9 +118,7 @@ namespace BoardRentAndProperty
             // PaM view models
             serviceCollection.AddSingleton<NotificationsViewModel>();
             serviceCollection.AddSingleton<MenuBarViewModel>();
-            serviceCollection.AddTransient(serviceProvider => new ListingsViewModel(
-                serviceProvider.GetRequiredService<IGameService>(),
-                serviceProvider.GetRequiredService<ICurrentUserContext>().CurrentUserId));
+            serviceCollection.AddTransient<ListingsViewModel>();
             serviceCollection.AddTransient<CreateGameViewModel>();
             serviceCollection.AddTransient<EditGameViewModel>();
             serviceCollection.AddTransient<CreateRequestViewModel>();
@@ -142,6 +141,18 @@ namespace BoardRentAndProperty
         {
             if (Application.Current is not App appInstance) return;
             if (appInstance.RootFrame == null) return;
+            var authorizationService = Services.GetService<IDesktopAuthorizationService>();
+            if (authorizationService != null && !authorizationService.CanAccessPage(pageType))
+            {
+                if (!authorizationService.IsLoggedIn)
+                {
+                    appInstance.RootFrame.Navigate(typeof(LoginPage));
+                    appInstance.RootFrame.BackStack.Clear();
+                }
+
+                return;
+            }
+
             appInstance.RootFrame.Navigate(pageType, parameter);
             if (clearBackStack) appInstance.RootFrame.BackStack.Clear();
         }
@@ -288,6 +299,13 @@ namespace BoardRentAndProperty
 
         private void NavigateToNotificationsWithinShell()
         {
+            var authorizationService = Services.GetRequiredService<IDesktopAuthorizationService>();
+            if (!authorizationService.IsLoggedIn)
+            {
+                OnUserLoggedOut();
+                return;
+            }
+
             if (RootFrame?.Content is MenuBarPage currentShell) { currentShell.NavigateToNotifications(); return; }
             void OnShellLoaded(object sender, NavigationEventArgs navigationEventArgs)
             {
@@ -298,7 +316,7 @@ namespace BoardRentAndProperty
                 }
             }
             RootFrame!.Navigated += OnShellLoaded;
-            RootFrame.Navigate(typeof(MenuBarPage), gameService);
+            NavigateTo(typeof(MenuBarPage), gameService);
         }
 
         private void EnsureSingleInstance(string appUserModelId)

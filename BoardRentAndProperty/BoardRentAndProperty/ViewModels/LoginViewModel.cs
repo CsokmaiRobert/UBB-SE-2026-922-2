@@ -55,7 +55,7 @@ namespace BoardRentAndProperty.ViewModels
 
                 if (loginResult.Success && loginResult.Data != null)
                 {
-                    string userRole = loginResult.Data.Role?.Name ?? "Standard User";
+                    string userRole = loginResult.Data.Role?.Name ?? AppRoles.StandardUser;
                     this.OnLoginSuccess?.Invoke(userRole);
                 }
                 else

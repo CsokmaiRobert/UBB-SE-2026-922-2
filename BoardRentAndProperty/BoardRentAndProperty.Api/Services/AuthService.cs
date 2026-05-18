@@ -67,6 +67,13 @@ namespace BoardRentAndProperty.Api.Services
                 return ServiceResult<AccountProfileDataTransferObject>.Fail("This account has been suspended.");
             }
 
+            var failedLoginAttempt = await this.failedLoginRepository.GetByAccountIdAsync(account.Id);
+            if (failedLoginAttempt?.LockedUntil.HasValue == true
+                && failedLoginAttempt.LockedUntil.Value > DateTime.UtcNow)
+            {
+                return ServiceResult<AccountProfileDataTransferObject>.Fail("This account is locked. Please contact an administrator or try again later.");
+            }
+
             if (!PasswordHasher.VerifyPassword(loginRequest.Password, account.PasswordHash))
             {
                 await this.failedLoginRepository.IncrementAsync(account.Id);

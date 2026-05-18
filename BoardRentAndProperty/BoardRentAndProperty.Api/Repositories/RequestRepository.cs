@@ -11,6 +11,8 @@ namespace BoardRentAndProperty.Api.Repositories
 {
     public class RequestRepository : IRequestRepository
     {
+        private const string RelatedRequestIdShadowProperty = "related_request_id";
+
         private readonly IDbContextFactory<AppDbContext> dbContextFactory;
 
         public RequestRepository(IDbContextFactory<AppDbContext> dbContextFactory)
@@ -168,14 +170,16 @@ namespace BoardRentAndProperty.Api.Repositories
                 using var transaction = dbContext.Database.BeginTransaction();
                 try
                 {
-                    foreach (var conflict in overlappingRequests)
-                    {
-                        dbContext.Database.ExecuteSqlInterpolated(
-                            $"DELETE FROM Notifications WHERE related_request_id = {conflict.Id}");
-                    }
+                    var relatedRequestIdsToDelete = overlappingRequests
+                        .Select(conflict => (int?)conflict.Id)
+                        .Append((int?)approvedRequest.Id)
+                        .Distinct()
+                        .ToArray();
 
-                    dbContext.Database.ExecuteSqlInterpolated(
-                        $"DELETE FROM Notifications WHERE related_request_id = {approvedRequest.Id}");
+                    dbContext.Notifications
+                        .Where(notification => relatedRequestIdsToDelete.Contains(
+                            EF.Property<int?>(notification, RelatedRequestIdShadowProperty)))
+                        .ExecuteDelete();
 
                     var newRental = new Rental
                     {

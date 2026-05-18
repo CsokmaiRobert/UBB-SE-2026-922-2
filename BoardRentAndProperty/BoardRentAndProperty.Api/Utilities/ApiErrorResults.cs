@@ -28,6 +28,11 @@ namespace BoardRentAndProperty.Api.Utilities
                 return controller.ApiForbidden(error, "account_suspended");
             }
 
+            if (Contains(error, "locked"))
+            {
+                return controller.ApiForbidden(error, "account_locked");
+            }
+
             if (Contains(error, "unauthorized access"))
             {
                 return controller.ApiForbidden(error, "forbidden");

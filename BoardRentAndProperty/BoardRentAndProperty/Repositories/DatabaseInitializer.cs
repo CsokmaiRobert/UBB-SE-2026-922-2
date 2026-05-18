@@ -49,13 +49,17 @@ namespace BoardRentAndProperty.Repositories
             using var connection = new SqlConnection(masterBuilder.ConnectionString);
             connection.Open();
 
-            var escapedLiteral = targetDatabase.Replace("'", "''");
-            var escapedIdentifier = targetDatabase.Replace("]", "]]");
-
             using var command = connection.CreateCommand();
             command.CommandText =
-                $"IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = N'{escapedLiteral}') " +
-                $"BEGIN CREATE DATABASE [{escapedIdentifier}]; END";
+                """
+                IF NOT EXISTS (SELECT 1 FROM sys.databases WHERE name = @databaseName)
+                BEGIN
+                    DECLARE @createDatabaseSql nvarchar(max) =
+                        N'CREATE DATABASE ' + QUOTENAME(@databaseName);
+                    EXEC(@createDatabaseSql);
+                END
+                """;
+            command.Parameters.Add("@databaseName", SqlDbType.NVarChar, 128).Value = targetDatabase;
             command.ExecuteNonQuery();
         }
 

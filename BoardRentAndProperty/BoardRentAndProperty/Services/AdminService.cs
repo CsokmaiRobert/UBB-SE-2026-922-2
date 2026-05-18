@@ -10,15 +10,24 @@ namespace BoardRentAndProperty.Services
 {
     public class AdminService : IAdminService
     {
-        private readonly HttpClient httpClient;
+        private const string AdminAccessDeniedMessage = "Unauthorized access. Administrator role is required.";
 
-        public AdminService(HttpClient httpClient)
+        private readonly HttpClient httpClient;
+        private readonly IDesktopAuthorizationService authorizationService;
+
+        public AdminService(HttpClient httpClient, IDesktopAuthorizationService authorizationService)
         {
             this.httpClient = httpClient;
+            this.authorizationService = authorizationService;
         }
 
         public async Task<ServiceResult<List<AccountProfileDataTransferObject>>> GetAllAccountsAsync(int pageNumber, int pageSize)
         {
+            if (!this.authorizationService.IsAdministrator)
+            {
+                return ServiceResult<List<AccountProfileDataTransferObject>>.Fail(AdminAccessDeniedMessage);
+            }
+
             var response = await this.httpClient.GetAsync($"api/admin/accounts?page={pageNumber}&pageSize={pageSize}");
             if (!response.IsSuccessStatusCode)
             {
@@ -36,18 +45,33 @@ namespace BoardRentAndProperty.Services
 
         public async Task<ServiceResult<bool>> SuspendAccountAsync(Guid accountId)
         {
+            if (!this.authorizationService.IsAdministrator)
+            {
+                return ServiceResult<bool>.Fail(AdminAccessDeniedMessage);
+            }
+
             var response = await this.httpClient.PutAsync($"api/admin/accounts/{accountId}/suspend", content: null);
             return await ToBoolResultAsync(response);
         }
 
         public async Task<ServiceResult<bool>> UnsuspendAccountAsync(Guid accountId)
         {
+            if (!this.authorizationService.IsAdministrator)
+            {
+                return ServiceResult<bool>.Fail(AdminAccessDeniedMessage);
+            }
+
             var response = await this.httpClient.PutAsync($"api/admin/accounts/{accountId}/unsuspend", content: null);
             return await ToBoolResultAsync(response);
         }
 
         public async Task<ServiceResult<bool>> ResetPasswordAsync(Guid accountId, string newPassword)
         {
+            if (!this.authorizationService.IsAdministrator)
+            {
+                return ServiceResult<bool>.Fail(AdminAccessDeniedMessage);
+            }
+
             var body = new ResetPasswordDataTransferObject { NewPassword = newPassword };
             var response = await this.httpClient.PutAsJsonAsync($"api/admin/accounts/{accountId}/reset-password", body);
             return await ToBoolResultAsync(response);
@@ -55,6 +79,11 @@ namespace BoardRentAndProperty.Services
 
         public async Task<ServiceResult<bool>> UnlockAccountAsync(Guid accountId)
         {
+            if (!this.authorizationService.IsAdministrator)
+            {
+                return ServiceResult<bool>.Fail(AdminAccessDeniedMessage);
+            }
+
             var response = await this.httpClient.PutAsync($"api/admin/accounts/{accountId}/unlock", content: null);
             return await ToBoolResultAsync(response);
         }

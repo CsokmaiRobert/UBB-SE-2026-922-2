@@ -13,6 +13,7 @@ namespace BoardRentAndProperty.ViewModels
         private const decimal ZeroPriceForEmptyOrInvalidInput = 0m;
 
         private readonly IGameService gameListingService;
+        private readonly IDesktopAuthorizationService authorizationService;
 
         public int EditedGameId { get; private set; }
         public Guid EditedGameOwnerId { get; private set; }
@@ -32,9 +33,10 @@ namespace BoardRentAndProperty.ViewModels
 
         public bool HasGameImage => GameImage != null && GameImage.Length > 0;
 
-        public EditGameViewModel(IGameService gameListingService)
+        public EditGameViewModel(IGameService gameListingService, IDesktopAuthorizationService authorizationService)
         {
             this.gameListingService = gameListingService;
+            this.authorizationService = authorizationService;
         }
 
         public void LoadGame(int gameIdToLoad)
@@ -45,8 +47,14 @@ namespace BoardRentAndProperty.ViewModels
                 return;
             }
 
+            var loadedGameOwnerId = loadedGame.Owner?.Id ?? MissingOwnerId;
+            if (!this.CanManageGame(loadedGameOwnerId))
+            {
+                throw new UnauthorizedAccessException("You are not authorized to edit this game.");
+            }
+
             EditedGameId = loadedGame.Id;
-            EditedGameOwnerId = loadedGame.Owner?.Id ?? MissingOwnerId;
+            EditedGameOwnerId = loadedGameOwnerId;
 
             GameName = loadedGame.Name;
             GamePrice = loadedGame.Price;
@@ -64,6 +72,13 @@ namespace BoardRentAndProperty.ViewModels
 
         public ViewOperationResult SubmitGameUpdate()
         {
+            if (!this.CanManageGame(EditedGameOwnerId))
+            {
+                return ViewOperationResult.Failure(
+                    "Access Denied",
+                    "You are not authorized to edit this game.");
+            }
+
             var gameValidationErrors = ValidateGameInputs();
             if (gameValidationErrors.Count > NoValidationErrors)
             {
@@ -98,6 +113,12 @@ namespace BoardRentAndProperty.ViewModels
 
             gameListingService.UpdateGameByIdentifier(EditedGameId, updatedGameDataTransferObject);
             return updatedGameDataTransferObject;
+        }
+
+        private bool CanManageGame(Guid ownerAccountId)
+        {
+            return this.authorizationService.IsAdministrator
+                || ownerAccountId == this.authorizationService.CurrentAccountId;
         }
 
         private GameDTO BuildUpdatedGameDataTransferObject()

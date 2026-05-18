@@ -5,8 +5,6 @@ namespace BoardRentAndProperty.Utilities
 
     public class SessionContext : ISessionContext
     {
-        private const string StandardUserRoleName = "Standard User";
-
         public Guid AccountId { get; private set; }
         public string Username { get; private set; } = string.Empty;
         public string DisplayName { get; private set; } = string.Empty;
@@ -35,7 +33,7 @@ namespace BoardRentAndProperty.Utilities
             City = profile.City ?? string.Empty;
             StreetName = profile.StreetName ?? string.Empty;
             StreetNumber = profile.StreetNumber ?? string.Empty;
-            Role = profile.Role?.Name ?? StandardUserRoleName;
+            Role = profile.Role?.Name ?? AppRoles.StandardUser;
             IsLoggedIn = true;
         }
 

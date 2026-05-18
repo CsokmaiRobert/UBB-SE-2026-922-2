@@ -10,6 +10,8 @@ namespace BoardRentAndProperty.Api.Repositories
 {
     public class NotificationRepository : INotificationRepository
     {
+        private const string RelatedRequestIdShadowProperty = "related_request_id";
+
         private readonly IDbContextFactory<AppDbContext> dbContextFactory;
 
         public NotificationRepository(IDbContextFactory<AppDbContext> dbContextFactory)
@@ -137,8 +139,9 @@ namespace BoardRentAndProperty.Api.Repositories
         public void DeleteNotificationsLinkedToRequest(int relatedRequestId)
         {
             using var dbContext = this.dbContextFactory.CreateDbContext();
-            dbContext.Database.ExecuteSqlInterpolated(
-                $"DELETE FROM Notifications WHERE related_request_id = {relatedRequestId}");
+            dbContext.Notifications
+                .Where(notification => EF.Property<int?>(notification, RelatedRequestIdShadowProperty) == (int?)relatedRequestId)
+                .ExecuteDelete();
         }
 
         private static Account? ResolveAccount(AppDbContext dbContext, Account? account)
