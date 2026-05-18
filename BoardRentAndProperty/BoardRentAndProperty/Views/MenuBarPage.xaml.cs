@@ -24,13 +24,17 @@ namespace BoardRentAndProperty.Views
         };
 
         private IGameService injectedGameService;
+        private readonly IDesktopAuthorizationService authorizationService;
 
         public MenuBarPage()
         {
             this.InitializeComponent();
             this.ViewModel = App.Services.GetRequiredService<MenuBarViewModel>();
+            this.injectedGameService = App.Services.GetRequiredService<IGameService>();
+            this.authorizationService = App.Services.GetRequiredService<IDesktopAuthorizationService>();
             this.DataContext = this.ViewModel;
             this.ViewModel.RequestNavigation += this.OnViewModelRequestedNavigation;
+            this.ContentFrame.Navigating += this.OnContentFrameNavigating;
             this.Unloaded += this.OnMenuBarPageUnloaded;
         }
 
@@ -38,6 +42,16 @@ namespace BoardRentAndProperty.Views
 
         public void NavigateToNotifications()
         {
+            if (!this.authorizationService.CanAccessPage(typeof(NotificationsPage)))
+            {
+                if (!this.authorizationService.IsLoggedIn)
+                {
+                    App.OnUserLoggedOut();
+                }
+
+                return;
+            }
+
             var resolvedNotificationsViewModel = App.Services.GetRequiredService<NotificationsViewModel>();
             this.ContentFrame.Navigate(typeof(NotificationsPage), resolvedNotificationsViewModel);
             this.ViewModel.SelectedPageName = "Notifications";
@@ -46,6 +60,12 @@ namespace BoardRentAndProperty.Views
         protected override void OnNavigatedTo(NavigationEventArgs navigationEventArgs)
         {
             base.OnNavigatedTo(navigationEventArgs);
+
+            if (!this.authorizationService.IsLoggedIn)
+            {
+                App.OnUserLoggedOut();
+                return;
+            }
 
             if (navigationEventArgs.Parameter is IGameService gameService)
             {
@@ -66,6 +86,16 @@ namespace BoardRentAndProperty.Views
                 return;
             }
 
+            if (!this.authorizationService.CanAccessMenuPage(page))
+            {
+                if (!this.authorizationService.IsLoggedIn)
+                {
+                    App.OnUserLoggedOut();
+                }
+
+                return;
+            }
+
             if (!PageTypeMap.TryGetValue(page, out var pageType))
             {
                 return;
@@ -74,9 +104,32 @@ namespace BoardRentAndProperty.Views
             this.ContentFrame.Navigate(pageType, this.injectedGameService);
         }
 
+        private void OnContentFrameNavigating(object sender, NavigatingCancelEventArgs navigatingEventArgs)
+        {
+            if (navigatingEventArgs.SourcePageType == null
+                || this.authorizationService.CanAccessPage(navigatingEventArgs.SourcePageType))
+            {
+                return;
+            }
+
+            navigatingEventArgs.Cancel = true;
+
+            if (!this.authorizationService.IsLoggedIn)
+            {
+                App.OnUserLoggedOut();
+                return;
+            }
+
+            if (this.ContentFrame.Content == null)
+            {
+                this.ContentFrame.Navigate(typeof(ListingsPage), this.injectedGameService);
+            }
+        }
+
         private void OnMenuBarPageUnloaded(object pageSender, RoutedEventArgs unloadedEventArgs)
         {
             this.ViewModel.RequestNavigation -= this.OnViewModelRequestedNavigation;
+            this.ContentFrame.Navigating -= this.OnContentFrameNavigating;
         }
     }
 }

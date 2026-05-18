@@ -19,7 +19,7 @@
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0" Margin="0,0,0,20">
-            <TextBlock Text="My Listings" FontSize="28" Foreground="white" FontWeight="Bold" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding PageTitle}" FontSize="28" Foreground="white" FontWeight="Bold" VerticalAlignment="Center"/>
             <Button Content="+ Create Game" HorizontalAlignment="Right" Style="{StaticResource AccentButtonStyle}" Click="CreateGameButton_Click"/>
         </Grid>
 
