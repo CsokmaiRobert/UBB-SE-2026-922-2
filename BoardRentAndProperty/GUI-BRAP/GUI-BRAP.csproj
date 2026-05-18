@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\BoardRentAndProperty.Api\BoardRentAndProperty.Api.csproj" />
     <ProjectReference Include="..\BoardRentAndProperty.Contracts\BoardRentAndProperty.Contracts.csproj" />
+    <ProjectReference Include="..\BoardRentAndProperty.ApiClient\BoardRentAndProperty.ApiClient.csproj" />
   </ItemGroup>
 
   <ItemGroup>
