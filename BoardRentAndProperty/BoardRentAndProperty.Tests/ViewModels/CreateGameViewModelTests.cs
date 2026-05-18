@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using BoardRentAndProperty.Constants;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Tests.Fakes;
@@ -104,11 +105,11 @@ namespace BoardRentAndProperty.Tests.ViewModels
         }
 
         [Test]
-        public void SubmitCreateGame_CoversSuccessAndValidationFailure()
+        public async Task SubmitCreateGame_CoversSuccessAndValidationFailure()
         {
             PopulateWithValidInputs();
 
-            ViewOperationResult successResult = this.viewModel.SubmitCreateGame();
+            ViewOperationResult successResult = await this.viewModel.SubmitCreateGameAsync();
 
             Assert.That(successResult.IsSuccess, Is.True);
             Assert.That(this.gameService.AddGameCallCount, Is.EqualTo(1));
@@ -124,7 +125,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             PopulateWithValidInputs();
             this.viewModel.GameName = string.Empty;
 
-            ViewOperationResult failureResult = this.viewModel.SubmitCreateGame();
+            ViewOperationResult failureResult = await this.viewModel.SubmitCreateGameAsync();
 
             Assert.Multiple(() =>
             {
@@ -135,20 +136,21 @@ namespace BoardRentAndProperty.Tests.ViewModels
         }
 
         [Test]
-        public void SaveGame_CoversSuccessAndValidationFailure()
+        public async Task SaveGame_CoversSuccessAndValidationFailure()
         {
             PopulateWithValidInputs();
 
-            GameDTO savedGame = this.viewModel.SaveGame();
+            GameDTO? savedGame = await this.viewModel.SaveGameAsync();
+            GameDTO nonNullSavedGame = savedGame!;
 
             Assert.Multiple(() =>
             {
                 Assert.That(savedGame, Is.Not.Null);
-                Assert.That(savedGame.Owner.Id, Is.EqualTo(this.testUserId));
-                Assert.That(savedGame.Name, Is.EqualTo("Settlers of Catan"));
-                Assert.That(savedGame.Price, Is.EqualTo(15.99m));
-                Assert.That(savedGame.MinimumPlayerNumber, Is.EqualTo(2));
-                Assert.That(savedGame.MaximumPlayerNumber, Is.EqualTo(6));
+                Assert.That(nonNullSavedGame.Owner.Id, Is.EqualTo(this.testUserId));
+                Assert.That(nonNullSavedGame.Name, Is.EqualTo("Settlers of Catan"));
+                Assert.That(nonNullSavedGame.Price, Is.EqualTo(15.99m));
+                Assert.That(nonNullSavedGame.MinimumPlayerNumber, Is.EqualTo(2));
+                Assert.That(nonNullSavedGame.MaximumPlayerNumber, Is.EqualTo(6));
             });
             Assert.That(this.gameService.AddGameCallCount, Is.EqualTo(1));
 
@@ -160,7 +162,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             PopulateWithValidInputs();
             this.viewModel.GameName = string.Empty;
 
-            GameDTO invalidGame = this.viewModel.SaveGame();
+            GameDTO? invalidGame = await this.viewModel.SaveGameAsync();
 
             Assert.That(invalidGame, Is.Null);
             Assert.That(this.gameService.AddGameCallCount, Is.EqualTo(0));

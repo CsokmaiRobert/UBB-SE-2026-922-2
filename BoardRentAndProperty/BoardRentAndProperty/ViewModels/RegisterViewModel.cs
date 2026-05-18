@@ -4,9 +4,9 @@ namespace BoardRentAndProperty.ViewModels
     using System.Collections.Generic;
     using System.Threading.Tasks;
 
+    using BoardRentAndProperty.ApiClient;
     using BoardRentAndProperty.Constants;
     using BoardRentAndProperty.Contracts.DataTransferObjects;
-    using BoardRentAndProperty.Services;
     using BoardRentAndProperty.Utilities;
     using CommunityToolkit.Mvvm.ComponentModel;
     using CommunityToolkit.Mvvm.Input;
@@ -14,6 +14,7 @@ namespace BoardRentAndProperty.ViewModels
     public partial class RegisterViewModel : BaseViewModel
     {
         private readonly IAuthService authService;
+        private readonly ISessionContext sessionContext;
 
         [ObservableProperty]
         private string displayName = string.Empty;
@@ -63,9 +64,15 @@ namespace BoardRentAndProperty.ViewModels
         [ObservableProperty]
         private string phoneNumberError = string.Empty;
 
-        public RegisterViewModel(IAuthService authService)
+        public RegisterViewModel(IAuthService authService, ISessionContext sessionContext)
         {
             this.authService = authService;
+            this.sessionContext = sessionContext;
+        }
+
+        public RegisterViewModel(IAuthService authService)
+            : this(authService, new SessionContext())
+        {
         }
 
         public Action OnRegistrationSuccess { get; set; }
@@ -106,16 +113,31 @@ namespace BoardRentAndProperty.ViewModels
                 StreetNumber = this.StreetNumber,
             };
 
-            ServiceResult<bool> registrationResult = await this.authService.RegisterAsync(registrationRequest);
+            var registrationResult = await this.authService.RegisterAsync(registrationRequest);
 
             if (registrationResult.Success)
             {
-                this.OnRegistrationSuccess?.Invoke();
+                var loginResult = await this.authService.LoginAsync(new LoginDataTransferObject
+                {
+                    UsernameOrEmail = registrationRequest.Username,
+                    Password = registrationRequest.Password,
+                });
+
+                if (loginResult.Success && loginResult.Data != null)
+                {
+                    this.sessionContext.Populate(loginResult.Data);
+                    this.OnRegistrationSuccess?.Invoke();
+                }
+                else
+                {
+                    this.ErrorMessage = loginResult.Error ?? "Registration succeeded but auto-login failed.";
+                }
             }
             else
             {
                 const int MaximumSplitSubstrings = 2;
-                string[] parsedFieldErrors = registrationResult.Error.Split(';', StringSplitOptions.RemoveEmptyEntries);
+                string[] parsedFieldErrors = (registrationResult.Error ?? string.Empty)
+                    .Split(';', StringSplitOptions.RemoveEmptyEntries);
 
                 foreach (string fieldError in parsedFieldErrors)
                 {

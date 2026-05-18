@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Immutable;
+using System.Threading.Tasks;
+using BoardRentAndProperty.ApiClient;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
 
@@ -18,46 +20,63 @@ namespace BoardRentAndProperty.ViewModels
         {
             this.gameListingService = gameListingService;
             this.authorizationService = authorizationService;
-            Reload();
+            _ = this.ReloadAsync();
+        }
+
+        public ListingsViewModel(IGameService gameListingService, Guid currentAccountId)
+            : this(gameListingService, new FixedDesktopAuthorizationService(currentAccountId))
+        {
         }
 
         public string PageTitle => this.authorizationService.IsAdministrator ? "Games" : "My Listings";
 
-        public void LoadGames() => Reload();
+        public Task LoadGamesAsync() => this.ReloadAsync();
 
         protected override void Reload()
         {
+            _ = this.ReloadAsync();
+        }
+
+        private async Task ReloadAsync()
+        {
             if (!this.authorizationService.IsLoggedIn)
             {
-                SetAllItems(ImmutableList<GameDTO>.Empty);
+                this.SetAllItems(ImmutableList<GameDTO>.Empty);
                 return;
             }
 
-            var gameListings = this.authorizationService.IsAdministrator
-                ? this.gameListingService.GetAllGames()
-                : this.gameListingService.GetGamesForOwner(this.authorizationService.CurrentAccountId);
+            var gameListingsResult = this.authorizationService.IsAdministrator
+                ? await this.gameListingService.GetAllGamesAsync()
+                : await this.gameListingService.GetGamesForOwnerAsync(this.authorizationService.CurrentAccountId);
 
-            SetAllItems(gameListings.ToImmutableList());
+            this.SetAllItems(gameListingsResult.Success && gameListingsResult.Data != null
+                ? gameListingsResult.Data.ToImmutableList()
+                : ImmutableList<GameDTO>.Empty);
         }
 
         public override string ShowingText => $"Showing {DisplayedCount} of {TotalCount} games";
 
-        public void DeleteGame(GameDTO gameToDelete)
+        public async Task DeleteGameAsync(GameDTO gameToDelete)
         {
             if (!this.CanManageGame(gameToDelete))
             {
                 throw new UnauthorizedAccessException("You are not authorized to delete this game.");
             }
 
-            gameListingService.DeleteGameByIdentifier(gameToDelete.Id);
-            Reload();
+            var deleteResult = await this.gameListingService.DeleteGameAsync(gameToDelete.Id);
+            if (!deleteResult.Success)
+            {
+                throw new InvalidOperationException(deleteResult.Error ?? Constants.DialogMessages.UnexpectedErrorOccurred);
+            }
+
+            await this.ReloadAsync();
         }
 
-        public ViewOperationResult TryDeleteGame(GameDTO gameToDelete)
+        public async Task<ViewOperationResult> TryDeleteGameAsync(GameDTO gameToDelete)
         {
             try
             {
-                DeleteGame(gameToDelete);
+                await this.DeleteGameAsync(gameToDelete);
                 return ViewOperationResult.Success(
                     Constants.DialogTitles.GameRemoved,
                     string.Format(DeleteSuccessMessageTemplate, NoActiveRentalsCount));
@@ -82,6 +101,26 @@ namespace BoardRentAndProperty.ViewModels
         {
             return this.authorizationService.IsAdministrator
                 || gameToManage.Owner?.Id == this.authorizationService.CurrentAccountId;
+        }
+
+        private sealed class FixedDesktopAuthorizationService : IDesktopAuthorizationService
+        {
+            private readonly Guid currentAccountId;
+
+            public FixedDesktopAuthorizationService(Guid currentAccountId)
+            {
+                this.currentAccountId = currentAccountId;
+            }
+
+            public Guid CurrentAccountId => this.currentAccountId;
+
+            public bool IsLoggedIn => true;
+
+            public bool IsAdministrator => false;
+
+            public bool CanAccessPage(Type pageType) => true;
+
+            public bool CanAccessMenuPage(AppPage page) => true;
         }
     }
 }

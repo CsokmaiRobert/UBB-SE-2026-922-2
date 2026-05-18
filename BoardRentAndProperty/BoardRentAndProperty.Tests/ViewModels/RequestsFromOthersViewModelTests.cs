@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Immutable;
+using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Tests.Fakes;
@@ -32,22 +33,22 @@ namespace BoardRentAndProperty.Tests.ViewModels
         }
 
         [Test]
-        public void TryApproveRequest_WhenServiceSucceeds_ReturnsNull()
+        public async Task TryApproveRequest_WhenServiceSucceeds_ReturnsNull()
         {
             this.requestService.ApproveRequestResult = Result<int, ApproveRequestError>.Success(500);
 
-            string? errorMessage = this.viewModel.TryApproveRequest(42);
+            string? errorMessage = await this.viewModel.TryApproveRequestAsync(42);
 
             Assert.That(errorMessage, Is.Null);
         }
 
         [Test]
-        public void TryDenyRequest_WhenServiceReturnsUnauthorized_ReturnsNonNullErrorMessage()
+        public async Task TryDenyRequest_WhenServiceReturnsUnauthorized_ReturnsNonNullErrorMessage()
         {
             this.requestService.DenyRequestResult =
                 Result<int, DenyRequestError>.Failure(DenyRequestError.Unauthorized);
 
-            string? errorMessage = this.viewModel.TryDenyRequest(42, "unavailable");
+            string? errorMessage = await this.viewModel.TryDenyRequestAsync(42, "unavailable");
 
             Assert.That(errorMessage, Is.Not.Null);
         }

@@ -45,6 +45,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ServerCommunication\ServerCommunication.csproj" />
     <ProjectReference Include="..\BoardRentAndProperty.Contracts\BoardRentAndProperty.Contracts.csproj" />
+    <ProjectReference Include="..\BoardRentAndProperty.ApiClient\BoardRentAndProperty.ApiClient.csproj" />
   </ItemGroup>
 
   <Target Name="CleanAndBuildNotificationServer" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true' and '$(BuildingSolutionFile)' != 'true' and '$(IsTestProject)' != 'true' and '$(SkipNotificationServerBuild)' != 'true'">

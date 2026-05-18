@@ -13,19 +13,25 @@ namespace BoardRentAndProperty.Views
             InitializeComponent();
         }
 
-        protected override void OnNavigatedTo(NavigationEventArgs navigationEventArgs)
+        protected override async void OnNavigatedTo(NavigationEventArgs navigationEventArgs)
         {
             base.OnNavigatedTo(navigationEventArgs);
 
             if (navigationEventArgs.Parameter is RentalsFromOthersViewModel rentalsFromOthersViewModel)
             {
                 DataContext = rentalsFromOthersViewModel;
+                await rentalsFromOthersViewModel.LoadRentalsAsync();
                 return;
             }
 
             if (DataContext is not RentalsFromOthersViewModel)
             {
                 DataContext = App.Services.GetRequiredService<RentalsFromOthersViewModel>();
+            }
+
+            if (DataContext is RentalsFromOthersViewModel currentViewModel)
+            {
+                await currentViewModel.LoadRentalsAsync();
             }
         }
 

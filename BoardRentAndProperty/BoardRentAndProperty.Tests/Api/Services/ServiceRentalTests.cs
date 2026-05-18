@@ -5,6 +5,7 @@ using BoardRentAndProperty.Api.Models;
 using BoardRentAndProperty.Api.Services;
 using BoardRentAndProperty.Tests.Fakes;
 using NUnit.Framework;
+using RentalService = BoardRentAndProperty.Api.Services.RentalService;
 
 namespace BoardRentAndProperty.Tests.Api.Services
 {

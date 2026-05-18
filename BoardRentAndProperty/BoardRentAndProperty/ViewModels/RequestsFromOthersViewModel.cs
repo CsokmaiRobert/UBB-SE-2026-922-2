@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading.Tasks;
+using BoardRentAndProperty.ApiClient;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Utilities;
@@ -18,34 +20,41 @@ namespace BoardRentAndProperty.ViewModels
         {
             this.rentalRequestService = rentalRequestService;
             this.currentUserContext = currentUserContext;
-            Reload();
+            _ = this.ReloadAsync();
         }
 
         public override string ShowingText => $"Showing {DisplayedCount} of {TotalCount} requests";
 
-        public void LoadRequests() => Reload();
+        public Task LoadRequestsAsync() => this.ReloadAsync();
 
         protected override void Reload()
         {
+            _ = this.ReloadAsync();
+        }
+
+        private async Task ReloadAsync()
+        {
             CurrentGameOwnerUserId = currentUserContext.CurrentUserId;
 
-            var openRequestsForOwnerSortedByNewest = rentalRequestService
-                .GetOpenRequestsForOwner(CurrentGameOwnerUserId)
-                .OrderByDescending(request => request.StartDate)
-                .ToImmutableList();
+            var requestsResult = await this.rentalRequestService.GetOpenRequestsForOwnerAsync(CurrentGameOwnerUserId);
+            var openRequestsForOwnerSortedByNewest = requestsResult.Success && requestsResult.Data != null
+                ? requestsResult.Data.OrderByDescending(request => request.StartDate).ToImmutableList()
+                : ImmutableList<RequestDTO>.Empty;
             SetAllItems(openRequestsForOwnerSortedByNewest);
         }
 
-        public string? TryApproveRequest(int requestIdToApprove)
+        public async Task<string?> TryApproveRequestAsync(int requestIdToApprove)
         {
-            var approvalResult = rentalRequestService.ApproveRequest(requestIdToApprove, CurrentGameOwnerUserId);
-            if (approvalResult.IsSuccess)
+            var approvalResult = await this.rentalRequestService.ApproveRequestAsync(
+                requestIdToApprove,
+                CurrentGameOwnerUserId);
+            if (approvalResult.Success)
             {
-                Reload();
+                await this.ReloadAsync();
                 return null;
             }
 
-            return approvalResult.Error switch
+            return RequestErrorMapper.MapApprove(approvalResult) switch
             {
                 ApproveRequestError.Unauthorized => "You are not authorized to approve this request.",
                 ApproveRequestError.NotFound => "Request not found.",
@@ -54,16 +63,22 @@ namespace BoardRentAndProperty.ViewModels
             };
         }
 
-        public string? TryDenyRequest(int requestIdToDeny, string? rawDenialReason)
+        public async Task<string?> TryDenyRequestAsync(int requestIdToDeny, string? rawDenialReason)
         {
-            var denialResult = rentalRequestService.DenyRequest(requestIdToDeny, CurrentGameOwnerUserId, rawDenialReason ?? string.Empty);
-            if (denialResult.IsSuccess)
+            var denialAction = new RequestActionDataTransferObject
             {
-                Reload();
+                AccountId = CurrentGameOwnerUserId,
+                Reason = rawDenialReason ?? string.Empty,
+            };
+
+            var denialResult = await this.rentalRequestService.DenyRequestAsync(requestIdToDeny, denialAction);
+            if (denialResult.Success)
+            {
+                await this.ReloadAsync();
                 return null;
             }
 
-            return denialResult.Error switch
+            return RequestErrorMapper.MapDeny(denialResult) switch
             {
                 DenyRequestError.NotFound => "Request not found.",
                 DenyRequestError.Unauthorized => "You are not authorized to deny this request.",
@@ -71,16 +86,19 @@ namespace BoardRentAndProperty.ViewModels
             };
         }
 
-        public string? TryOfferGame(int requestIdForGameOffer)
+        public async Task<string?> TryOfferGameAsync(int requestIdForGameOffer)
         {
-            var gameOfferResult = rentalRequestService.OfferGame(requestIdForGameOffer, CurrentGameOwnerUserId);
-            if (gameOfferResult.IsSuccess)
+            var offerAction = new RequestActionDataTransferObject { AccountId = CurrentGameOwnerUserId };
+            var gameOfferResult = await this.rentalRequestService.OfferGameAsync(
+                requestIdForGameOffer,
+                offerAction);
+            if (gameOfferResult.Success)
             {
-                Reload();
+                await this.ReloadAsync();
                 return null;
             }
 
-            return gameOfferResult.Error switch
+            return RequestErrorMapper.MapOffer(gameOfferResult) switch
             {
                 OfferError.NotFound => "Request not found.",
                 OfferError.NotOwner => "You are not the owner of this game.",
@@ -89,5 +107,6 @@ namespace BoardRentAndProperty.ViewModels
                 _ => Constants.DialogMessages.UnexpectedErrorOccurred
             };
         }
+
     }
 }

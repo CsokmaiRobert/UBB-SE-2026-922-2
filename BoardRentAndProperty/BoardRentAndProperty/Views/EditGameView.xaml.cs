@@ -27,7 +27,7 @@ namespace BoardRentAndProperty.Views
             {
                 try
                 {
-                    ViewModel.LoadGame(incomingGameId);
+                    await ViewModel.LoadGameAsync(incomingGameId);
                 }
                 catch (UnauthorizedAccessException unauthorizedAccessException)
                 {
@@ -67,7 +67,7 @@ namespace BoardRentAndProperty.Views
         {
             ViewModel.SetGamePriceFromText(PriceNumberBox.Text);
 
-            var gameUpdateResult = ViewModel.SubmitGameUpdate();
+            var gameUpdateResult = await ViewModel.SubmitGameUpdateAsync();
             if (gameUpdateResult.IsSuccess)
             {
                 if (Frame.CanGoBack)

@@ -14,19 +14,25 @@ namespace BoardRentAndProperty.Views
             InitializeComponent();
         }
 
-        protected override void OnNavigatedTo(NavigationEventArgs navigationEventArgs)
+        protected override async void OnNavigatedTo(NavigationEventArgs navigationEventArgs)
         {
             base.OnNavigatedTo(navigationEventArgs);
 
             if (navigationEventArgs.Parameter is RequestsToOthersViewModel requestsToOthersViewModel)
             {
                 DataContext = requestsToOthersViewModel;
+                await requestsToOthersViewModel.LoadRequestsAsync();
                 return;
             }
 
             if (DataContext is not RequestsToOthersViewModel)
             {
                 DataContext = App.Services.GetRequiredService<RequestsToOthersViewModel>();
+            }
+
+            if (DataContext is RequestsToOthersViewModel currentViewModel)
+            {
+                await currentViewModel.LoadRequestsAsync();
             }
         }
 
@@ -56,7 +62,9 @@ namespace BoardRentAndProperty.Views
             }
 
             var pageViewModel = DataContext as RequestsToOthersViewModel;
-            var cancelErrorMessage = pageViewModel?.TryCancelRequest(requestId);
+            var cancelErrorMessage = pageViewModel == null
+                ? null
+                : await pageViewModel.TryCancelRequestAsync(requestId);
             if (cancelErrorMessage != null)
             {
                 await DialogHelper.ShowMessageAsync(

@@ -2,6 +2,8 @@ using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using BoardRentAndProperty.ApiClient;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Utilities;
@@ -57,15 +59,19 @@ namespace BoardRentAndProperty.ViewModels
             this.gameListingService = gameListingService;
             this.rentalRequestService = rentalRequestService;
             this.currentUserContext = currentUserContext;
-            LoadAvailableGames();
+            _ = this.LoadAvailableGamesAsync();
         }
 
-        public void LoadAvailableGames()
+        public async Task LoadAvailableGamesAsync()
         {
             AvailableGamesToRequest.Clear();
-            foreach (var availableGame in gameListingService.GetAvailableGamesForRenter(CurrentUserId))
+            var availableGamesResult = await this.gameListingService.GetAvailableGamesForRenterAsync(CurrentUserId);
+            if (availableGamesResult.Success && availableGamesResult.Data != null)
             {
-                AvailableGamesToRequest.Add(availableGame);
+                foreach (var availableGame in availableGamesResult.Data)
+                {
+                    AvailableGamesToRequest.Add(availableGame);
+                }
             }
         }
 
@@ -79,7 +85,7 @@ namespace BoardRentAndProperty.ViewModels
             return StartDate != null && EndDate != null;
         }
 
-        public ViewOperationResult SubmitRequest()
+        public async Task<ViewOperationResult> SubmitRequestAsync()
         {
             if (!ValidateRequestInputs())
             {
@@ -88,19 +94,24 @@ namespace BoardRentAndProperty.ViewModels
                     Constants.DialogMessages.CreateRequestValidationError);
             }
 
-            var requestCreationResult = rentalRequestService.CreateRequest(
-                SelectedGame.Id,
-                CurrentUserId,
-                SelectedGame.Owner?.Id ?? Guid.Empty,
-                StartDate.Value.DateTime,
-                EndDate.Value.DateTime);
+            var requestDataTransferObject = new CreateRequestDataTransferObject
+            {
+                GameId = SelectedGame.Id,
+                RenterAccountId = CurrentUserId,
+                OwnerAccountId = SelectedGame.Owner?.Id ?? Guid.Empty,
+                StartDate = StartDate.Value.DateTime,
+                EndDate = EndDate.Value.DateTime,
+            };
 
-            if (requestCreationResult.IsSuccess)
+            var requestCreationResult = await this.rentalRequestService.CreateRequestAsync(requestDataTransferObject);
+
+            if (requestCreationResult.Success)
             {
                 return ViewOperationResult.Success();
             }
 
-            if (requestCreationResult.Error == CreateRequestError.InvalidDateRange)
+            var createRequestError = RequestErrorMapper.MapCreate(requestCreationResult);
+            if (createRequestError == CreateRequestError.InvalidDateRange)
             {
                 return ViewOperationResult.Failure(
                     Constants.DialogTitles.ValidationError,
@@ -109,7 +120,7 @@ namespace BoardRentAndProperty.ViewModels
 
             return ViewOperationResult.Failure(
                 Constants.DialogTitles.RequestFailed,
-                BuildCreateRequestErrorMessage(requestCreationResult.Error));
+                BuildCreateRequestErrorMessage(createRequestError));
         }
 
         private static string BuildCreateRequestErrorMessage(CreateRequestError createRequestError)
@@ -124,9 +135,9 @@ namespace BoardRentAndProperty.ViewModels
             };
         }
 
-        public string? TrySubmitRequest()
+        public async Task<string?> TrySubmitRequestAsync()
         {
-            var requestSubmissionResult = SubmitRequest();
+            var requestSubmissionResult = await this.SubmitRequestAsync();
             return requestSubmissionResult.IsSuccess ? null : requestSubmissionResult.DialogMessage;
         }
 

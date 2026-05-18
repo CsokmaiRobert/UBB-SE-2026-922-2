@@ -6,6 +6,7 @@ using BoardRentAndProperty.Api.Services;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Tests.Fakes;
 using NUnit.Framework;
+using GameService = BoardRentAndProperty.Api.Services.GameService;
 
 namespace BoardRentAndProperty.Tests.Api.Services
 {

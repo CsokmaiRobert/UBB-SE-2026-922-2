@@ -22,7 +22,7 @@ namespace BoardRentAndProperty.Views
         {
             ViewModel.SetGamePriceFromText(PriceNumberBox.Text);
 
-            var gameCreateResult = ViewModel.SubmitCreateGame();
+            var gameCreateResult = await ViewModel.SubmitCreateGameAsync();
             if (gameCreateResult.IsSuccess)
             {
                 if (Frame.CanGoBack)
