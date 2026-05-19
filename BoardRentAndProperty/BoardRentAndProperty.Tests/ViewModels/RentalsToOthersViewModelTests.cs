@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Tests.Fakes;
 using BoardRentAndProperty.ViewModels;
@@ -63,7 +64,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
         }
 
         [Test]
-        public void LoadRentals_AfterServiceDataChanged_RefreshesTotalCountAndPagedItems()
+        public async Task LoadRentals_AfterServiceDataChanged_RefreshesTotalCountAndPagedItems()
         {
             this.rentalService.RentalsForOwner = ImmutableList.Create(BuildRental(10), BuildRental(20), BuildRental(30));
 
@@ -73,7 +74,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             this.rentalService.RentalsForOwner =
                 ImmutableList.Create(BuildRental(10), BuildRental(20), BuildRental(30), BuildRental(50));
 
-            viewModel.LoadRentals();
+            await viewModel.LoadRentalsAsync();
 
             var pagedRentalIds = viewModel.PagedItems.Select(rental => rental.Id).ToList();
 

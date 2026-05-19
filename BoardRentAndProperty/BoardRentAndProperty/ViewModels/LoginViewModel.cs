@@ -2,14 +2,15 @@ namespace BoardRentAndProperty.ViewModels
 {
     using System;
     using System.Threading.Tasks;
+    using BoardRentAndProperty.ApiClient;
     using BoardRentAndProperty.Contracts.DataTransferObjects;
-    using BoardRentAndProperty.Services;
     using BoardRentAndProperty.Utilities;
     using CommunityToolkit.Mvvm.ComponentModel;
     using CommunityToolkit.Mvvm.Input;
     public partial class LoginViewModel : BaseViewModel
     {
         private readonly IAuthService authService;
+        private readonly ISessionContext sessionContext;
 
         [ObservableProperty]
         private string usernameOrEmail = string.Empty;
@@ -20,9 +21,15 @@ namespace BoardRentAndProperty.ViewModels
         [ObservableProperty]
         private bool rememberMe;
 
-        public LoginViewModel(IAuthService authService)
+        public LoginViewModel(IAuthService authService, ISessionContext sessionContext)
         {
             this.authService = authService;
+            this.sessionContext = sessionContext;
+        }
+
+        public LoginViewModel(IAuthService authService)
+            : this(authService, new SessionContext())
+        {
         }
 
         public Action<string> OnLoginSuccess { get; set; }
@@ -51,10 +58,11 @@ namespace BoardRentAndProperty.ViewModels
 
             try
             {
-                ServiceResult<AccountProfileDataTransferObject> loginResult = await this.authService.LoginAsync(loginRequest);
+                var loginResult = await this.authService.LoginAsync(loginRequest);
 
                 if (loginResult.Success && loginResult.Data != null)
                 {
+                    this.sessionContext.Populate(loginResult.Data);
                     string userRole = loginResult.Data.Role?.Name ?? AppRoles.StandardUser;
                     this.OnLoginSuccess?.Invoke(userRole);
                 }

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using BoardRentAndProperty.ApiClient;
 using BoardRentAndProperty.Constants;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
@@ -39,10 +41,10 @@ namespace BoardRentAndProperty.ViewModels
 
         public List<string> ValidateGameInputs()
         {
-            return gameListingService.ValidateGame(BuildGameDataTransferObject());
+            return GameInputValidator.Validate(BuildGameDataTransferObject());
         }
 
-        public ViewOperationResult SubmitCreateGame()
+        public async Task<ViewOperationResult> SubmitCreateGameAsync()
         {
             var gameValidationErrors = ValidateGameInputs();
             if (gameValidationErrors.Count > NoValidationErrors)
@@ -52,8 +54,12 @@ namespace BoardRentAndProperty.ViewModels
                     string.Join(Environment.NewLine, gameValidationErrors));
             }
 
-            SaveGame();
-            return ViewOperationResult.Success();
+            var savedGame = await this.SaveGameAsync();
+            return savedGame != null
+                ? ViewOperationResult.Success()
+                : ViewOperationResult.Failure(
+                    Constants.DialogTitles.ValidationError,
+                    Constants.DialogMessages.UnexpectedErrorOccurred);
         }
 
         public void SetGamePriceFromText(string rawPriceText)
@@ -67,17 +73,17 @@ namespace BoardRentAndProperty.ViewModels
             GamePrice = ZeroPriceForEmptyOrInvalidInput;
         }
 
-        public GameDTO SaveGame()
+        public async Task<GameDTO?> SaveGameAsync()
         {
             var newGameDataTransferObject = BuildGameDataTransferObject();
 
-            if (gameListingService.ValidateGame(newGameDataTransferObject).Count > NoValidationErrors)
+            if (GameInputValidator.Validate(newGameDataTransferObject).Count > NoValidationErrors)
             {
                 return null;
             }
 
-            gameListingService.AddGame(newGameDataTransferObject);
-            return newGameDataTransferObject;
+            var createGameResult = await this.gameListingService.CreateGameAsync(newGameDataTransferObject);
+            return createGameResult.Success ? newGameDataTransferObject : null;
         }
 
         private GameDTO BuildGameDataTransferObject()

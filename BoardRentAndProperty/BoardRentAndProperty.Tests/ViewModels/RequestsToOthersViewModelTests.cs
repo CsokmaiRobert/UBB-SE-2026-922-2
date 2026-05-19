@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Immutable;
+using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Tests.Fakes;
@@ -13,7 +14,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
     public sealed class RequestsToOthersViewModelTests
     {
         [Test]
-        public void LoadRequests_WithMultipleRequests_SetsRenterIdAndOrdersByStartDateDescending()
+        public async Task LoadRequests_WithMultipleRequests_SetsRenterIdAndOrdersByStartDateDescending()
         {
             var currentUserId = Guid.NewGuid();
             var currentUserContext = new FakeCurrentUserContext { CurrentUserId = currentUserId };
@@ -28,7 +29,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
 
             var viewModel = new RequestsToOthersViewModel(requestService, currentUserContext);
 
-            viewModel.LoadRequests();
+            await viewModel.LoadRequestsAsync();
 
             Assert.That(viewModel.CurrentRenterUserId, Is.EqualTo(currentUserId));
             Assert.That(viewModel.PagedItems, Has.Count.EqualTo(2));
@@ -37,7 +38,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
         }
 
         [Test]
-        public void TryCancelRequest_WhenServiceSucceeds_ReturnsNull()
+        public async Task TryCancelRequest_WhenServiceSucceeds_ReturnsNull()
         {
             var currentUserId = Guid.NewGuid();
             var requestService = new FakeClientRequestService();
@@ -47,13 +48,13 @@ namespace BoardRentAndProperty.Tests.ViewModels
             int requestIdToCancel = 100;
             requestService.CancelRequestResult = Result<int, CancelRequestError>.Success(requestIdToCancel);
 
-            string? cancellationErrorMessage = viewModel.TryCancelRequest(requestIdToCancel);
+            string? cancellationErrorMessage = await viewModel.TryCancelRequestAsync(requestIdToCancel);
 
             Assert.That(cancellationErrorMessage, Is.Null);
         }
 
         [Test]
-        public void TryCancelRequest_WhenRequestNotFound_ReturnsNotFoundErrorMessage()
+        public async Task TryCancelRequest_WhenRequestNotFound_ReturnsNotFoundErrorMessage()
         {
             var currentUserId = Guid.NewGuid();
             var requestService = new FakeClientRequestService();
@@ -64,7 +65,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             requestService.CancelRequestResult =
                 Result<int, CancelRequestError>.Failure(CancelRequestError.NotFound);
 
-            string? cancellationErrorMessage = viewModel.TryCancelRequest(requestIdToCancel);
+            string? cancellationErrorMessage = await viewModel.TryCancelRequestAsync(requestIdToCancel);
 
             Assert.That(cancellationErrorMessage, Is.EqualTo("Request not found."));
         }

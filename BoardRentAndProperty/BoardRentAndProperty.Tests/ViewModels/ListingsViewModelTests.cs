@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Tests.Fakes;
 using BoardRentAndProperty.ViewModels;
@@ -50,34 +51,34 @@ namespace BoardRentAndProperty.Tests.ViewModels
         }
 
         [Test]
-        public void LoadGames_RefreshesCollectionFromService()
+        public async Task LoadGames_RefreshesCollectionFromService()
         {
             var viewModel = BuildViewModel();
             Assert.That(viewModel.TotalCount, Is.EqualTo(0));
 
             this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(10), BuildGame(11));
 
-            viewModel.LoadGames();
+            await viewModel.LoadGamesAsync();
 
             Assert.That(viewModel.TotalCount, Is.EqualTo(2));
         }
 
         [Test]
-        public void DeleteGame_CallsServiceDeleteWithCorrectId()
+        public async Task DeleteGame_CallsServiceDeleteWithCorrectId()
         {
             this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(42));
 
             var viewModel = BuildViewModel();
             GameDTO gameToDelete = viewModel.PagedItems.First();
 
-            viewModel.DeleteGame(gameToDelete);
+            await viewModel.DeleteGameAsync(gameToDelete);
 
             Assert.That(this.gameService.DeleteGameCallCount, Is.EqualTo(1));
             Assert.That(this.gameService.LastDeletedGameId, Is.EqualTo(42));
         }
 
         [Test]
-        public void DeleteGame_ReloadsListAfterDeletion()
+        public async Task DeleteGame_ReloadsListAfterDeletion()
         {
             this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(1), BuildGame(2));
 
@@ -86,32 +87,32 @@ namespace BoardRentAndProperty.Tests.ViewModels
 
             this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(2));
 
-            viewModel.DeleteGame(BuildGame(1));
+            await viewModel.DeleteGameAsync(BuildGame(1));
 
             Assert.That(viewModel.TotalCount, Is.EqualTo(1));
         }
 
         [Test]
-        public void TryDeleteGame_SuccessfulDeletion_ReturnsSuccessWithGameRemovedTitle()
+        public async Task TryDeleteGame_SuccessfulDeletion_ReturnsSuccessWithGameRemovedTitle()
         {
             this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(1));
 
             var viewModel = BuildViewModel();
-            ViewOperationResult result = viewModel.TryDeleteGame(BuildGame(1));
+            ViewOperationResult result = await viewModel.TryDeleteGameAsync(BuildGame(1));
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.DialogTitle, Is.EqualTo("Game Removed"));
         }
 
         [Test]
-        public void TryDeleteGame_GameHasActiveRentals_ReturnsFailureWithCannotDeleteTitle()
+        public async Task TryDeleteGame_GameHasActiveRentals_ReturnsFailureWithCannotDeleteTitle()
         {
             this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(1));
             this.gameService.DeleteGameException =
                 new InvalidOperationException("There are 2 active rentals for this game and it cannot be removed now.");
 
             var viewModel = BuildViewModel();
-            ViewOperationResult result = viewModel.TryDeleteGame(BuildGame(1));
+            ViewOperationResult result = await viewModel.TryDeleteGameAsync(BuildGame(1));
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.DialogTitle, Is.EqualTo("Cannot Delete Game"));
@@ -119,13 +120,13 @@ namespace BoardRentAndProperty.Tests.ViewModels
         }
 
         [Test]
-        public void TryDeleteGame_UnexpectedExceptionWithMessage_ReturnsFailureWithThatMessage()
+        public async Task TryDeleteGame_UnexpectedExceptionWithMessage_ReturnsFailureWithThatMessage()
         {
             this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(1));
             this.gameService.DeleteGameException = new Exception("Database connection failed.");
 
             var viewModel = BuildViewModel();
-            ViewOperationResult result = viewModel.TryDeleteGame(BuildGame(1));
+            ViewOperationResult result = await viewModel.TryDeleteGameAsync(BuildGame(1));
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.DialogTitle, Is.EqualTo("Cannot Delete Game"));
@@ -133,26 +134,26 @@ namespace BoardRentAndProperty.Tests.ViewModels
         }
 
         [Test]
-        public void TryDeleteGame_UnexpectedExceptionWithEmptyMessage_ReturnsFallbackMessage()
+        public async Task TryDeleteGame_UnexpectedExceptionWithEmptyMessage_ReturnsFallbackMessage()
         {
             this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(1));
             this.gameService.DeleteGameException = new Exception(string.Empty);
 
             var viewModel = BuildViewModel();
-            ViewOperationResult result = viewModel.TryDeleteGame(BuildGame(1));
+            ViewOperationResult result = await viewModel.TryDeleteGameAsync(BuildGame(1));
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.DialogMessage, Is.EqualTo("An unexpected error occurred."));
         }
 
         [Test]
-        public void TryDeleteGame_UnexpectedExceptionWithWhitespaceMessage_ReturnsFallbackMessage()
+        public async Task TryDeleteGame_UnexpectedExceptionWithWhitespaceMessage_ReturnsFallbackMessage()
         {
             this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(1));
             this.gameService.DeleteGameException = new Exception("   ");
 
             var viewModel = BuildViewModel();
-            ViewOperationResult result = viewModel.TryDeleteGame(BuildGame(1));
+            ViewOperationResult result = await viewModel.TryDeleteGameAsync(BuildGame(1));
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.DialogMessage, Is.EqualTo("An unexpected error occurred."));

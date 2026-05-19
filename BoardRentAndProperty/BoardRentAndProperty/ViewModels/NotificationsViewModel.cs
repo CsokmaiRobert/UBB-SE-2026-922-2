@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
@@ -16,7 +17,7 @@ namespace BoardRentAndProperty.ViewModels
     {
         private static readonly Guid InvalidOrUnknownUserId = Guid.Empty;
 
-        private readonly INotificationService notificationLookupService;
+        private readonly IDesktopNotificationService notificationLookupService;
         private readonly IDisposable notificationSubscription;
         private readonly ICurrentUserContext currentUserContext;
         private readonly IServerClient serverClient;
@@ -37,7 +38,7 @@ namespace BoardRentAndProperty.ViewModels
         };
 
         public NotificationsViewModel(
-            INotificationService notificationLookupService,
+            IDesktopNotificationService notificationLookupService,
             ICurrentUserContext currentUserContext,
             IServerClient serverClient)
         {
@@ -59,44 +60,42 @@ namespace BoardRentAndProperty.ViewModels
 
             if (currentUserContext.CurrentUserId != InvalidOrUnknownUserId)
             {
-                LoadNotificationsForUser(currentUserContext.CurrentUserId);
+                _ = this.LoadNotificationsForUserAsync(currentUserContext.CurrentUserId);
             }
 
             notificationSubscription = notificationLookupService.Subscribe(this);
         }
 
-        public void LoadCurrentUserNotifications()
+        public Task LoadCurrentUserNotificationsAsync()
         {
-            LoadNotificationsForUser(this.currentUserContext.CurrentUserId);
+            return this.LoadNotificationsForUserAsync(this.currentUserContext.CurrentUserId);
         }
 
-        public void LoadNotificationsForUser(Guid targetUserId)
+        public async Task LoadNotificationsForUserAsync(Guid targetUserId)
         {
             CurrentUserId = targetUserId;
-            Reload();
+            await this.ReloadAsync();
         }
 
         protected override void Reload()
         {
-            var userNotificationsSortedByNewest = notificationLookupService
-                .GetNotificationsForUser(CurrentUserId)
-                .OrderByDescending(notification => notification.Id)
-                .ToImmutableList();
+            _ = this.ReloadAsync();
+        }
+
+        private async Task ReloadAsync()
+        {
+            var notificationsResult = await this.notificationLookupService.GetNotificationsForUserAsync(CurrentUserId);
+            var userNotificationsSortedByNewest = notificationsResult.Success && notificationsResult.Data != null
+                ? notificationsResult.Data.OrderByDescending(notification => notification.Id).ToImmutableList()
+                : ImmutableList<NotificationDTO>.Empty;
 
             SetAllItems(userNotificationsSortedByNewest);
         }
 
-        public void DeleteNotificationByIdentifier(int notificationIdToDelete)
+        public async Task DeleteNotificationByIdentifierAsync(int notificationIdToDelete)
         {
-            try
-            {
-                notificationLookupService.DeleteNotificationByIdentifier(notificationIdToDelete);
-            }
-            catch (KeyNotFoundException)
-            {
-            }
-
-            Reload();
+            await this.notificationLookupService.DeleteNotificationByIdentifierAsync(notificationIdToDelete);
+            await this.ReloadAsync();
         }
 
         public void OnCompleted()
@@ -114,11 +113,11 @@ namespace BoardRentAndProperty.ViewModels
 
             if (uiDispatcherQueue != null && !uiDispatcherQueue.HasThreadAccess)
             {
-                uiDispatcherQueue.TryEnqueue(() => LoadNotificationsForUser(CurrentUserId));
+                uiDispatcherQueue.TryEnqueue(() => _ = LoadNotificationsForUserAsync(CurrentUserId));
                 return;
             }
 
-            LoadNotificationsForUser(CurrentUserId);
+            _ = LoadNotificationsForUserAsync(CurrentUserId);
         }
 
         public void Dispose()

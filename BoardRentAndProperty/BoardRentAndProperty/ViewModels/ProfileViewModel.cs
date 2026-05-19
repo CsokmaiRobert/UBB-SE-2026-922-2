@@ -12,11 +12,13 @@ namespace BoardRentAndProperty.ViewModels
     using CommunityToolkit.Mvvm.Input;
     using Microsoft.UI.Xaml.Media;
     using Microsoft.UI.Xaml.Media.Imaging;
+    using ApiAccountService = BoardRentAndProperty.ApiClient.IAccountService;
+    using ApiAuthService = BoardRentAndProperty.ApiClient.IAuthService;
 
     public partial class ProfileViewModel : BaseViewModel
     {
-        private readonly IAccountService accountService;
-        private readonly IAuthService authService;
+        private readonly ApiAccountService accountService;
+        private readonly ApiAuthService authService;
         private readonly IFilePickerService filePickerService;
         private readonly ISessionContext sessionContext;
 
@@ -43,8 +45,8 @@ namespace BoardRentAndProperty.ViewModels
         private string newPasswordError = string.Empty;
 
         public ProfileViewModel(
-            IAccountService accountService,
-            IAuthService authService,
+            ApiAccountService accountService,
+            ApiAuthService authService,
             IFilePickerService filePickerService,
             ISessionContext sessionContext)
         {
@@ -147,19 +149,11 @@ namespace BoardRentAndProperty.ViewModels
             this.OnPropertyChanged(nameof(this.ProfileImage));
 
             Guid currentAccountId = this.sessionContext.AccountId;
-            ServiceResult<AccountProfileDataTransferObject> profileResult = await this.accountService.GetProfileAsync(currentAccountId);
+            var profileResult = await this.accountService.GetProfileAsync(currentAccountId);
 
             if (profileResult.Success && profileResult.Data != null)
             {
-                this.Username = profileResult.Data.Username;
-                this.DisplayName = profileResult.Data.DisplayName;
-                this.Email = profileResult.Data.Email;
-                this.PhoneNumber = profileResult.Data.PhoneNumber;
-                this.Country = profileResult.Data.Country;
-                this.City = profileResult.Data.City;
-                this.StreetName = profileResult.Data.StreetName;
-                this.StreetNumber = profileResult.Data.StreetNumber;
-                this.AvatarUrl = profileResult.Data.AvatarUrl;
+                this.ApplyProfile(profileResult.Data);
             }
 
             this.IsLoading = false;
@@ -183,14 +177,29 @@ namespace BoardRentAndProperty.ViewModels
                 StreetNumber = this.StreetNumber
             };
 
-            ServiceResult<bool> updateResult = await this.accountService.UpdateProfileAsync(currentAccountId, updateInformation);
+            var updateResult = await this.accountService.UpdateProfileAsync(currentAccountId, updateInformation);
 
             if (updateResult.Success)
             {
                 if (!string.IsNullOrEmpty(this.pendingAvatarPath))
                 {
-                    this.AvatarUrl = await this.accountService.UploadAvatarAsync(currentAccountId, this.pendingAvatarPath);
+                    var avatarUploadResult = await this.accountService.UploadAvatarAsync(currentAccountId, this.pendingAvatarPath);
+                    if (!avatarUploadResult.Success)
+                    {
+                        this.ProcessValidationErrors(avatarUploadResult.Error);
+                        this.IsLoading = false;
+                        return;
+                    }
+
+                    this.AvatarUrl = avatarUploadResult.Data ?? string.Empty;
                     this.pendingAvatarPath = string.Empty;
+                }
+
+                var refreshedProfileResult = await this.accountService.GetProfileAsync(currentAccountId);
+                if (refreshedProfileResult.Success && refreshedProfileResult.Data != null)
+                {
+                    this.sessionContext.Populate(refreshedProfileResult.Data);
+                    this.ApplyProfile(refreshedProfileResult.Data);
                 }
 
                 this.ErrorMessage = "Profile saved successfully.";
@@ -227,20 +236,15 @@ namespace BoardRentAndProperty.ViewModels
 
         private async Task RemoveAvatarAsync()
         {
-            try
+            var removeAvatarResult = await this.accountService.RemoveAvatarAsync(this.sessionContext.AccountId);
+            if (removeAvatarResult.Success)
             {
-                await this.accountService.RemoveAvatarAsync(this.sessionContext.AccountId);
                 this.AvatarUrl = string.Empty;
                 this.pendingAvatarPath = string.Empty;
+                return;
             }
-            catch (System.Net.Http.HttpRequestException ex)
-            {
-                this.ErrorMessage = "Network error: " + ex.Message;
-            }
-            catch (InvalidOperationException ex)
-            {
-                this.ErrorMessage = ex.Message;
-            }
+
+            this.ErrorMessage = removeAvatarResult.Error ?? "Failed to remove avatar.";
         }
 
         private async Task SaveNewPasswordAsync()
@@ -256,13 +260,14 @@ namespace BoardRentAndProperty.ViewModels
                 return;
             }
 
-            ServiceResult<bool> passwordChangeResult = await this.accountService.ChangePasswordAsync(
+            var passwordChangeResult = await this.accountService.ChangePasswordAsync(
                 this.sessionContext.AccountId,
                 this.CurrentPassword,
                 this.NewPassword);
 
             if (passwordChangeResult.Success)
             {
+                this.sessionContext.Clear();
                 this.ErrorMessage = "Password updated. Redirecting to login...";
                 await Task.Delay(2000);
                 await this.SignOutAsync();
@@ -276,7 +281,21 @@ namespace BoardRentAndProperty.ViewModels
         private async Task SignOutAsync()
         {
             await this.authService.LogoutAsync();
+            this.sessionContext.Clear();
             this.OnSignOutSuccess?.Invoke();
+        }
+
+        private void ApplyProfile(AccountProfileDataTransferObject profile)
+        {
+            this.Username = profile.Username;
+            this.DisplayName = profile.DisplayName;
+            this.Email = profile.Email;
+            this.PhoneNumber = profile.PhoneNumber;
+            this.Country = profile.Country;
+            this.City = profile.City;
+            this.StreetName = profile.StreetName;
+            this.StreetNumber = profile.StreetNumber;
+            this.AvatarUrl = profile.AvatarUrl;
         }
 
         private void ClearErrors()

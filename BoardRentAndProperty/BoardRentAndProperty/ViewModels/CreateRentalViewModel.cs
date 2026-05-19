@@ -2,8 +2,9 @@ using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using BoardRentAndProperty.ApiClient;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
-using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Utilities;
 
 namespace BoardRentAndProperty.ViewModels
@@ -76,21 +77,27 @@ namespace BoardRentAndProperty.ViewModels
             _ = LoadRentalFormDataAsync();
         }
 
-        public async System.Threading.Tasks.Task LoadRentalFormDataAsync()
+        public async Task LoadRentalFormDataAsync()
         {
             OwnedActiveGames.Clear();
-            foreach (var activeGame in gameListingService.GetActiveGamesForOwner(CurrentUserId))
+            var activeGamesResult = await this.gameListingService.GetActiveGamesForOwnerAsync(CurrentUserId);
+            if (activeGamesResult.Success && activeGamesResult.Data != null)
             {
-                OwnedActiveGames.Add(activeGame);
+                foreach (var activeGame in activeGamesResult.Data)
+                {
+                    OwnedActiveGames.Add(activeGame);
+                }
             }
 
             AvailableRenters.Clear();
-            foreach (var potentialRenter in userService.GetUsersExcept(CurrentUserId))
+            var rentersResult = await this.userService.GetUsersExceptAsync(CurrentUserId);
+            if (rentersResult.Success && rentersResult.Data != null)
             {
-                AvailableRenters.Add(potentialRenter);
+                foreach (var potentialRenter in rentersResult.Data)
+                {
+                    AvailableRenters.Add(potentialRenter);
+                }
             }
-
-            await System.Threading.Tasks.Task.CompletedTask;
         }
 
         public bool ValidateRentalInputs()
@@ -108,7 +115,7 @@ namespace BoardRentAndProperty.ViewModels
             return StartDate != null && EndDate != null;
         }
 
-        public ViewOperationResult CreateRental()
+        public async Task<ViewOperationResult> CreateRentalAsync()
         {
             if (!ValidateRentalInputs())
             {
@@ -117,46 +124,38 @@ namespace BoardRentAndProperty.ViewModels
                     Constants.DialogMessages.CreateRentalValidationError);
             }
 
-            try
+            var rentalDataTransferObject = new CreateRentalDataTransferObject
             {
-                rentalCreationService.CreateConfirmedRental(
-                    SelectedGameToRent.Id,
-                    SelectedRenter.Id,
-                    CurrentUserId,
-                    StartDate.Value.DateTime,
-                    EndDate.Value.DateTime);
+                GameId = SelectedGameToRent.Id,
+                RenterAccountId = SelectedRenter.Id,
+                OwnerAccountId = CurrentUserId,
+                StartDate = StartDate.Value.DateTime,
+                EndDate = EndDate.Value.DateTime,
+            };
+
+            var rentalCreationResult = await this.rentalCreationService.CreateConfirmedRentalAsync(rentalDataTransferObject);
+            if (rentalCreationResult.Success)
+            {
                 return ViewOperationResult.Success();
             }
-            catch (ArgumentException)
+
+            if (rentalCreationResult.StatusCode == System.Net.HttpStatusCode.BadRequest)
             {
                 return ViewOperationResult.Failure(
                     Constants.DialogTitles.ValidationError,
                     Constants.DialogMessages.CreateRentalValidationError);
             }
-            catch (InvalidOperationException rentalCreationException)
-            {
-                return ViewOperationResult.Failure(Constants.DialogTitles.RentalFailed, rentalCreationException.Message);
-            }
-            catch (System.Net.Http.HttpRequestException rentalCreationException)
-            {
-                return ViewOperationResult.Failure(Constants.DialogTitles.RentalFailed, rentalCreationException.Message);
-            }
-            #pragma warning restore CA1031
-            catch (Exception rentalCreationException)
-            #pragma warning restore CA1031 
 
-            {
-                return ViewOperationResult.Failure(
-                    Constants.DialogTitles.RentalFailed,
-                    string.IsNullOrWhiteSpace(rentalCreationException.Message)
-                        ? Constants.DialogMessages.UnexpectedErrorOccurred
-                        : rentalCreationException.Message);
-            }
+            return ViewOperationResult.Failure(
+                Constants.DialogTitles.RentalFailed,
+                string.IsNullOrWhiteSpace(rentalCreationResult.Error)
+                    ? Constants.DialogMessages.UnexpectedErrorOccurred
+                    : rentalCreationResult.Error);
         }
 
-        public string? SaveRental()
+        public async Task<string?> SaveRentalAsync()
         {
-            var rentalCreationResult = CreateRental();
+            var rentalCreationResult = await this.CreateRentalAsync();
             if (rentalCreationResult.IsSuccess)
             {
                 return null;

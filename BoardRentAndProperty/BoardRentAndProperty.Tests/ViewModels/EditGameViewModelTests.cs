@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Tests.Fakes;
 using BoardRentAndProperty.ViewModels;
@@ -21,13 +22,13 @@ namespace BoardRentAndProperty.Tests.ViewModels
         {
             this.gameService = new FakeClientGameService
             {
-                ValidateGameHandler = _ => new List<string>(),
+                ValidateGameHandler = game => new List<string>(),
             };
             this.viewModel = new EditGameViewModel(this.gameService);
         }
 
         [Test]
-        public void LoadGame_PopulatesPropertiesFromService()
+        public async Task LoadGame_PopulatesPropertiesFromService()
         {
             var existingGame = new GameDTO
             {
@@ -43,14 +44,14 @@ namespace BoardRentAndProperty.Tests.ViewModels
 
             this.gameService.GameToReturn = existingGame;
 
-            this.viewModel.LoadGame(SampleGameIdentifier);
+            await this.viewModel.LoadGameAsync(SampleGameIdentifier);
 
             Assert.That(this.viewModel.EditedGameId, Is.EqualTo(SampleGameIdentifier));
             Assert.That(this.viewModel.GameName, Is.EqualTo("Existing Game"));
         }
 
         [Test]
-        public void UpdateGame_ValidInputs_CallsUpdateWithCorrectIdentifier()
+        public async Task UpdateGame_ValidInputs_CallsUpdateWithCorrectIdentifier()
         {
             this.gameService.GameToReturn = new GameDTO
                 {
@@ -64,8 +65,8 @@ namespace BoardRentAndProperty.Tests.ViewModels
                     IsActive = true,
                 };
 
-            this.viewModel.LoadGame(SampleGameIdentifier);
-            this.viewModel.UpdateGame();
+            await this.viewModel.LoadGameAsync(SampleGameIdentifier);
+            await this.viewModel.UpdateGameAsync();
 
             Assert.That(this.gameService.UpdateGameCallCount, Is.EqualTo(1));
             Assert.That(this.gameService.LastUpdatedGameId, Is.EqualTo(SampleGameIdentifier));

@@ -19,6 +19,11 @@ namespace BoardRentAndProperty.ViewModels
             this.navigationActionsByMenuLabel = this.BuildNavigationActions();
         }
 
+        public MenuBarViewModel(BoardRentAndProperty.Utilities.ISessionContext sessionContext)
+            : this(new DesktopAuthorizationService(sessionContext))
+        {
+        }
+
         public event Action<AppPage> RequestNavigation;
 
         public Dictionary<string, Action> NavigationActionsByMenuLabel

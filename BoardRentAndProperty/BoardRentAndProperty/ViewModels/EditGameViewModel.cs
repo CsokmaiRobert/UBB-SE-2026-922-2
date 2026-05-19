@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using BoardRentAndProperty.ApiClient;
 using BoardRentAndProperty.Constants;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
@@ -39,14 +41,20 @@ namespace BoardRentAndProperty.ViewModels
             this.authorizationService = authorizationService;
         }
 
-        public void LoadGame(int gameIdToLoad)
+        public EditGameViewModel(IGameService gameListingService)
+            : this(gameListingService, new AlwaysAuthorizedDesktopAuthorizationService())
         {
-            var loadedGame = gameListingService.GetGameByIdentifier(gameIdToLoad);
-            if (loadedGame == null)
+        }
+
+        public async Task LoadGameAsync(int gameIdToLoad)
+        {
+            var loadedGameResult = await this.gameListingService.GetGameByIdAsync(gameIdToLoad);
+            if (!loadedGameResult.Success || loadedGameResult.Data == null)
             {
                 return;
             }
 
+            var loadedGame = loadedGameResult.Data;
             var loadedGameOwnerId = loadedGame.Owner?.Id ?? MissingOwnerId;
             if (!this.CanManageGame(loadedGameOwnerId))
             {
@@ -67,10 +75,10 @@ namespace BoardRentAndProperty.ViewModels
 
         public List<string> ValidateGameInputs()
         {
-            return gameListingService.ValidateGame(BuildUpdatedGameDataTransferObject());
+            return GameInputValidator.Validate(BuildUpdatedGameDataTransferObject());
         }
 
-        public ViewOperationResult SubmitGameUpdate()
+        public async Task<ViewOperationResult> SubmitGameUpdateAsync()
         {
             if (!this.CanManageGame(EditedGameOwnerId))
             {
@@ -87,8 +95,12 @@ namespace BoardRentAndProperty.ViewModels
                     string.Join(Environment.NewLine, gameValidationErrors));
             }
 
-            UpdateGame();
-            return ViewOperationResult.Success();
+            var updateResult = await this.UpdateGameAsync();
+            return updateResult != null
+                ? ViewOperationResult.Success()
+                : ViewOperationResult.Failure(
+                    Constants.DialogTitles.ValidationError,
+                    Constants.DialogMessages.UnexpectedErrorOccurred);
         }
 
         public void SetGamePriceFromText(string rawPriceText)
@@ -102,17 +114,20 @@ namespace BoardRentAndProperty.ViewModels
             GamePrice = ZeroPriceForEmptyOrInvalidInput;
         }
 
-        public GameDTO UpdateGame()
+        public async Task<GameDTO?> UpdateGameAsync()
         {
             var updatedGameDataTransferObject = BuildUpdatedGameDataTransferObject();
 
-            if (gameListingService.ValidateGame(updatedGameDataTransferObject).Count > NoValidationErrors)
+            if (GameInputValidator.Validate(updatedGameDataTransferObject).Count > NoValidationErrors)
             {
                 return null;
             }
 
-            gameListingService.UpdateGameByIdentifier(EditedGameId, updatedGameDataTransferObject);
-            return updatedGameDataTransferObject;
+            var updateGameResult = await this.gameListingService.UpdateGameAsync(
+                EditedGameId,
+                updatedGameDataTransferObject);
+
+            return updateGameResult.Success ? updatedGameDataTransferObject : null;
         }
 
         private bool CanManageGame(Guid ownerAccountId)
@@ -135,6 +150,19 @@ namespace BoardRentAndProperty.ViewModels
                 Image = GameImage,
                 IsActive = IsGameActive
             };
+        }
+
+        private sealed class AlwaysAuthorizedDesktopAuthorizationService : IDesktopAuthorizationService
+        {
+            public Guid CurrentAccountId => Guid.Empty;
+
+            public bool IsLoggedIn => true;
+
+            public bool IsAdministrator => true;
+
+            public bool CanAccessPage(Type pageType) => true;
+
+            public bool CanAccessMenuPage(AppPage page) => true;
         }
     }
 }

@@ -17,6 +17,7 @@ namespace BoardRentAndProperty.Views
             this.InitializeComponent();
 
             GamePicker.ItemsSource = ViewModel.AvailableGamesToRequest;
+            this.Loaded += async (sender, eventArguments) => await ViewModel.LoadAvailableGamesAsync();
         }
 
         private void GamePicker_SelectionChanged(object sender, SelectionChangedEventArgs selectionChangedEventArgs)
@@ -29,7 +30,7 @@ namespace BoardRentAndProperty.Views
             ViewModel.StartDate = StartDatePicker.Date;
             ViewModel.EndDate = EndDatePicker.Date;
 
-            var submitResult = ViewModel.SubmitRequest();
+            var submitResult = await ViewModel.SubmitRequestAsync();
             if (submitResult.IsSuccess)
             {
                 if (Frame.CanGoBack)

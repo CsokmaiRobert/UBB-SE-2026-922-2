@@ -23,14 +23,12 @@ namespace BoardRentAndProperty.Views
             { AppPage.Admin,               typeof(AdminPage) },
         };
 
-        private IGameService injectedGameService;
         private readonly IDesktopAuthorizationService authorizationService;
 
         public MenuBarPage()
         {
             this.InitializeComponent();
             this.ViewModel = App.Services.GetRequiredService<MenuBarViewModel>();
-            this.injectedGameService = App.Services.GetRequiredService<IGameService>();
             this.authorizationService = App.Services.GetRequiredService<IDesktopAuthorizationService>();
             this.DataContext = this.ViewModel;
             this.ViewModel.RequestNavigation += this.OnViewModelRequestedNavigation;
@@ -67,14 +65,9 @@ namespace BoardRentAndProperty.Views
                 return;
             }
 
-            if (navigationEventArgs.Parameter is IGameService gameService)
-            {
-                this.injectedGameService = gameService;
-            }
-
             if (this.ContentFrame.Content == null)
             {
-                this.ContentFrame.Navigate(typeof(ListingsPage), this.injectedGameService);
+                this.ContentFrame.Navigate(typeof(ListingsPage));
             }
         }
 
@@ -101,7 +94,7 @@ namespace BoardRentAndProperty.Views
                 return;
             }
 
-            this.ContentFrame.Navigate(pageType, this.injectedGameService);
+            this.ContentFrame.Navigate(pageType);
         }
 
         private void OnContentFrameNavigating(object sender, NavigatingCancelEventArgs navigatingEventArgs)
@@ -122,7 +115,7 @@ namespace BoardRentAndProperty.Views
 
             if (this.ContentFrame.Content == null)
             {
-                this.ContentFrame.Navigate(typeof(ListingsPage), this.injectedGameService);
+                this.ContentFrame.Navigate(typeof(ListingsPage));
             }
         }
 
