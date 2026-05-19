@@ -3,9 +3,9 @@ using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
+using BoardRentAndProperty.ApiClient;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Services.Listeners;
@@ -55,8 +55,7 @@ namespace BoardRentAndProperty
 
         private Window? mainWindow;
         private readonly bool shouldLaunchSecondClient;
-        private INotificationService? notificationService;
-        private IGameService? gameService;
+        private IDesktopNotificationService? notificationService;
         private readonly NotificationManager notificationManager;
 
         public App()
@@ -90,36 +89,23 @@ namespace BoardRentAndProperty
                 ?? throw new InvalidOperationException("ApiBaseUrl is not configured in App.config.");
             var apiBaseAddress = new Uri(apiBaseUrl, UriKind.Absolute);
 
-            serviceCollection.AddHttpClient(string.Empty, client =>
+            serviceCollection.AddBoardRentApiClient(apiClientOptions =>
             {
-                client.BaseAddress = apiBaseAddress;
-                client.Timeout = TimeSpan.FromSeconds(10);
+                apiClientOptions.BaseAddress = apiBaseAddress;
+                apiClientOptions.Timeout = TimeSpan.FromSeconds(10);
             });
-            serviceCollection.AddTransient(serviceProvider =>
-                serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient());
 
             serviceCollection.AddSingleton<ISessionContext, SessionContext>();
             serviceCollection.AddSingleton<ICurrentUserContext, CurrentUserContext>();
+            serviceCollection.AddSingleton<IDesktopAuthorizationService, DesktopAuthorizationService>();
             serviceCollection.AddSingleton<IToastNotificationService, ToastNotificationService>();
             serviceCollection.AddSingleton<IServerClient, NotificationClient>();
             serviceCollection.AddSingleton<IFilePickerService, FilePickerService>();
+            serviceCollection.AddSingleton<IDesktopNotificationService, DesktopNotificationService>();
 
-            // PaM services
-            serviceCollection.AddSingleton<IUserService, UserService>();
-            serviceCollection.AddSingleton<IGameService, GameService>();
-            serviceCollection.AddSingleton<IRentalService, RentalService>();
-            serviceCollection.AddSingleton<INotificationService, NotificationService>();
-            serviceCollection.AddSingleton<IRequestService, RequestService>();
-            serviceCollection.AddSingleton<IAuthService, AuthService>();
-            serviceCollection.AddSingleton<IAccountService, AccountService>();
-            serviceCollection.AddSingleton<IAdminService, AdminService>();
-
-            // PaM view models
             serviceCollection.AddSingleton<NotificationsViewModel>();
             serviceCollection.AddSingleton<MenuBarViewModel>();
-            serviceCollection.AddTransient(serviceProvider => new ListingsViewModel(
-                serviceProvider.GetRequiredService<IGameService>(),
-                serviceProvider.GetRequiredService<ICurrentUserContext>().CurrentUserId));
+            serviceCollection.AddTransient<ListingsViewModel>();
             serviceCollection.AddTransient<CreateGameViewModel>();
             serviceCollection.AddTransient<EditGameViewModel>();
             serviceCollection.AddTransient<CreateRequestViewModel>();
@@ -142,6 +128,18 @@ namespace BoardRentAndProperty
         {
             if (Application.Current is not App appInstance) return;
             if (appInstance.RootFrame == null) return;
+            var authorizationService = Services.GetService<IDesktopAuthorizationService>();
+            if (authorizationService != null && !authorizationService.CanAccessPage(pageType))
+            {
+                if (!authorizationService.IsLoggedIn)
+                {
+                    appInstance.RootFrame.Navigate(typeof(LoginPage));
+                    appInstance.RootFrame.BackStack.Clear();
+                }
+
+                return;
+            }
+
             appInstance.RootFrame.Navigate(pageType, parameter);
             if (clearBackStack) appInstance.RootFrame.BackStack.Clear();
         }
@@ -288,6 +286,13 @@ namespace BoardRentAndProperty
 
         private void NavigateToNotificationsWithinShell()
         {
+            var authorizationService = Services.GetRequiredService<IDesktopAuthorizationService>();
+            if (!authorizationService.IsLoggedIn)
+            {
+                OnUserLoggedOut();
+                return;
+            }
+
             if (RootFrame?.Content is MenuBarPage currentShell) { currentShell.NavigateToNotifications(); return; }
             void OnShellLoaded(object sender, NavigationEventArgs navigationEventArgs)
             {
@@ -298,7 +303,7 @@ namespace BoardRentAndProperty
                 }
             }
             RootFrame!.Navigated += OnShellLoaded;
-            RootFrame.Navigate(typeof(MenuBarPage), gameService);
+            NavigateTo(typeof(MenuBarPage));
         }
 
         private void EnsureSingleInstance(string appUserModelId)
@@ -315,8 +320,7 @@ namespace BoardRentAndProperty
         private void InitializeServices()
         {
             RootFrame = new Frame();
-            notificationService = Services.GetRequiredService<INotificationService>();
-            gameService = Services.GetRequiredService<IGameService>();
+            notificationService = Services.GetRequiredService<IDesktopNotificationService>();
             NotificationsViewModel = Services.GetRequiredService<NotificationsViewModel>();
             notificationService.StartListening();
         }
@@ -337,14 +341,13 @@ namespace BoardRentAndProperty
             if (Application.Current is not App appInstance) return;
             if (appInstance.RootFrame == null) return;
             var resolvedSessionContext = Services.GetRequiredService<ISessionContext>();
-            var resolvedNotificationService = Services.GetRequiredService<INotificationService>();
+            var resolvedNotificationService = Services.GetRequiredService<IDesktopNotificationService>();
             var resolvedMenuBarViewModel = Services.GetRequiredService<MenuBarViewModel>();
             var resolvedNotificationsViewModel = Services.GetRequiredService<NotificationsViewModel>();
-            var resolvedGameService = Services.GetRequiredService<IGameService>();
             resolvedNotificationService.SubscribeToServer(resolvedSessionContext.AccountId);
             resolvedMenuBarViewModel.Rebuild();
-            resolvedNotificationsViewModel.LoadNotificationsForUser(resolvedSessionContext.AccountId);
-            NavigateTo(typeof(MenuBarPage), resolvedGameService, clearBackStack: true);
+            _ = resolvedNotificationsViewModel.LoadNotificationsForUserAsync(resolvedSessionContext.AccountId);
+            NavigateTo(typeof(MenuBarPage), clearBackStack: true);
         }
 
         public static void OnUserLoggedOut()

@@ -52,7 +52,7 @@ namespace BoardRentAndProperty.Views
 
             if (deleteConfirmationResult == ContentDialogResult.Primary)
             {
-                var gameDeletionResult = ViewModel.TryDeleteGame(gameToDelete);
+                var gameDeletionResult = await ViewModel.TryDeleteGameAsync(gameToDelete);
                 if (!string.IsNullOrWhiteSpace(gameDeletionResult.DialogMessage))
                 {
                     await DialogHelper.ShowMessageAsync(
@@ -63,12 +63,13 @@ namespace BoardRentAndProperty.Views
             }
         }
 
-        protected override void OnNavigatedTo(NavigationEventArgs navigationEventArgs)
+        protected override async void OnNavigatedTo(NavigationEventArgs navigationEventArgs)
         {
             base.OnNavigatedTo(navigationEventArgs);
 
             ViewModel = App.Services.GetRequiredService<ListingsViewModel>();
             this.DataContext = ViewModel;
+            await ViewModel.LoadGamesAsync();
         }
 
         private void PrevButton_Click(object sender, RoutedEventArgs routedEventArgs)

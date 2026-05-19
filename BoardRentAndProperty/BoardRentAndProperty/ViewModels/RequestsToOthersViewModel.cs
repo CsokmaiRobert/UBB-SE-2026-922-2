@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading.Tasks;
+using BoardRentAndProperty.ApiClient;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Utilities;
@@ -18,38 +20,47 @@ namespace BoardRentAndProperty.ViewModels
         {
             this.rentalRequestService = rentalRequestService;
             this.currentUserContext = currentUserContext;
-            Reload();
+            _ = this.ReloadAsync();
         }
 
         public override string ShowingText => $"Showing {DisplayedCount} of {TotalCount} requests";
 
-        public void LoadRequests() => Reload();
+        public Task LoadRequestsAsync() => this.ReloadAsync();
 
         protected override void Reload()
         {
+            _ = this.ReloadAsync();
+        }
+
+        private async Task ReloadAsync()
+        {
             CurrentRenterUserId = currentUserContext.CurrentUserId;
-            var renterRequestsSortedByNewest = rentalRequestService
-                .GetRequestsForRenter(CurrentRenterUserId)
-                .OrderByDescending(request => request.StartDate)
-                .ToImmutableList();
+            var requestsResult = await this.rentalRequestService.GetRequestsForRenterAsync(CurrentRenterUserId);
+            var renterRequestsSortedByNewest = requestsResult.Success && requestsResult.Data != null
+                ? requestsResult.Data.OrderByDescending(request => request.StartDate).ToImmutableList()
+                : ImmutableList<RequestDTO>.Empty;
             SetAllItems(renterRequestsSortedByNewest);
         }
 
-        public string? TryCancelRequest(int requestIdToCancel)
+        public async Task<string?> TryCancelRequestAsync(int requestIdToCancel)
         {
-            var cancellationResult = rentalRequestService.CancelRequest(requestIdToCancel, CurrentRenterUserId);
-            if (cancellationResult.IsSuccess)
+            var cancellationAction = new RequestActionDataTransferObject { AccountId = CurrentRenterUserId };
+            var cancellationResult = await this.rentalRequestService.CancelRequestAsync(
+                requestIdToCancel,
+                cancellationAction);
+            if (cancellationResult.Success)
             {
-                Reload();
+                await this.ReloadAsync();
                 return null;
             }
 
-            return cancellationResult.Error switch
+            return RequestErrorMapper.MapCancel(cancellationResult) switch
             {
                 CancelRequestError.NotFound => "Request not found.",
                 CancelRequestError.Unauthorized => "You are not authorized to cancel this request.",
                 _ => Constants.DialogMessages.UnexpectedErrorOccurred
             };
         }
+
     }
 }

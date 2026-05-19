@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Immutable;
+using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Tests.Fakes;
@@ -29,7 +30,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
         }
 
         [Test]
-        public void Constructor_LoadsNotificationsForCurrentUser()
+        public async Task Constructor_LoadsNotificationsForCurrentUser()
         {
             this.notificationService.NotificationsForUser = ImmutableList.Create(
                     new NotificationDTO { Id = 1, Recipient = new UserDTO { Id = this.currentUserId }, Title = "a", Body = "b" },
@@ -39,12 +40,13 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 this.notificationService,
                 this.currentUserContext,
                 this.serverClient);
+            await viewModel.LoadCurrentUserNotificationsAsync();
 
             Assert.That(viewModel.PagedItems.Count, Is.EqualTo(2));
         }
 
         [Test]
-        public void DeleteNotificationByIdentifier_CallsServiceDelete()
+        public async Task DeleteNotificationByIdentifier_CallsServiceDelete()
         {
             this.notificationService.NotificationsForUser = ImmutableList<NotificationDTO>.Empty;
 
@@ -53,7 +55,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
                 this.currentUserContext,
                 this.serverClient);
 
-            viewModel.DeleteNotificationByIdentifier(7);
+            await viewModel.DeleteNotificationByIdentifierAsync(7);
 
             Assert.That(this.notificationService.DeleteNotificationCallCount, Is.EqualTo(1));
             Assert.That(this.notificationService.LastDeletedNotificationId, Is.EqualTo(7));

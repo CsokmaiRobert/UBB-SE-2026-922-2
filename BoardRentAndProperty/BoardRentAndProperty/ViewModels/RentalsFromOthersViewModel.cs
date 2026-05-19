@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading.Tasks;
+using BoardRentAndProperty.ApiClient;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
-using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Utilities;
 
 namespace BoardRentAndProperty.ViewModels
@@ -18,20 +19,25 @@ namespace BoardRentAndProperty.ViewModels
         {
             this.rentalLookupService = rentalLookupService;
             this.currentUserContext = currentUserContext;
-            Reload();
+            _ = this.ReloadAsync();
         }
 
         public override string ShowingText => $"Showing {DisplayedCount} of {TotalCount} rentals";
 
-        public void LoadRentals() => Reload();
+        public Task LoadRentalsAsync() => this.ReloadAsync();
 
         protected override void Reload()
         {
+            _ = this.ReloadAsync();
+        }
+
+        private async Task ReloadAsync()
+        {
             CurrentRenterUserId = currentUserContext.CurrentUserId;
-            var currentUserRentalsSortedByNewest = rentalLookupService
-                .GetRentalsForRenter(CurrentRenterUserId)
-                .OrderByDescending(rental => rental.StartDate)
-                .ToImmutableList();
+            var rentalsResult = await this.rentalLookupService.GetRentalsForRenterAsync(CurrentRenterUserId);
+            var currentUserRentalsSortedByNewest = rentalsResult.Success && rentalsResult.Data != null
+                ? rentalsResult.Data.OrderByDescending(rental => rental.StartDate).ToImmutableList()
+                : ImmutableList<RentalDTO>.Empty;
             SetAllItems(currentUserRentalsSortedByNewest);
         }
     }

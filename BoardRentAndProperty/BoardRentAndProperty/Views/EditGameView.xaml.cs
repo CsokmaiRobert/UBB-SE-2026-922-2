@@ -25,7 +25,29 @@ namespace BoardRentAndProperty.Views
 
             if (navigationEventArgs.Parameter is int incomingGameId)
             {
-                ViewModel.LoadGame(incomingGameId);
+                try
+                {
+                    await ViewModel.LoadGameAsync(incomingGameId);
+                }
+                catch (UnauthorizedAccessException unauthorizedAccessException)
+                {
+                    await DialogHelper.ShowMessageAsync(
+                        this.XamlRoot,
+                        "Access Denied",
+                        unauthorizedAccessException.Message);
+
+                    if (Frame.CanGoBack)
+                    {
+                        Frame.GoBack();
+                    }
+                    else
+                    {
+                        Frame.Navigate(typeof(ListingsPage));
+                    }
+
+                    return;
+                }
+
                 this.Bindings.Update();
             }
 
@@ -45,7 +67,7 @@ namespace BoardRentAndProperty.Views
         {
             ViewModel.SetGamePriceFromText(PriceNumberBox.Text);
 
-            var gameUpdateResult = ViewModel.SubmitGameUpdate();
+            var gameUpdateResult = await ViewModel.SubmitGameUpdateAsync();
             if (gameUpdateResult.IsSuccess)
             {
                 if (Frame.CanGoBack)

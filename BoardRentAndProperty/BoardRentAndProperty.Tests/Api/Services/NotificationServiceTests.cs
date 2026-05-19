@@ -6,6 +6,7 @@ using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Contracts.Models;
 using BoardRentAndProperty.Tests.Fakes;
 using NUnit.Framework;
+using NotificationService = BoardRentAndProperty.Api.Services.NotificationService;
 
 namespace BoardRentAndProperty.Tests.Api.Services
 {

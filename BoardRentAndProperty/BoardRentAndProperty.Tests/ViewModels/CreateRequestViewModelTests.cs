@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Tests.Fakes;
@@ -32,7 +33,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
         }
 
         [Test]
-        public void Constructor_LoadsGamesCurrentUserAndRefreshesCollection()
+        public async Task Constructor_LoadsGamesCurrentUserAndRefreshesCollection()
         {
             var viewModel = BuildViewModel();
 
@@ -48,7 +49,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             this.gameService.AvailableGamesForRenter =
                 ImmutableList.Create(BuildOtherUsersGame(300), BuildOtherUsersGame(401));
 
-            viewModel.LoadAvailableGames();
+            await viewModel.LoadAvailableGamesAsync();
 
             Assert.That(viewModel.AvailableGamesToRequest.Count, Is.EqualTo(2));
         }
@@ -67,11 +68,11 @@ namespace BoardRentAndProperty.Tests.ViewModels
         }
 
         [Test]
-        public void SubmitRequest_CoversValidationSuccessAndInvalidDateRange()
+        public async Task SubmitRequest_CoversValidationSuccessAndInvalidDateRange()
         {
             var invalidViewModel = BuildViewModel();
 
-            ViewOperationResult validationFailure = invalidViewModel.SubmitRequest();
+            ViewOperationResult validationFailure = await invalidViewModel.SubmitRequestAsync();
 
             Assert.Multiple(() =>
             {
@@ -85,7 +86,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             var successfulViewModel = BuildViewModel();
             PopulateWithValidSelections(successfulViewModel);
 
-            ViewOperationResult successResult = successfulViewModel.SubmitRequest();
+            ViewOperationResult successResult = await successfulViewModel.SubmitRequestAsync();
 
             Assert.That(successResult.IsSuccess, Is.True);
             Assert.That(this.requestService.CreateRequestCallCount, Is.EqualTo(1));
@@ -99,7 +100,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             var invalidDateRangeViewModel = BuildViewModel();
             PopulateWithValidSelections(invalidDateRangeViewModel);
 
-            ViewOperationResult invalidDateRangeResult = invalidDateRangeViewModel.SubmitRequest();
+            ViewOperationResult invalidDateRangeResult = await invalidDateRangeViewModel.SubmitRequestAsync();
 
             Assert.Multiple(() =>
             {
@@ -109,7 +110,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
         }
 
         [Test]
-        public void SubmitRequest_MapsServiceErrorsAndTrySubmitRequestMirrorsResult()
+        public async Task SubmitRequest_MapsServiceErrorsAndTrySubmitRequestMirrorsResult()
         {
             this.requestService.CreateRequestResult =
                 Result<int, CreateRequestError>.Failure(CreateRequestError.OwnerCannotRent);
@@ -117,14 +118,15 @@ namespace BoardRentAndProperty.Tests.ViewModels
             var ownerCannotRentViewModel = BuildViewModel();
             PopulateWithValidSelections(ownerCannotRentViewModel);
 
-            ViewOperationResult ownerCannotRentResult = ownerCannotRentViewModel.SubmitRequest();
+            ViewOperationResult ownerCannotRentResult = await ownerCannotRentViewModel.SubmitRequestAsync();
+            string? ownerCannotRentTrySubmitMessage = await ownerCannotRentViewModel.TrySubmitRequestAsync();
 
             Assert.Multiple(() =>
             {
                 Assert.That(ownerCannotRentResult.IsSuccess, Is.False);
                 Assert.That(ownerCannotRentResult.DialogTitle, Is.EqualTo("Request Failed"));
                 Assert.That(ownerCannotRentResult.DialogMessage, Does.Contain("own game"));
-                Assert.That(ownerCannotRentViewModel.TrySubmitRequest(), Does.Contain("own game"));
+                Assert.That(ownerCannotRentTrySubmitMessage, Does.Contain("own game"));
             });
 
             this.requestService.CreateRequestResult =
@@ -132,20 +134,23 @@ namespace BoardRentAndProperty.Tests.ViewModels
 
             var datesUnavailableViewModel = BuildViewModel();
             PopulateWithValidSelections(datesUnavailableViewModel);
-            Assert.That(datesUnavailableViewModel.SubmitRequest().DialogMessage, Does.Contain("not available"));
+            ViewOperationResult datesUnavailableResult = await datesUnavailableViewModel.SubmitRequestAsync();
+            Assert.That(datesUnavailableResult.DialogMessage, Does.Contain("not available"));
 
             this.requestService.CreateRequestResult =
                 Result<int, CreateRequestError>.Failure(CreateRequestError.GameDoesNotExist);
 
             var missingGameViewModel = BuildViewModel();
             PopulateWithValidSelections(missingGameViewModel);
-            Assert.That(missingGameViewModel.SubmitRequest().DialogMessage, Does.Contain("no longer exists"));
+            ViewOperationResult missingGameResult = await missingGameViewModel.SubmitRequestAsync();
+            Assert.That(missingGameResult.DialogMessage, Does.Contain("no longer exists"));
 
             this.requestService.CreateRequestResult = Result<int, CreateRequestError>.Success(1);
 
             var successfulTrySubmitViewModel = BuildViewModel();
             PopulateWithValidSelections(successfulTrySubmitViewModel);
-            Assert.That(successfulTrySubmitViewModel.TrySubmitRequest(), Is.Null);
+            string? successfulTrySubmitMessage = await successfulTrySubmitViewModel.TrySubmitRequestAsync();
+            Assert.That(successfulTrySubmitMessage, Is.Null);
         }
 
         [Test]

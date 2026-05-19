@@ -80,11 +80,11 @@ namespace BoardRentAndProperty.Tests.ViewModels
         }
 
         [Test]
-        public void CreateRental_CoversSuccessValidationFailureAndExceptions()
+        public async Task CreateRental_CoversSuccessValidationFailureAndExceptions()
         {
             var invalidViewModel = BuildViewModel();
 
-            ViewOperationResult validationFailure = invalidViewModel.CreateRental();
+            ViewOperationResult validationFailure = await invalidViewModel.CreateRentalAsync();
 
             Assert.Multiple(() =>
             {
@@ -96,7 +96,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             var successfulViewModel = BuildViewModel();
             PopulateWithValidSelections(successfulViewModel);
 
-            ViewOperationResult successResult = successfulViewModel.CreateRental();
+            ViewOperationResult successResult = await successfulViewModel.CreateRentalAsync();
 
             Assert.That(successResult.IsSuccess, Is.True);
             Assert.That(this.rentalService.CreateRentalCallCount, Is.EqualTo(1));
@@ -110,7 +110,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             var argumentExceptionViewModel = BuildViewModel();
             PopulateWithValidSelections(argumentExceptionViewModel);
 
-            ViewOperationResult argumentExceptionResult = argumentExceptionViewModel.CreateRental();
+            ViewOperationResult argumentExceptionResult = await argumentExceptionViewModel.CreateRentalAsync();
 
             Assert.Multiple(() =>
             {
@@ -124,7 +124,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             var unexpectedExceptionViewModel = BuildViewModel();
             PopulateWithValidSelections(unexpectedExceptionViewModel);
 
-            ViewOperationResult unexpectedExceptionResult = unexpectedExceptionViewModel.CreateRental();
+            ViewOperationResult unexpectedExceptionResult = await unexpectedExceptionViewModel.CreateRentalAsync();
 
             Assert.Multiple(() =>
             {
@@ -135,16 +135,16 @@ namespace BoardRentAndProperty.Tests.ViewModels
         }
 
         [Test]
-        public void SaveRental_CoversSuccessValidationFailureAndServiceMessage()
+        public async Task SaveRental_CoversSuccessValidationFailureAndServiceMessage()
         {
             var successfulViewModel = BuildViewModel();
             PopulateWithValidSelections(successfulViewModel);
 
-            string? validationMessage = successfulViewModel.SaveRental();
+            string? validationMessage = await successfulViewModel.SaveRentalAsync();
             Assert.That(validationMessage, Is.Null);
 
             var invalidViewModel = BuildViewModel();
-            string? invalidResult = invalidViewModel.SaveRental();
+            string? invalidResult = await invalidViewModel.SaveRentalAsync();
             Assert.That(invalidResult, Is.EqualTo("Validation failed."));
 
             this.rentalService.CreateRentalException = new Exception("Database connection lost.");
@@ -152,7 +152,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             var failingViewModel = BuildViewModel();
             PopulateWithValidSelections(failingViewModel);
 
-            string? exceptionMessage = failingViewModel.SaveRental();
+            string? exceptionMessage = await failingViewModel.SaveRentalAsync();
             Assert.That(exceptionMessage, Is.EqualTo("Database connection lost."));
         }
 

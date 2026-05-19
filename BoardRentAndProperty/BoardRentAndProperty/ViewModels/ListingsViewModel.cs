@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Immutable;
+using System.Threading.Tasks;
+using BoardRentAndProperty.ApiClient;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Services;
 
@@ -12,36 +14,69 @@ namespace BoardRentAndProperty.ViewModels
             "There are {0} active rentals for this game. It was removed successfully.";
 
         private readonly IGameService gameListingService;
-        private readonly Guid currentOwnerUserId;
+        private readonly IDesktopAuthorizationService authorizationService;
 
-        public ListingsViewModel(IGameService gameListingService, Guid currentOwnerUserId)
+        public ListingsViewModel(IGameService gameListingService, IDesktopAuthorizationService authorizationService)
         {
             this.gameListingService = gameListingService;
-            this.currentOwnerUserId = currentOwnerUserId;
-            Reload();
+            this.authorizationService = authorizationService;
+            _ = this.ReloadAsync();
         }
 
-        public void LoadGames() => Reload();
+        public ListingsViewModel(IGameService gameListingService, Guid currentAccountId)
+            : this(gameListingService, new FixedDesktopAuthorizationService(currentAccountId))
+        {
+        }
+
+        public string PageTitle => this.authorizationService.IsAdministrator ? "Games" : "My Listings";
+
+        public Task LoadGamesAsync() => this.ReloadAsync();
 
         protected override void Reload()
         {
-            var ownerGameListings = gameListingService.GetGamesForOwner(currentOwnerUserId);
-            SetAllItems(ownerGameListings.ToImmutableList());
+            _ = this.ReloadAsync();
+        }
+
+        private async Task ReloadAsync()
+        {
+            if (!this.authorizationService.IsLoggedIn)
+            {
+                this.SetAllItems(ImmutableList<GameDTO>.Empty);
+                return;
+            }
+
+            var gameListingsResult = this.authorizationService.IsAdministrator
+                ? await this.gameListingService.GetAllGamesAsync()
+                : await this.gameListingService.GetGamesForOwnerAsync(this.authorizationService.CurrentAccountId);
+
+            this.SetAllItems(gameListingsResult.Success && gameListingsResult.Data != null
+                ? gameListingsResult.Data.ToImmutableList()
+                : ImmutableList<GameDTO>.Empty);
         }
 
         public override string ShowingText => $"Showing {DisplayedCount} of {TotalCount} games";
 
-        public void DeleteGame(GameDTO gameToDelete)
+        public async Task DeleteGameAsync(GameDTO gameToDelete)
         {
-            gameListingService.DeleteGameByIdentifier(gameToDelete.Id);
-            Reload();
+            if (!this.CanManageGame(gameToDelete))
+            {
+                throw new UnauthorizedAccessException("You are not authorized to delete this game.");
+            }
+
+            var deleteResult = await this.gameListingService.DeleteGameAsync(gameToDelete.Id);
+            if (!deleteResult.Success)
+            {
+                throw new InvalidOperationException(deleteResult.Error ?? Constants.DialogMessages.UnexpectedErrorOccurred);
+            }
+
+            await this.ReloadAsync();
         }
 
-        public ViewOperationResult TryDeleteGame(GameDTO gameToDelete)
+        public async Task<ViewOperationResult> TryDeleteGameAsync(GameDTO gameToDelete)
         {
             try
             {
-                DeleteGame(gameToDelete);
+                await this.DeleteGameAsync(gameToDelete);
                 return ViewOperationResult.Success(
                     Constants.DialogTitles.GameRemoved,
                     string.Format(DeleteSuccessMessageTemplate, NoActiveRentalsCount));
@@ -60,6 +95,32 @@ namespace BoardRentAndProperty.ViewModels
                         ? Constants.DialogMessages.UnexpectedErrorOccurred
                         : unexpectedException.Message);
             }
+        }
+
+        private bool CanManageGame(GameDTO gameToManage)
+        {
+            return this.authorizationService.IsAdministrator
+                || gameToManage.Owner?.Id == this.authorizationService.CurrentAccountId;
+        }
+
+        private sealed class FixedDesktopAuthorizationService : IDesktopAuthorizationService
+        {
+            private readonly Guid currentAccountId;
+
+            public FixedDesktopAuthorizationService(Guid currentAccountId)
+            {
+                this.currentAccountId = currentAccountId;
+            }
+
+            public Guid CurrentAccountId => this.currentAccountId;
+
+            public bool IsLoggedIn => true;
+
+            public bool IsAdministrator => false;
+
+            public bool CanAccessPage(Type pageType) => true;
+
+            public bool CanAccessMenuPage(AppPage page) => true;
         }
     }
 }

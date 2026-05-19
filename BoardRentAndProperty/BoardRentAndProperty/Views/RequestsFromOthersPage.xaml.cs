@@ -18,19 +18,25 @@ namespace BoardRentAndProperty.Views
             InitializeComponent();
         }
 
-        protected override void OnNavigatedTo(NavigationEventArgs navigationEventArgs)
+        protected override async void OnNavigatedTo(NavigationEventArgs navigationEventArgs)
         {
             base.OnNavigatedTo(navigationEventArgs);
 
             if (navigationEventArgs.Parameter is RequestsFromOthersViewModel requestsFromOthersViewModel)
             {
                 DataContext = requestsFromOthersViewModel;
+                await requestsFromOthersViewModel.LoadRequestsAsync();
                 return;
             }
 
             if (DataContext is not RequestsFromOthersViewModel)
             {
                 DataContext = App.Services.GetRequiredService<RequestsFromOthersViewModel>();
+            }
+
+            if (DataContext is RequestsFromOthersViewModel currentViewModel)
+            {
+                await currentViewModel.LoadRequestsAsync();
             }
         }
 
@@ -69,7 +75,9 @@ namespace BoardRentAndProperty.Views
             }
 
             var pageViewModel = DataContext as RequestsFromOthersViewModel;
-            var offerErrorMessage = pageViewModel?.TryOfferGame(requestId);
+            var offerErrorMessage = pageViewModel == null
+                ? null
+                : await pageViewModel.TryOfferGameAsync(requestId);
             if (offerErrorMessage != null)
             {
                 await DialogHelper.ShowMessageAsync(this.XamlRoot, Constants.DialogTitles.OfferFailed, offerErrorMessage);
@@ -116,7 +124,9 @@ namespace BoardRentAndProperty.Views
             }
 
             var pageViewModel = DataContext as RequestsFromOthersViewModel;
-            var denyErrorMessage = pageViewModel?.TryDenyRequest(requestId, denyReasonTextBox.Text);
+            var denyErrorMessage = pageViewModel == null
+                ? null
+                : await pageViewModel.TryDenyRequestAsync(requestId, denyReasonTextBox.Text);
             if (denyErrorMessage != null)
             {
                 await DialogHelper.ShowMessageAsync(this.XamlRoot, Constants.DialogTitles.DeclineFailed, denyErrorMessage);

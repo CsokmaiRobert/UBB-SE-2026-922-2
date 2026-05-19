@@ -33,6 +33,7 @@
       <AdditionalProperties>SkipNotificationServerBuild=true</AdditionalProperties>
     </ProjectReference>
     <ProjectReference Include="..\BoardRentAndProperty.Api\BoardRentAndProperty.Api.csproj" />
+    <ProjectReference Include="..\BoardRentAndProperty.ApiClient\BoardRentAndProperty.ApiClient.csproj" />
     <ProjectReference Include="..\BoardRentAndProperty.Contracts\BoardRentAndProperty.Contracts.csproj" />
   </ItemGroup>
 </Project>

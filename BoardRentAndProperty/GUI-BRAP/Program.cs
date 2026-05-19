@@ -1,4 +1,5 @@
 using BoardRentAndProperty.Api.Data;
+using BoardRentAndProperty.ApiClient;
 using GUI_BRAP.Infrastructure;
 using GUI_BRAP.ProxyServices;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -30,13 +31,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 string apiBaseUrl = builder.Configuration["ApiBaseUrl"]
     ?? throw new InvalidOperationException("Configuration value 'ApiBaseUrl' is required.");
 
-builder.Services.AddHttpClient(ApiClientNames.BoardRentApi, client =>
-{
-    client.BaseAddress = new Uri(apiBaseUrl);
-});
+builder.Services.AddBoardRentApiClient(options => options.BaseAddress = new Uri(apiBaseUrl));
 
 builder.Services.AddProxyServices();
-builder.Services.AddScoped<IAccountProxyService, AccountProxyService>();
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

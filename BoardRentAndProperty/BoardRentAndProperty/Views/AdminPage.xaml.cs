@@ -2,29 +2,29 @@ namespace BoardRentAndProperty.Views
 {
     using System;
     using System.ComponentModel;
+    using BoardRentAndProperty.Services;
     using BoardRentAndProperty.ViewModels;
-    using BoardRentAndProperty.Utilities;
-    using CommunityToolkit.Mvvm.DependencyInjection;
+    using Microsoft.Extensions.DependencyInjection;
     using Microsoft.UI.Xaml;
     using Microsoft.UI.Xaml.Controls;
     using Microsoft.UI.Xaml.Navigation;
 
     public sealed partial class AdminPage : Page, INotifyPropertyChanged
     {
-        private readonly ISessionContext sessionContext;
+        private readonly IDesktopAuthorizationService authorizationService;
 
         public AdminPage()
         {
             this.InitializeComponent();
-            this.sessionContext = Ioc.Default.GetService<ISessionContext>();
-            this.ViewModel = Ioc.Default.GetService<AdminViewModel>();
+            this.authorizationService = App.Services.GetRequiredService<IDesktopAuthorizationService>();
+            this.ViewModel = App.Services.GetRequiredService<AdminViewModel>();
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public AdminViewModel ViewModel { get; }
 
-        public bool IsUnauthorized => !this.sessionContext.IsLoggedIn || this.sessionContext.Role != "Administrator";
+        public bool IsUnauthorized => !this.authorizationService.IsAdministrator;
 
         public Visibility IsAuthorizedVisibility => this.IsUnauthorized ? Visibility.Collapsed : Visibility.Visible;
 
@@ -33,6 +33,12 @@ namespace BoardRentAndProperty.Views
         protected override async void OnNavigatedTo(NavigationEventArgs navigationEventArgs)
         {
             base.OnNavigatedTo(navigationEventArgs);
+
+            if (!this.authorizationService.IsLoggedIn)
+            {
+                App.OnUserLoggedOut();
+                return;
+            }
 
             if (!this.IsUnauthorized)
             {

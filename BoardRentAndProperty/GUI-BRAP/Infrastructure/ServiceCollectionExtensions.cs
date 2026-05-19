@@ -7,12 +7,13 @@ namespace GUI_BRAP.Infrastructure
     {
         public static IServiceCollection AddProxyServices(this IServiceCollection services)
         {
-            services.AddScoped<IAuthProxyService, AuthProxyService>();
-            services.AddScoped<IGameProxyService, GameProxyService>();
-            services.AddScoped<IRentalProxyService, RentalProxyService>();
-            services.AddScoped<INotificationProxyService, NotificationProxyService>();
-            services.AddScoped<IAdminProxyService, AdminProxyService>();
-            services.AddScoped<IRequestProxyService, RequestProxyService>();
+            services.AddScoped<IAuthProxyService, AuthProxyServiceAdapter>();
+            services.AddScoped<IAccountProxyService, AccountProxyServiceAdapter>();
+            services.AddScoped<IAdminProxyService, AdminProxyServiceAdapter>();
+            services.AddScoped<IGameProxyService, GameProxyServiceAdapter>();
+            services.AddScoped<IRentalProxyService, RentalProxyServiceAdapter>();
+            services.AddScoped<IRequestProxyService, RequestProxyServiceAdapter>();
+            services.AddScoped<INotificationProxyService, NotificationProxyServiceAdapter>();
             return services;
         }
     }

@@ -15,26 +15,26 @@ namespace BoardRentAndProperty.Views
             InitializeComponent();
         }
 
-        protected override void OnNavigatedTo(NavigationEventArgs navigationEventArgs)
+        protected override async void OnNavigatedTo(NavigationEventArgs navigationEventArgs)
         {
             base.OnNavigatedTo(navigationEventArgs);
 
             if (navigationEventArgs.Parameter is NotificationsViewModel navigatedViewModel)
             {
                 DataContext = navigatedViewModel;
-                navigatedViewModel.LoadNotificationsForUser(navigatedViewModel.CurrentUserId);
+                await navigatedViewModel.LoadNotificationsForUserAsync(navigatedViewModel.CurrentUserId);
                 return;
             }
 
             if (DataContext is NotificationsViewModel existingViewModel)
             {
-                existingViewModel.LoadNotificationsForUser(existingViewModel.CurrentUserId);
+                await existingViewModel.LoadNotificationsForUserAsync(existingViewModel.CurrentUserId);
                 return;
             }
 
             var resolvedViewModel = App.Services.GetRequiredService<NotificationsViewModel>();
             DataContext = resolvedViewModel;
-            resolvedViewModel.LoadNotificationsForUser(resolvedViewModel.CurrentUserId);
+            await resolvedViewModel.LoadNotificationsForUserAsync(resolvedViewModel.CurrentUserId);
         }
 
         private NotificationsViewModel? ResolveViewModel()
@@ -43,7 +43,7 @@ namespace BoardRentAndProperty.Views
             return pageRootElement?.DataContext as NotificationsViewModel;
         }
 
-        private void DeleteButton_Click(object sender, RoutedEventArgs routedEventArgs)
+        private async void DeleteButton_Click(object sender, RoutedEventArgs routedEventArgs)
         {
             var clickedButton = sender as Button;
             if (clickedButton?.DataContext is not NotificationDTO notificationToDelete)
@@ -59,7 +59,7 @@ namespace BoardRentAndProperty.Views
                 return;
             }
 
-            resolvedNotificationsViewModel.DeleteNotificationByIdentifier(notificationToDelete.Id);
+            await resolvedNotificationsViewModel.DeleteNotificationByIdentifierAsync(notificationToDelete.Id);
         }
 
         private void NextButton_Click(object sender, RoutedEventArgs routedEventArgs) => ResolveViewModel()?.NextPage();
