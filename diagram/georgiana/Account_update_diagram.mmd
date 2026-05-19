@@ -1,21 +1,34 @@
 ---
 config:
-  theme: redux
+  theme: mc
+  look: classic
 ---
 sequenceDiagram
-    autonumber
+    title User Updates Profile / Changes Password (System Architecture Flow)
     actor User
-    participant AC as AccountsController
-    participant AS as AccountService
-    participant AR as AccountRepository
-    participant DB as Database
-
-    User->>AC: UpdateProfile / ChangePassword
-    AC->>AS: UpdateAccountAsync / ChangePasswordAsync
-    Note over AS: Validation Logic
-    AS->>AR: UpdateAsync / UpdatePasswordAsync
-    AR->>DB: SQL Update
-    DB-->>AR: OK
-    AR-->>AS: Updated Entity
-    AS-->>AC: Success Result
-    AC-->>User: 200 OK / Redirect
+    participant ProfileController.cs
+    participant AccountProxyService.cs
+    participant IAccountService as BoardRentAndProperty.ApiClient: IAccountService
+    participant AccountService as API: AccountService
+    participant AccountRepository as API: AccountRepository
+    participant SQLDatabase as SQL Database
+    activate ProfileController.cs
+    activate AccountProxyService.cs
+    Note over AccountProxyService.cs: Maps data to unified contract<br/>AccountProfileDataTransferObject
+    activate IAccountService
+    IAccountService->>AccountService: HTTP PUT /api/accounts/{id} (or /change-password)
+    activate AccountService
+    Note over AccountService: Validation Logic<br/>(Checks phone/email formats & password hashes)
+    AccountService->>AccountRepository: UpdateAsync(account) / UpdatePasswordAsync(id, hash)
+    activate AccountRepository
+    AccountRepository->>SQLDatabase: UPDATE Accounts SET DisplayName, Email, Phone, Address (SaveChanges)
+    SQLDatabase-->>AccountRepository: updated Account record
+    AccountRepository-->>AccountService: Task Completed
+    deactivate AccountRepository
+    AccountService-->>IAccountService: HTTP 200 OK (Success DTO)
+    deactivate AccountService
+    deactivate IAccountService
+    Note over AccountProxyService.cs: If (!result.Success)<br/>throw ProxyServiceException()
+    deactivate AccountProxyService.cs
+    Note over ProfileController.cs: TempData["SuccessMessage"] =<br/>"Profile updated successfully."
+    deactivate ProfileController.cs
