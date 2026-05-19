@@ -1,0 +1,57 @@
+title Owner Denies Request (System Architecture Flow)
+
+actor Owner
+participant RequestController
+participant RequestProxyService
+participant "API: RequestService" as RequestService
+participant "API: NotificationService" as NotificationService
+participant "API: RequestRepository" as RequestRepository
+database AppDbContext
+
+Owner->RequestController: Click Decline / Submit Reason
+activate RequestController
+
+RequestController->RequestProxyService: DenyRequestAsync(id, ActionDTO)
+activate RequestProxyService
+
+Note over RequestProxyService: Builds JSON payload with\nAccountId & Reason
+
+RequestProxyService->RequestService: HTTP PUT /api/requests/{id}/deny
+activate RequestService
+
+RequestService->RequestRepository: Get(requestId)
+activate RequestRepository
+RequestRepository->AppDbContext: dbContext.Requests.Find(id)
+RequestRepository-->RequestService: return Request Entity
+deactivate RequestRepository
+
+Note over RequestService: Authorizes Owner &\nTrims Reason String
+
+RequestService->NotificationService: DeleteNotificationsLinkedToRequest(requestId)
+activate NotificationService
+NotificationService-->RequestService: done
+deactivate NotificationService
+
+RequestService->RequestRepository: Delete(requestId)
+activate RequestRepository
+RequestRepository->AppDbContext: dbContext.Requests.Remove(request)
+RequestRepository->AppDbContext: dbContext.SaveChanges()
+RequestRepository-->RequestService: return deleted Request
+deactivate RequestRepository
+
+RequestService->NotificationService: SendNotificationToUser(renterId, NotificationDTO)
+activate NotificationService
+Note over NotificationService: Message reads: "Your request for...\nwas declined. Reason: [reason]"
+NotificationService-->RequestService: done
+deactivate NotificationService
+
+RequestService-->RequestProxyService: HTTP 200 OK (Success)
+deactivate RequestService
+
+RequestProxyService-->RequestController: Task Completed (EnsureSuccessAsync)
+deactivate RequestProxyService
+
+Note over RequestController: TempData["SuccessMessage"] = \n"The request was declined."
+
+RequestController-->Owner: UI updates with success message
+deactivate RequestController
