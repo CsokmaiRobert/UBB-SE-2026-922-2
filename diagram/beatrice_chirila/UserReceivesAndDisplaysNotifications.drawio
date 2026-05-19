@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net">
   <diagram name="Page-1" id="pRJlGlJi-jnWvXdlc8Fb">
-    <mxGraphModel dx="1276" dy="771" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="1595" dy="963" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -100,7 +100,7 @@
             <mxPoint x="477.34999999999997" y="163.5" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="SMW_byFUR2_Rk4bGim1p-31" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-30" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=7;" value="GetNotificationsForUser(accountId)" vertex="1">
+        <mxCell id="SMW_byFUR2_Rk4bGim1p-31" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-30" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=9;" value="GetNotificationsForUser(accountId)" vertex="1">
           <mxGeometry relative="1" x="-0.0834" y="3" as="geometry">
             <mxPoint y="-1" as="offset" />
           </mxGeometry>
@@ -111,9 +111,9 @@
             <mxPoint x="638.35" y="183.5" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="SMW_byFUR2_Rk4bGim1p-33" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-32" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=7;" value="HTTP GET/api/notifications/user/{accountId}" vertex="1">
+        <mxCell id="SMW_byFUR2_Rk4bGim1p-33" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-32" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=8;" value="HTTP GET/api/notifications/user/{accountId}" vertex="1">
           <mxGeometry relative="1" x="-0.0834" y="3" as="geometry">
-            <mxPoint as="offset" />
+            <mxPoint x="3" y="-10" as="offset" />
           </mxGeometry>
         </mxCell>
         <mxCell id="SMW_byFUR2_Rk4bGim1p-35" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;entryX=0.066;entryY=0.886;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.036;exitY=0.109;exitDx=0;exitDy=0;exitPerimeter=0;" value="">
@@ -122,7 +122,7 @@
             <mxPoint x="798.35" y="203.5" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="SMW_byFUR2_Rk4bGim1p-36" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-35" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=7;" value="GetNotificationsByUser(accountId)" vertex="1">
+        <mxCell id="SMW_byFUR2_Rk4bGim1p-36" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-35" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=9;" value="GetNotificationsByUser(accountId)" vertex="1">
           <mxGeometry relative="1" x="-0.0834" y="3" as="geometry">
             <mxPoint as="offset" />
           </mxGeometry>
@@ -142,7 +142,7 @@
             <mxPoint x="962.35" y="213.5" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="SMW_byFUR2_Rk4bGim1p-42" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-41" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=7;" value="&lt;span style=&quot;color: rgb(60, 60, 67); text-align: start;&quot;&gt;&lt;font style=&quot;font-size: 6px;&quot; face=&quot;Helvetica&quot;&gt;dbContextFactory.CreateDbContext()&lt;/font&gt;&lt;/span&gt;" vertex="1">
+        <mxCell id="SMW_byFUR2_Rk4bGim1p-42" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-41" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=8;" value="&lt;span style=&quot;color: rgb(60, 60, 67); text-align: start;&quot;&gt;&lt;font face=&quot;Helvetica&quot;&gt;dbContextFactory.CreateDbContext()&lt;/font&gt;&lt;/span&gt;" vertex="1">
           <mxGeometry relative="1" x="-0.0834" y="3" as="geometry">
             <mxPoint x="7" y="-3" as="offset" />
           </mxGeometry>
@@ -153,9 +153,9 @@
             <mxPoint x="892.35" y="273.5" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="SMW_byFUR2_Rk4bGim1p-44" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-43" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=7;" value="&lt;font style=&quot;font-size: 5px;&quot;&gt;return ImmutableList&amp;lt;Notification&amp;gt;&lt;/font&gt;" vertex="1">
+        <mxCell id="SMW_byFUR2_Rk4bGim1p-44" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-43" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=8;" value="&lt;font&gt;return ImmutableList&amp;lt;Notification&amp;gt;&lt;/font&gt;" vertex="1">
           <mxGeometry relative="1" x="-0.0834" y="3" as="geometry">
-            <mxPoint y="-8" as="offset" />
+            <mxPoint x="-4" y="1" as="offset" />
           </mxGeometry>
         </mxCell>
         <mxCell id="SMW_byFUR2_Rk4bGim1p-45" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;exitX=0.304;exitY=-0.044;exitDx=0;exitDy=0;exitPerimeter=0;dashed=1;" value="">
@@ -164,7 +164,7 @@
             <mxPoint x="647.35" y="303.5" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="SMW_byFUR2_Rk4bGim1p-46" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-45" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=7;" value="&lt;font style=&quot;font-size: 5px;&quot;&gt;return List&amp;lt;Notification&amp;gt;&lt;/font&gt;" vertex="1">
+        <mxCell id="SMW_byFUR2_Rk4bGim1p-46" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-45" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=9;" value="&lt;font&gt;return ImmutableList&amp;lt;Notification&amp;gt;&lt;/font&gt;" vertex="1">
           <mxGeometry relative="1" x="-0.0834" y="3" as="geometry">
             <mxPoint y="-8" as="offset" />
           </mxGeometry>
@@ -175,7 +175,7 @@
             <mxPoint x="487.35" y="343.5" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="SMW_byFUR2_Rk4bGim1p-49" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-48" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=7;" value="&lt;font style=&quot;font-size: 5px;&quot;&gt;HTTP 200 OK (ImmutableList&amp;lt;NotificationDTO&amp;gt;)&lt;/font&gt;" vertex="1">
+        <mxCell id="SMW_byFUR2_Rk4bGim1p-49" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-48" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=8;" value="&lt;font&gt;HTTP 200 OK (ImmutableList&amp;lt;NotificationDTO&amp;gt;)&lt;/font&gt;" vertex="1">
           <mxGeometry relative="1" x="-0.0834" y="3" as="geometry">
             <mxPoint y="-8" as="offset" />
           </mxGeometry>
@@ -186,7 +186,7 @@
             <mxPoint x="327.35" y="373.5" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="SMW_byFUR2_Rk4bGim1p-51" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-50" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=7;" value="&lt;font style=&quot;font-size: 5px;&quot;&gt;return ImmutableList&amp;lt;NotificationDTO&amp;gt;&lt;/font&gt;" vertex="1">
+        <mxCell id="SMW_byFUR2_Rk4bGim1p-51" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-50" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=9;" value="&lt;font&gt;return ImmutableList&amp;lt;NotificationDTO&amp;gt;&lt;/font&gt;" vertex="1">
           <mxGeometry relative="1" x="-0.0834" y="3" as="geometry">
             <mxPoint x="-8" y="-8" as="offset" />
           </mxGeometry>
@@ -197,7 +197,7 @@
             <mxPoint x="962.35" y="237.5" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="SMW_byFUR2_Rk4bGim1p-55" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-54" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=7;" value="&lt;span style=&quot;color: rgb(60, 60, 67); text-align: start;&quot;&gt;&lt;font style=&quot;font-size: 6px;&quot; face=&quot;Helvetica&quot;&gt;Accounts.FirstOrDefault(a=&amp;gt;a.Id == accountId)&lt;/font&gt;&lt;/span&gt;" vertex="1">
+        <mxCell id="SMW_byFUR2_Rk4bGim1p-55" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-54" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=8;" value="&lt;span style=&quot;color: rgb(60, 60, 67); text-align: start;&quot;&gt;&lt;font face=&quot;Helvetica&quot;&gt;Accounts.FirstOrDefault(a=&amp;gt;a.Id == accountId)&lt;/font&gt;&lt;/span&gt;" vertex="1">
           <mxGeometry relative="1" x="-0.0834" y="3" as="geometry">
             <mxPoint x="7" y="-3" as="offset" />
           </mxGeometry>
@@ -208,9 +208,9 @@
             <mxPoint x="961.35" y="255.5" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="SMW_byFUR2_Rk4bGim1p-57" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-56" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=7;" value="&lt;div style=&quot;text-align: start;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font color=&quot;#3c3c43&quot; style=&quot;font-size: 2px;&quot;&gt;&lt;b&gt;NotificationsWithRecipient(dbContext).Where(n=&amp;gt;n.Recipient!=null &amp;amp;&amp;amp; n.Recipient.PamUserId == account.PamUserId).OrderByDescending(n=&amp;gt;n.Id).ToImmutableList()&lt;/b&gt;&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" vertex="1">
+        <mxCell id="SMW_byFUR2_Rk4bGim1p-57" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-56" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=4;whiteSpace=wrap;fontStyle=1" value="&lt;div style=&quot;text-align: start;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font color=&quot;#3c3c43&quot;&gt;&lt;span&gt;NotificationsWithRecipient(dbContext).Where(n=&amp;gt;n.Recipient!=null &amp;amp;&amp;amp; n.Recipient.PamUserId == account.PamUserId).OrderByDescending(n=&amp;gt;n.Id).ToImmutableList()&lt;/span&gt;&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" vertex="1">
           <mxGeometry relative="1" x="-0.0834" y="3" as="geometry">
-            <mxPoint x="7" y="-3" as="offset" />
+            <mxPoint x="2" y="1" as="offset" />
           </mxGeometry>
         </mxCell>
         <mxCell id="SMW_byFUR2_Rk4bGim1p-58" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Index.cshtml (View)" vertex="1">
@@ -242,7 +242,7 @@
             <mxPoint x="317.34999999999997" y="133.5" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="SMW_byFUR2_Rk4bGim1p-63" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-62" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=7;" value="HTTP GET / Notifications" vertex="1">
+        <mxCell id="SMW_byFUR2_Rk4bGim1p-63" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-62" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=9;" value="HTTP GET / Notifications" vertex="1">
           <mxGeometry relative="1" x="-0.0834" y="3" as="geometry">
             <mxPoint y="-1" as="offset" />
           </mxGeometry>
@@ -253,7 +253,7 @@
             <mxPoint x="175" y="386.5" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="SMW_byFUR2_Rk4bGim1p-65" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-64" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=7;" value="&lt;font style=&quot;font-size: 5px;&quot;&gt;return View(notifications)&lt;/font&gt;" vertex="1">
+        <mxCell id="SMW_byFUR2_Rk4bGim1p-65" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-64" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=11;" value="&lt;font&gt;return View(notifications)&lt;/font&gt;" vertex="1">
           <mxGeometry relative="1" x="-0.0834" y="3" as="geometry">
             <mxPoint x="-8" y="-8" as="offset" />
           </mxGeometry>
@@ -264,9 +264,9 @@
             <mxPoint x="60" y="400" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="SMW_byFUR2_Rk4bGim1p-67" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-66" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=7;" value="&lt;font style=&quot;font-size: 5px;&quot;&gt;Renders notification cards (UI Display)&lt;/font&gt;" vertex="1">
+        <mxCell id="SMW_byFUR2_Rk4bGim1p-67" connectable="0" parent="SMW_byFUR2_Rk4bGim1p-66" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontSize=8;" value="&lt;font&gt;Renders notification cards (UI Display)&lt;/font&gt;" vertex="1">
           <mxGeometry relative="1" x="-0.0834" y="3" as="geometry">
-            <mxPoint x="-8" y="-8" as="offset" />
+            <mxPoint x="-27" y="-8" as="offset" />
           </mxGeometry>
         </mxCell>
         <mxCell id="SMW_byFUR2_Rk4bGim1p-68" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;User receives and displays notifications&lt;/font&gt;&lt;/b&gt;" vertex="1">
