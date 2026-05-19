@@ -1,16 +1,34 @@
 title User deletes a notification
 
   actor User
-  participant NotificationsController
-  participant NotificationService
-  participant NotificationRepository
-  database Database
+  participant "Views/Notifications/Index.cshtml" as Index
+  participant "GUI-BRAP NotificationsController.cs" as WebCtl
+  participant "NotificationProxyServiceAdapter.cs" as Proxy
+  participant "ApiClient NotificationService.cs" as ApiCli
+  participant "Api NotificationsController.cs" as ApiCtl
+  participant "Api NotificationService.cs" as ApiSvc
+  participant "NotificationMapper.cs" as Mapper
+  participant "Api NotificationRepository.cs" as Repo
+  participant "AppDbContext.cs" as Db
+  database "SQL Database (Notifications)" as SqlDb
 
-  User -> NotificationsController: delete notification(id)
-  NotificationsController -> NotificationService: DeleteNotificationByIdentifier(id)
-  NotificationService -> NotificationRepository: Delete(id)
-  NotificationRepository -> Database: delete notification with id
-  Database --> NotificationRepository: ok
-  NotificationRepository --> NotificationService: deleted notification
-  NotificationService --> NotificationsController: notification dto
-  NotificationsController --> User: 200 OK
+  User -> Index: click Delete button
+  Index -> WebCtl: Delete(id)
+  WebCtl -> Proxy: DeleteNotificationAsync(id)
+  Proxy -> ApiCli: DeleteNotificationByIdentifierAsync(id)
+  ApiCli -> ApiCtl: HTTP DELETE api/notifications/{id}
+  ApiCtl -> ApiSvc: DeleteNotificationByIdentifier(id)
+  ApiSvc -> Repo: Delete(id)
+  Repo -> Db: Notifications.Remove() + SaveChanges()
+  Db -> SqlDb: DELETE FROM Notifications
+  SqlDb --> Db: rows affected
+  Db --> Repo: saved
+  Repo --> ApiSvc: deleted Notification
+  ApiSvc -> Mapper: ToDTO(notification)
+  Mapper --> ApiSvc: NotificationDTO
+  ApiSvc --> ApiCtl: notification dto
+  ApiCtl --> ApiCli: 200 OK + dto
+  ApiCli --> Proxy: ServiceResult
+  Proxy --> WebCtl: ok
+  WebCtl --> Index: redirect to Index
+  Index --> User: updated notifications page
