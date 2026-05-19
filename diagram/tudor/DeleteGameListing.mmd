@@ -1,0 +1,66 @@
+sequenceDiagram
+    actor User
+    participant Controller as GamesController.cs
+    participant Service as GameService.cs
+    participant RentalRepo as RentalRepository.cs
+    participant RequestSvc as RequestService.cs
+    participant RequestRepo as RequestRepository.cs
+    participant NotifSvc as NotificationService.cs
+    participant Mapper as GameMapper.cs
+    participant GameRepo as GameRepository.cs
+    participant DB as SQL Database
+
+    User->>Controller: HTTP DELETE /api/games/{gameId}
+    Controller->>Service: DeleteGameByIdentifier(gameId)
+
+    Note over Service: Check active rentals
+    Service->>RentalRepo: GetRentalsByGame(gameId)
+    RentalRepo->>DB: SELECT * FROM Rentals WHERE GameId = gameId
+    DB-->>RentalRepo: rentals
+    RentalRepo-->>Service: ImmutableList<Rental>
+    Note over Service: activeCount = rentals.Count(r => r.EndDate >= now)
+
+    alt activeCount > 0 (active rentals exist)
+        Service-->>Controller: throw InvalidOperationException
+        Controller-->>User: 409 Conflict (game_delete_conflict)
+    else activeCount == 0
+
+        loop foreach rental in gameRentals
+            Service->>RentalRepo: Delete(rental.Id)
+            RentalRepo->>DB: DELETE FROM Rentals WHERE Id = rental.Id (SaveChanges)
+            DB-->>RentalRepo: deleted Rental
+            RentalRepo-->>Service: Rental
+        end
+
+        Note over Service: Cancel pending requests
+        Service->>RequestSvc: OnGameDeactivated(gameId)
+        RequestSvc->>RequestRepo: GetRequestsByGame(deactivatedGameId)
+        RequestRepo->>DB: SELECT * FROM Requests WHERE GameId = gameId
+        DB-->>RequestRepo: requests
+        RequestRepo-->>RequestSvc: ImmutableList<Request>
+        Note over RequestSvc: pending = requests where Status == Open or OfferPending
+
+        loop foreach pendingRequest in pending
+            RequestSvc->>NotifSvc: DeleteNotificationsLinkedToRequest(pendingRequest.Id)
+            NotifSvc->>DB: DELETE FROM Notifications WHERE RelatedRequestId = pendingRequest.Id
+            DB-->>NotifSvc: ok
+            RequestSvc->>RequestRepo: Delete(pendingRequest.Id)
+            RequestRepo->>DB: DELETE FROM Requests WHERE Id = pendingRequest.Id (SaveChanges)
+            DB-->>RequestRepo: deleted Request
+            RequestSvc->>NotifSvc: SendNotificationToUser(renterId, NotificationDTO)
+            NotifSvc->>DB: INSERT INTO Notifications (SaveChanges)
+            DB-->>NotifSvc: ok
+        end
+        RequestSvc-->>Service: void
+
+        Note over Service: Delete the game listing
+        Service->>GameRepo: Delete(gameId)
+        GameRepo->>DB: DELETE FROM Games WHERE Id = gameId (SaveChanges)
+        DB-->>GameRepo: deleted Game
+        GameRepo-->>Service: Game
+
+        Service->>Mapper: ToDTO(game)
+        Mapper-->>Service: GameDTO
+        Service-->>Controller: GameDTO
+        Controller-->>User: 200 OK (GameDTO)
+    end
