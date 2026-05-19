@@ -1,19 +1,19 @@
 sequenceDiagram
-    actor User
-    participant RentalsController
-    participant RentalService
-    participant RentalRepository
-    participant Database
+    participant User
+    participant RC as RentalsController<br/>RentalsController.cs
+    participant RS as RentalService<br/>RentalService.cs
+    participant RR as RentalRepository<br/>RentalRepository.cs
+    participant DB as Database<br/>AppDbContext.cs
 
-    User->>RentalsController: Create(CreateRentalDataTransferObject)
-    RentalsController->>RentalService: CreateConfirmedRental(gameId, renterId, ownerId, startDate, endDate)
-    
-    note right of RentalService: validate date/owner/slot
-    RentalService->>RentalService: Validate dates, owner, and slot availability
-    
-    RentalService->>RentalRepository: AddConfirmed(rental)
-    RentalRepository->>Database: SaveChanges()
-    Database-->>RentalRepository: Success
-    RentalRepository-->>RentalService: Success
-    RentalService-->>RentalsController: Success
-    RentalsController-->>User: OK
+    User->>+RC: 1 : Create(CreateRentalDataTransferObject)
+    RC->>+RS: 2 : CreateConfirmedRental(gameId, renterId, ownerId, startDate, endDate)
+
+    RS->>RS: 3 : HasValidFutureDateRange(startDate, endDate)
+    RS->>RS: 4 : IsSlotAvailable(gameId, startDate, endDate)
+
+    RS->>+RR: 5 : AddConfirmed(rental)
+    RR->>+DB: 6 : SaveChanges()
+    DB-->>-RR: 7 : Success
+    RR-->>-RS: 8 : Rental Created
+    RS-->>-RC: 9 : Success
+    RC-->>-User: 10 : RedirectToAction(My)
