@@ -1,21 +1,100 @@
 ---
 config:
-  theme: redux
+  theme: mc
 ---
 sequenceDiagram
     autonumber
     actor User
-    participant AC as AccountsController
-    participant AS as AccountService
-    participant AR as AccountRepository
-    participant DB as Database
+    participant View as Profile/Index.cshtml<br/>(GUI-BRAP)
+    participant WebCtrl as ProfileController<br/>(GUI-BRAP)
+    participant Proxy as AccountProxyService<br/>(GUI-BRAP)
+    participant ApiClient as IAccountService<br/>(BoardRentAndProperty.ApiClient)
+    participant ApiCtrl as AccountController<br/>(BoardRentAndProperty.Api)
+    participant ApiSvc as AccountService<br/>(BoardRentAndProperty.Api)
+    participant Mapper as AccountProfileMapper<br/>(BoardRentAndProperty.Api)
+    participant Repo as AccountRepository<br/>(BoardRentAndProperty.Api)
+    participant DbContext as AppDbContext<br/>(BoardRentAndProperty.Api)
+    participant SQL as SQL Server
 
-    User->>AC: UpdateProfile / ChangePassword
-    AC->>AS: UpdateAccountAsync / ChangePasswordAsync
-    Note over AS: Validation Logic
-    AS->>AR: UpdateAsync / UpdatePasswordAsync
-    AR->>DB: SQL Update
-    DB-->>AR: OK
-    AR-->>AS: Updated Entity
-    AS-->>AC: Success Result
-    AC-->>User: 200 OK / Redirect
+    User->>View: submit form (Profile data)
+    activate View
+    
+    View->>WebCtrl: POST /Profile/Index (ProfileViewModel)
+    activate WebCtrl
+    
+    Note over WebCtrl: ModelState.IsValid check
+    
+    WebCtrl->>Proxy: UpdateProfileAsync(currentUserId, updateData)
+    activate Proxy
+    
+    Proxy->>ApiClient: UpdateProfileAsync(accountId, profileUpdateData)
+    activate ApiClient
+    
+    ApiClient->>ApiCtrl: HTTP PUT /api/accounts/{id}
+    activate ApiCtrl
+    
+    ApiCtrl->>ApiSvc: UpdateProfileAsync(accountId, profileUpdateData)
+    activate ApiSvc
+    
+    Note over ApiSvc: Fetch existing account entity first
+    
+    ApiSvc->>Repo: GetByIdAsync(accountId)
+    activate Repo
+    
+    Repo->>DbContext: Accounts.Include(a => a.Roles).FirstOrDefaultAsync()
+    activate DbContext
+    
+    DbContext->>SQL: SELECT * FROM Accounts WHERE Id = accountId
+    activate SQL
+    SQL-->>DbContext: result row
+    deactivate SQL
+    
+    DbContext-->>Repo: Account entity
+    deactivate DbContext
+    
+    Repo-->>ApiSvc: accountEntity
+    deactivate Repo
+    
+    Note over ApiSvc: ValidateProfileDetails(profileUpdateData)<br/>Check for duplicate Email
+    
+    ApiSvc->>Mapper: ApplyToEntity(accountEntity, profileUpdateData)
+    activate Mapper
+    Mapper-->>ApiSvc: updated accountEntity properties
+    deactivate Mapper
+    
+    ApiSvc->>Repo: UpdateAsync(accountEntity)
+    activate Repo
+    
+    Repo->>DbContext: SaveChangesAsync()
+    activate DbContext
+    
+    DbContext->>SQL: UPDATE Accounts SET DisplayName, Email, etc.
+    activate SQL
+    SQL-->>DbContext: rows affected
+    deactivate SQL
+    
+    DbContext-->>Repo: saved
+    deactivate DbContext
+    
+    Repo-->>ApiSvc: Task Completed
+    deactivate Repo
+    
+    ApiSvc-->>ApiCtrl: ServiceResult<bool>.Ok(true)
+    deactivate ApiSvc
+    
+    ApiCtrl-->>ApiClient: HTTP 200 OK
+    deactivate ApiCtrl
+    
+    ApiClient-->>Proxy: ServiceResult
+    deactivate ApiClient
+    
+    Proxy-->>WebCtrl: Task Completed
+    deactivate Proxy
+    
+    Note over WebCtrl: TempData["SuccessMessage"] =<br/>"Profile updated successfully."
+    
+    WebCtrl-->>View: RedirectToAction(nameof(Index))
+    deactivate WebCtrl
+    
+    View-->>User: Render page with success message
+    deactivate View
