@@ -1,0 +1,68 @@
+title Admin Suspends or Unlocks an Account
+
+actor Admin
+participant "Index.cshtml\n(Web GUI)" as GUI
+participant "AdminController.cs\n(WebUI Controller)" as WebCtrl
+participant "AdminProxyServiceAdapter.cs\n(Web Proxy)" as Proxy
+participant "AdminController.cs\n(API Controller)" as ApiCtrl
+participant "AdminService.cs\n(API Service)" as ApiSvc
+participant "AccountRepository.cs\n(API Repo)" as AccRepo
+participant "FailedLoginRepository.cs\n(API Repo)" as FailRepo
+database "AppDbContext\n(SQL Database)" as DB
+
+group Suspend Account Flow
+    Admin->GUI: Clicks "Suspend" button
+    GUI->WebCtrl: POST Suspend(string id)
+    WebCtrl->Proxy: SuspendAccountAsync(id)
+    Proxy->ApiCtrl: PUT api/admin/accounts/.../suspend\n-> Suspend(Guid accountId)
+    ApiCtrl->ApiSvc: SuspendAccountAsync(accountId)
+    ApiSvc->AccRepo: GetByIdAsync(accountId)
+    AccRepo->DB: FirstOrDefaultAsync(...)
+    DB-->AccRepo: Returns Account entity
+    AccRepo-->ApiSvc: Account
+    
+    note over ApiSvc: accountEntity.IsSuspended = true
+    
+    ApiSvc->AccRepo: UpdateAsync(accountEntity)
+    AccRepo->DB: SaveChangesAsync()
+    DB-->AccRepo: Task Success
+    AccRepo-->ApiSvc: Task Success
+    
+    ApiSvc-->ApiCtrl: ServiceResult<bool>.Ok(true)
+    ApiCtrl-->Proxy: HTTP 204 NoContent
+    Proxy-->WebCtrl: Task Success
+    
+    note over WebCtrl: TempData["SuccessMessage"] =\n"Account successfully suspended."
+    
+    WebCtrl-->GUI: RedirectToAction(nameof(Index))
+    GUI-->Admin: Displays updated table
+end
+
+space 3
+
+group Unlock Account Flow
+    Admin->GUI: Clicks "Unlock" button
+    GUI->WebCtrl: POST Unlock(string id)
+    WebCtrl->Proxy: UnlockAccountAsync(id)
+    Proxy->ApiCtrl: PUT api/admin/accounts/.../unlock\n-> Unlock(Guid accountId)
+    ApiCtrl->ApiSvc: UnlockAccountAsync(accountId)
+    ApiSvc->FailRepo: ResetAsync(accountId)
+    
+    FailRepo->DB: FirstOrDefaultAsync(...)
+    DB-->FailRepo: Returns FailedLoginAttempt entity
+    
+    note over FailRepo: attempt.FailedAttempts = 0\nattempt.LockedUntil = null
+    
+    FailRepo->DB: SaveChangesAsync()
+    DB-->FailRepo: Task Success
+    FailRepo-->ApiSvc: Task Success
+    
+    ApiSvc-->ApiCtrl: ServiceResult<bool>.Ok(true)
+    ApiCtrl-->Proxy: HTTP 204 NoContent
+    Proxy-->WebCtrl: Task Success
+    
+    note over WebCtrl: TempData["SuccessMessage"] =\n"Account has been successfully unlocked."
+    
+    WebCtrl-->GUI: RedirectToAction(nameof(Index))
+    GUI-->Admin: Displays updated table
+end
