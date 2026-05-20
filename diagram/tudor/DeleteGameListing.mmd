@@ -1,7 +1,10 @@
 sequenceDiagram
     actor User
+    participant View as ListingsPage.xaml.cs
+    participant VM as ListingsViewModel.cs
+    participant ApiClient as ApiClient/GameService.cs
     participant Controller as GamesController.cs
-    participant Service as GameService.cs
+    participant Service as Api/GameService.cs
     participant RentalRepo as RentalRepository.cs
     participant RequestSvc as RequestService.cs
     participant RequestRepo as RequestRepository.cs
@@ -10,7 +13,16 @@ sequenceDiagram
     participant GameRepo as GameRepository.cs
     participant DB as SQL Database
 
-    User->>Controller: HTTP DELETE /api/games/{gameId}
+    User->>View: click Delete button (Button.Click)
+    View->>View: DeleteGameButton_Click(sender, routedEventArgs)
+    Note over View: DialogHelper.ShowConfirmationAsync(DeleteGameConfirmation)
+    User-->>View: ContentDialogResult.Primary (confirm)
+
+    View->>VM: TryDeleteGameAsync(gameToDelete)
+    VM->>VM: DeleteGameAsync(gameToDelete)
+    Note over VM: CanManageGame(gameToManage) authorization check
+    VM->>ApiClient: DeleteGameAsync(gameToDelete.Id)
+    ApiClient->>Controller: HTTP DELETE /api/games/{gameId}
     Controller->>Service: DeleteGameByIdentifier(gameId)
 
     Note over Service: Check active rentals
@@ -22,7 +34,10 @@ sequenceDiagram
 
     alt activeCount > 0 (active rentals exist)
         Service-->>Controller: throw InvalidOperationException
-        Controller-->>User: 409 Conflict (game_delete_conflict)
+        Controller-->>ApiClient: 409 Conflict (game_delete_conflict)
+        ApiClient-->>VM: ServiceResult.Fail(error)
+        VM-->>View: ViewOperationResult.Failure(CannotDeleteGame)
+        View-->>User: DialogHelper.ShowMessageAsync (cannot delete)
     else activeCount == 0
 
         loop foreach rental in gameRentals
@@ -62,5 +77,9 @@ sequenceDiagram
         Service->>Mapper: ToDTO(game)
         Mapper-->>Service: GameDTO
         Service-->>Controller: GameDTO
-        Controller-->>User: 200 OK (GameDTO)
+        Controller-->>ApiClient: 200 OK (GameDTO)
+        ApiClient-->>VM: ServiceResult.Ok(GameDTO)
+        VM->>VM: ReloadAsync()
+        VM-->>View: ViewOperationResult.Success(GameRemoved)
+        View-->>User: DialogHelper.ShowMessageAsync (removed successfully)
     end
