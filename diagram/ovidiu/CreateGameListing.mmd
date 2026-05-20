@@ -1,0 +1,73 @@
+sequenceDiagram
+    actor User
+
+    participant WinView as CreateGameView.xaml.cs
+    participant WinVM as CreateGameViewModel.cs
+    participant WinValidator as GameInputValidator.cs
+    participant WebView as Create.cshtml
+    participant WebCtrl as GamesController.cs<br/>(GUI-BRAP)
+    participant Proxy as GameProxyServiceAdapter.cs
+    participant ApiClient as GameService.cs<br/>(ApiClient)
+    participant ApiCtrl as GamesController.cs<br/>(Api)
+    participant ApiSvc as GameService.cs<br/>(Api)
+    participant InputHelper as GameInputHelper.cs
+    participant Mapper as GameMapper.cs
+    participant Repo as GameRepository.cs
+    participant DB as SQL Database
+
+    alt WinUI – create new game listing
+        User->>WinView: SaveButton_Click
+        WinView->>WinVM: SetGamePriceFromText
+        WinView->>WinVM: SubmitCreateGameAsync
+        WinVM->>WinVM: ValidateGameInputs
+        WinVM->>WinValidator: Validate
+        WinValidator-->>WinVM: validation errors
+        WinVM->>WinVM: SaveGameAsync
+        WinVM->>WinValidator: Validate
+        WinValidator-->>WinVM: validation errors
+        WinVM->>ApiClient: CreateGameAsync
+    else Web GUI – create new game listing
+        User->>WebView: POST form (Create)
+        WebView->>WebCtrl: Create
+        Note over WebCtrl: CopyToAsync (optional image), set Owner
+        WebCtrl->>Proxy: CreateGameAsync
+        Proxy->>ApiClient: CreateGameAsync
+    end
+
+    ApiClient->>ApiCtrl: POST /api/games
+    Note over ApiClient: PostAsJsonAsync, EnsureSuccessAsync
+
+    ApiCtrl->>ApiSvc: AddGame
+
+    ApiSvc->>ApiSvc: ValidateGame
+    ApiSvc->>InputHelper: BuildValidationErrors
+    InputHelper-->>ApiSvc: errors
+
+    alt validation failed
+        ApiSvc-->>ApiCtrl: throw ArgumentException
+        ApiCtrl-->>ApiClient: ApiValidation (400)
+        Note over ApiClient: EnsureSuccessAsync returns failure
+        ApiClient-->>WinVM: ServiceResult.Fail (WinUI)
+        WinVM-->>WinView: ViewOperationResult.Failure
+        WinView-->>User: ShowMessageAsync
+        ApiClient-->>Proxy: ServiceResult.Fail (Web)
+        Proxy-->>WebCtrl: throw ProxyServiceException
+        WebCtrl-->>User: View with ModelState error
+    else validation passed
+        ApiSvc->>InputHelper: EnsureImageOrDefault
+        InputHelper-->>ApiSvc: image bytes
+        ApiSvc->>Mapper: ToModel
+        Mapper-->>ApiSvc: Game
+        ApiSvc->>Repo: Add
+        Repo->>Repo: CreateDbContext
+        Repo->>Repo: ResolveAccount
+        Repo->>DB: Games.Add + SaveChanges
+        DB-->>Repo: ok
+        Repo-->>ApiSvc: void
+        ApiSvc-->>ApiCtrl: void
+        ApiCtrl-->>ApiClient: Ok (200)
+        ApiClient-->>WinVM: success (WinUI)
+        ApiClient-->>WebCtrl: success (Web)
+        WinView-->>User: Frame.GoBack (WinUI)
+        WebCtrl-->>User: RedirectToAction Index (Web)
+    end
