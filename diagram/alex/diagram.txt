@@ -1,0 +1,80 @@
+sequenceDiagram
+    actor Renter as Renter (Browser)
+    participant MVC as RequestsController<br/>(GUI-BRAP MVC)
+    participant GameProxy as GameProxyServiceAdapter
+    participant ApiGameSvc as ApiClient::GameService
+    participant ApiGameCtrl as GamesController<br/>(Api)
+    participant ReqProxy as RequestProxyServiceAdapter
+    participant ApiReqSvc as ApiClient::RequestService
+    participant ApiReqCtrl as RequestsController<br/>(Api)
+    participant ReqSvc as RequestService<br/>(Api)
+    participant GameRepo as GameRepository
+    participant RentalRepo as RentalRepository
+    participant ReqRepo as RequestRepository
+    participant DB as AppDbContext / SQL DB
+
+    %% Initial View Load
+    Renter->>MVC: GET /Requests/Create
+    MVC->>GameProxy: GetAvailableGamesForRenterAsync(renterAccountId)
+    GameProxy->>ApiGameSvc: GetAvailableGamesForRenterAsync(renterAccountId)
+    ApiGameSvc->>ApiGameCtrl: GET api/games/renter/{renterAccountId}/available
+    ApiGameCtrl->>ReqSvc: GetAvailableGamesForRenter(renterAccountId)
+    ReqSvc-->>ApiGameCtrl: IReadOnlyList<GameDTO>
+    ApiGameCtrl-->>ApiGameSvc: 200 OK [GameDTO[]]
+    ApiGameSvc-->>GameProxy: ServiceResult<IReadOnlyList<GameDTO>>
+    GameProxy-->>MVC: IReadOnlyList<GameDTO>
+    MVC-->>Renter: View(CreateRequestViewModel { AvailableGames })
+
+    %% Form Submission
+    Renter->>MVC: POST /Requests/Create {GameId, StartDate, EndDate}
+    MVC->>GameProxy: LoadAvailableGamesOrEmptyAsync(renterAccountId)
+    GameProxy->>ApiGameSvc: GetAvailableGamesForRenterAsync(renterAccountId)
+    ApiGameSvc->>ApiGameCtrl: GET api/games/renter/{renterAccountId}/available
+    ApiGameCtrl-->>ApiGameSvc: 200 OK [GameDTO[]]
+    ApiGameSvc-->>GameProxy: IReadOnlyList<GameDTO>
+    GameProxy-->>MVC: IReadOnlyList<GameDTO>
+    
+    MVC->>ReqProxy: [guard: ModelState.IsValid && selectedGame != null] CreateRequestAsync()
+    ReqProxy->>ApiReqSvc: CreateRequestAsync(body)
+    ApiReqSvc->>ApiReqCtrl: POST api/requests {body}
+    ApiReqCtrl->>ReqSvc: CreateRequest(gameId, renterAccountId, ownerAccountId, startDate, endDate)
+    
+    %% Validation & Checks
+    ReqSvc->>ReqSvc: HasValidFutureDateRange(startDate, endDate)
+    ReqSvc->>GameRepo: Get(gameId)
+    GameRepo->>DB: SELECT * FROM Games WHERE Id = gameId
+    DB-->>GameRepo: Game entity
+    GameRepo-->>ReqSvc: Game
+    ReqSvc->>ReqSvc: renterAccountId == game.Owner.Id? [guard: false → continue]
+    
+    ReqSvc->>ReqSvc: CheckAvailability(gameId, startDate, endDate)
+    ReqSvc->>GameRepo: Get(gameId) [verify IsActive]
+    GameRepo->>DB: SELECT * FROM Games WHERE Id = gameId
+    DB-->>GameRepo: Game entity
+    GameRepo-->>ReqSvc: Game (IsActive checked)
+    
+    ReqSvc->>RentalRepo: GetRentalsByGame(gameId)
+    RentalRepo->>DB: SELECT * FROM Rentals WHERE GameId = gameId
+    DB-->>RentalRepo: Rental[]
+    RentalRepo-->>ReqSvc: ImmutableList<Rental>
+    
+    ReqSvc->>ReqRepo: GetRequestsByGame(gameId)
+    ReqRepo->>DB: SELECT * FROM Requests WHERE GameId = gameId
+    DB-->>ReqRepo: Request[]
+    ReqRepo-->>ReqSvc: ImmutableList<Request>
+    
+    ReqSvc->>ReqSvc: Check rental + request date overlaps [guard: no conflict]
+    ReqSvc->>ReqSvc: new Request(id=0, game, renter, owner, start, end)
+    
+    %% Database Insertion
+    ReqSvc->>ReqRepo: Add(newRequest)
+    ReqRepo->>DB: INSERT INTO Requests (...)
+    DB-->>ReqRepo: newRequest.Id (auto-generated PK)
+    ReqRepo-->>ReqSvc: (request.Id populated)
+    
+    %% Response Chain
+    ReqSvc-->>ApiReqCtrl: Result.Success(newRequest.Id)
+    ApiReqCtrl-->>ApiReqSvc: 200 OK { Id: newRequestId }
+    ApiReqSvc-->>ReqProxy: ServiceResult<int>.Ok(newRequestId)
+    ReqProxy-->>MVC: (ThrowIfFailed → no exception)
+    MVC-->>Renter: 302 RedirectToAction("My")
