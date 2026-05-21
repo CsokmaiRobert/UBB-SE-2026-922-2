@@ -1,0 +1,62 @@
+but @startuml
+title Check Game Availability / Booked Dates
+
+actor User
+
+boundary "Create Request Page\nMVC View" as View
+control "GUI-BRAP RequestsController\nCheckAvailability / GetBookedDates" as MvcController
+control "IRequestProxyService\nRequestProxyService" as Proxy
+control "API RequestsController\nCheckAvailability / GetBookedDates" as ApiController
+control "IRequestService\nRequestService" as RequestService
+database "IGameRepository\nGameRepository" as GameRepository
+database "IRentalRepository\nRentalRepository" as RentalRepository
+database "IRequestRepository\nRequestRepository" as RequestRepository
+database "Database\nSQL Server" as Database
+
+User -> View : selects game and dates
+
+alt Check availability
+    View -> MvcController : CheckAvailability(gameId, startDate, endDate)
+    MvcController -> Proxy : CheckAvailabilityAsync(gameId, startDate, endDate)
+    Proxy -> ApiController : GET /api/requests/games/{gameId}/availability
+    ApiController -> RequestService : CheckAvailability(gameId, startDate, endDate)
+
+    RequestService -> GameRepository : Get(gameId)
+    GameRepository -> Database : query Games
+    Database --> GameRepository : game data
+    GameRepository --> RequestService : Game
+
+    RequestService -> RentalRepository : GetRentalsByGame(gameId)
+    RentalRepository -> Database : query Rentals
+    Database --> RentalRepository : rentals for game
+    RentalRepository --> RequestService : rental list
+
+    RequestService -> RequestRepository : GetRequestsByGame(gameId)
+    RequestRepository -> Database : query Requests
+    Database --> RequestRepository : requests for game
+    RequestRepository --> RequestService : request list
+
+    RequestService --> ApiController : available / unavailable
+    ApiController --> Proxy : availability result
+    Proxy --> MvcController : availability result
+    MvcController --> View : JSON / view result
+    View --> User : show availability message
+else Get booked dates
+    View -> MvcController : GetBookedDates(gameId, month, year)
+    MvcController -> Proxy : GetBookedDatesAsync(gameId, month, year)
+    Proxy -> ApiController : GET /api/requests/games/{gameId}/booked-dates
+    ApiController -> RequestService : GetBookedDates(gameId, month, year)
+
+    RequestService -> RequestRepository : GetRequestsByGame(gameId)
+    RequestRepository -> Database : query Requests
+    Database --> RequestRepository : requests for game
+    RequestRepository --> RequestService : request list
+
+    RequestService --> ApiController : booked date ranges
+    ApiController --> Proxy : booked date ranges
+    Proxy --> MvcController : booked date ranges
+    MvcController --> View : JSON / calendar data
+    View --> User : mark booked dates
+end
+
+@enduml

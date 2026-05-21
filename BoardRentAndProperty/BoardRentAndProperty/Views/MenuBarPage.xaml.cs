@@ -11,7 +11,7 @@ namespace BoardRentAndProperty.Views
 
     public sealed partial class MenuBarPage : Page
     {
-        private static readonly Dictionary<AppPage, Type> PageTypeMap = new ()
+        private static readonly Dictionary<AppPage, Type> PageTypeMap = new()
         {
             { AppPage.Listings,            typeof(ListingsPage) },
             { AppPage.RequestsFromOthers,  typeof(RequestsFromOthersPage) },

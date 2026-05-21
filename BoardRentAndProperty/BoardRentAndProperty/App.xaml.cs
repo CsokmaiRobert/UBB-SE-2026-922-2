@@ -24,6 +24,9 @@ using Microsoft.Windows.AppLifecycle;
 
 namespace BoardRentAndProperty
 {
+    /// <summary>
+    /// Application entry point and root service/navigation coordinator.
+    /// </summary>
     public partial class App : Application
     {
         private const int DefaultProcessSlot = 1;
@@ -126,8 +129,16 @@ namespace BoardRentAndProperty
         // Static helpers used by BoardRent view models that call App.NavigateTo / App.NavigateBack.
         public static void NavigateTo(Type pageType, object? parameter = null, bool clearBackStack = false)
         {
-            if (Application.Current is not App appInstance) return;
-            if (appInstance.RootFrame == null) return;
+            if (Application.Current is not App appInstance)
+            {
+                return;
+            }
+
+            if (appInstance.RootFrame == null)
+            {
+                return;
+            }
+
             var authorizationService = Services.GetService<IDesktopAuthorizationService>();
             if (authorizationService != null && !authorizationService.CanAccessPage(pageType))
             {
@@ -141,13 +152,23 @@ namespace BoardRentAndProperty
             }
 
             appInstance.RootFrame.Navigate(pageType, parameter);
-            if (clearBackStack) appInstance.RootFrame.BackStack.Clear();
+            if (clearBackStack)
+            {
+                appInstance.RootFrame.BackStack.Clear();
+            }
         }
 
         public static void NavigateBack()
         {
-            if (Application.Current is not App appInstance) return;
-            if (appInstance.RootFrame != null && appInstance.RootFrame.CanGoBack) appInstance.RootFrame.GoBack();
+            if (Application.Current is not App appInstance)
+            {
+                return;
+            }
+
+            if (appInstance.RootFrame != null && appInstance.RootFrame.CanGoBack)
+            {
+                appInstance.RootFrame.GoBack();
+            }
         }
 
         private int GetProcessSlotFromArgs()
@@ -155,7 +176,10 @@ namespace BoardRentAndProperty
             var commandLineArgs = Environment.GetCommandLineArgs();
             if (commandLineArgs.Length > ProcessSlotArgumentIndex
                 && int.TryParse(commandLineArgs[ProcessSlotArgumentIndex], out var parsedProcessSlot))
+            {
                 return parsedProcessSlot;
+            }
+
             return DefaultProcessSlot;
         }
 
@@ -166,9 +190,14 @@ namespace BoardRentAndProperty
             var currentDirectory = new DirectoryInfo(AppContext.BaseDirectory);
             while (currentDirectory != null)
             {
-                if (Directory.Exists(Path.Combine(currentDirectory.FullName, ".git"))) return currentDirectory.FullName;
+                if (Directory.Exists(Path.Combine(currentDirectory.FullName, ".git")))
+                {
+                    return currentDirectory.FullName;
+                }
+
                 currentDirectory = currentDirectory.Parent;
             }
+
             return null;
         }
 
@@ -178,9 +207,14 @@ namespace BoardRentAndProperty
             while (current != null)
             {
                 var candidate = Path.Combine(current.FullName, "NotificationServer", "bin");
-                if (Directory.Exists(candidate)) return candidate;
+                if (Directory.Exists(candidate))
+                {
+                    return candidate;
+                }
+
                 current = current.Parent;
             }
+
             return null;
         }
 
@@ -189,21 +223,45 @@ namespace BoardRentAndProperty
             try
             {
                 var repoRoot = FindRepoRoot();
-                if (repoRoot == null) return false;
+                if (repoRoot == null)
+                {
+                    return false;
+                }
+
                 var envPath = Path.Combine(repoRoot, ".env");
-                if (!File.Exists(envPath)) return false;
+                if (!File.Exists(envPath))
+                {
+                    return false;
+                }
+
                 foreach (var line in File.ReadAllLines(envPath))
                 {
                     var trimmed = line.Trim();
-                    if (trimmed.StartsWith('#') || !trimmed.Contains('=')) continue;
+                    if (trimmed.StartsWith('#') || !trimmed.Contains('='))
+                    {
+                        continue;
+                    }
+
                     var parts = trimmed.Split('=', SplitKeyValuePartsCount);
                     if (parts[KeyPartIndex].Trim() == TwoWindowsEnvironmentKey)
+                    {
                         return parts[ValuePartIndex].Trim().Equals(EnabledEnvironmentValue, StringComparison.OrdinalIgnoreCase);
+                    }
                 }
             }
-            catch (IOException) { return false; }
-            catch (UnauthorizedAccessException) { return false; }
-            catch (System.Security.SecurityException) { return false; }
+            catch (IOException)
+            {
+                return false;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false;
+            }
+            catch (System.Security.SecurityException)
+            {
+                return false;
+            }
+
             return false;
         }
 
@@ -211,11 +269,23 @@ namespace BoardRentAndProperty
         {
             try
             {
-                if (Process.GetProcessesByName("NotificationServer").Length > NoRunningProcessCount) return;
+                if (Process.GetProcessesByName("NotificationServer").Length > NoRunningProcessCount)
+                {
+                    return;
+                }
+
                 var serverBinDir = FindNotificationServerBinDir();
-                if (serverBinDir == null) return;
+                if (serverBinDir == null)
+                {
+                    return;
+                }
+
                 var serverExe = Directory.GetFiles(serverBinDir, "NotificationServer.exe", SearchOption.AllDirectories).FirstOrDefault();
-                if (serverExe == null) return;
+                if (serverExe == null)
+                {
+                    return;
+                }
+
                 notificationServerProcess = Process.Start(new ProcessStartInfo
                 {
                     FileName = serverExe,
@@ -223,9 +293,15 @@ namespace BoardRentAndProperty
                     WindowStyle = ProcessWindowStyle.Minimized,
                 });
             }
-            catch (UnauthorizedAccessException) { }
-            catch (System.ComponentModel.Win32Exception) { }
-            catch (IOException) { }
+            catch (UnauthorizedAccessException)
+            {
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+            }
+            catch (IOException)
+            {
+            }
         }
 
         private static void LaunchSecondClient()
@@ -233,7 +309,11 @@ namespace BoardRentAndProperty
             try
             {
                 var currentExe = Environment.ProcessPath;
-                if (currentExe == null) return;
+                if (currentExe == null)
+                {
+                    return;
+                }
+
                 secondClientProcess = Process.Start(new ProcessStartInfo
                 {
                     FileName = currentExe,
@@ -242,18 +322,43 @@ namespace BoardRentAndProperty
                     WorkingDirectory = Path.GetDirectoryName(currentExe),
                 });
             }
-            catch (UnauthorizedAccessException) { }
-            catch (System.ComponentModel.Win32Exception) { }
+            catch (UnauthorizedAccessException)
+            {
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+            }
         }
 
         private static void KillSpawnedChildProcesses()
         {
-            try { if (secondClientProcess != null && !secondClientProcess.HasExited) secondClientProcess.Kill(entireProcessTree: true); }
-            catch (InvalidOperationException) { }
-            catch (System.ComponentModel.Win32Exception) { }
-            try { if (notificationServerProcess != null && !notificationServerProcess.HasExited) notificationServerProcess.Kill(entireProcessTree: true); }
-            catch (InvalidOperationException) { }
-            catch (System.ComponentModel.Win32Exception) { }
+            try
+            {
+                if (secondClientProcess != null && !secondClientProcess.HasExited)
+                {
+                    secondClientProcess.Kill(entireProcessTree: true);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+            }
+
+            try
+            {
+                if (notificationServerProcess != null && !notificationServerProcess.HasExited)
+                {
+                    notificationServerProcess.Kill(entireProcessTree: true);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+            }
         }
 
         #endregion
@@ -293,7 +398,12 @@ namespace BoardRentAndProperty
                 return;
             }
 
-            if (RootFrame?.Content is MenuBarPage currentShell) { currentShell.NavigateToNotifications(); return; }
+            if (RootFrame?.Content is MenuBarPage currentShell)
+            {
+                currentShell.NavigateToNotifications();
+                return;
+            }
+
             void OnShellLoaded(object sender, NavigationEventArgs navigationEventArgs)
             {
                 if (navigationEventArgs.Content is MenuBarPage loadedShell)
@@ -302,6 +412,7 @@ namespace BoardRentAndProperty
                     loadedShell.NavigateToNotifications();
                 }
             }
+
             RootFrame!.Navigated += OnShellLoaded;
             NavigateTo(typeof(MenuBarPage));
         }
@@ -333,13 +444,24 @@ namespace BoardRentAndProperty
             MainWindow!.Content = rootGrid;
             RootFrame!.Navigate(typeof(LoginPage));
             CreateTrayIcon();
-            if (shouldLaunchSecondClient) LaunchSecondClient();
+            if (shouldLaunchSecondClient)
+            {
+                LaunchSecondClient();
+            }
         }
 
         public static void OnUserLoggedIn()
         {
-            if (Application.Current is not App appInstance) return;
-            if (appInstance.RootFrame == null) return;
+            if (Application.Current is not App appInstance)
+            {
+                return;
+            }
+
+            if (appInstance.RootFrame == null)
+            {
+                return;
+            }
+
             var resolvedSessionContext = Services.GetRequiredService<ISessionContext>();
             var resolvedNotificationService = Services.GetRequiredService<IDesktopNotificationService>();
             var resolvedMenuBarViewModel = Services.GetRequiredService<MenuBarViewModel>();
@@ -352,8 +474,16 @@ namespace BoardRentAndProperty
 
         public static void OnUserLoggedOut()
         {
-            if (Application.Current is not App appInstance) return;
-            if (appInstance.RootFrame == null) return;
+            if (Application.Current is not App appInstance)
+            {
+                return;
+            }
+
+            if (appInstance.RootFrame == null)
+            {
+                return;
+            }
+
             var resolvedSessionContext = Services.GetRequiredService<ISessionContext>();
             resolvedSessionContext.Clear();
             NavigateTo(typeof(LoginPage), parameter: null, clearBackStack: true);
@@ -371,7 +501,11 @@ namespace BoardRentAndProperty
         {
             mainWindow?.DispatcherQueue.TryEnqueue(() =>
             {
-                if (mainWindow is MainWindow activatedMainWindow) activatedMainWindow.AppWindow.Show();
+                if (mainWindow is MainWindow activatedMainWindow)
+                {
+                    activatedMainWindow.AppWindow.Show();
+                }
+
                 mainWindow?.Activate();
             });
         }
@@ -389,10 +523,17 @@ namespace BoardRentAndProperty
             trayOpenCommand.ExecuteRequested += (sender, args) => ActivateWindow();
             var trayOpenMenuItem = new MenuFlyoutItem { Text = "Open", Command = trayOpenCommand };
             var trayExitCommand = new XamlUICommand();
-            trayExitCommand.ExecuteRequested += (sender, args) => { trayIcon.Dispose(); Environment.Exit(SuccessExitCode); };
+            trayExitCommand.ExecuteRequested += (sender, args) =>
+            {
+                trayIcon.Dispose();
+                Environment.Exit(SuccessExitCode);
+            };
             var trayExitMenuItem = new MenuFlyoutItem { Text = "Exit", Command = trayExitCommand };
             trayIcon.ContextFlyout = new MenuFlyout { Items = { trayOpenMenuItem, trayExitMenuItem } };
-            if (mainWindow!.Content is Grid rootGrid) rootGrid.Children.Add(trayIcon);
+            if (mainWindow!.Content is Grid rootGrid)
+            {
+                rootGrid.Children.Add(trayIcon);
+            }
         }
 
         private static Guid CreateTrayIconId(int processSlot)

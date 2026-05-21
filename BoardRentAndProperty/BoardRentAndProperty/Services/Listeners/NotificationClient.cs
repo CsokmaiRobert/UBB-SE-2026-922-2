@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -42,6 +43,10 @@ namespace BoardRentAndProperty.Services.Listeners
             udpSocketClient = new UdpClient(AutoAssignLocalUdpPort);
         }
 
+        [SuppressMessage(
+            "Design",
+            "CA1031:Do not catch general exception types",
+            Justification = "A malformed notification packet should not stop the listener loop.")]
         private void HandleMessagePacket(MessageWrapper wrappedMessage)
         {
             try
@@ -200,7 +205,11 @@ namespace BoardRentAndProperty.Services.Listeners
 
         private void UpdateConnectionStatus(NotificationConnectionStatus newStatus)
         {
-            if (connectionStatus == newStatus) return;
+            if (connectionStatus == newStatus)
+            {
+                return;
+            }
+
             connectionStatus = newStatus;
             ConnectionStatusChanged?.Invoke(this, new NotificationConnectionStatusChangedEventArgs(newStatus));
         }
