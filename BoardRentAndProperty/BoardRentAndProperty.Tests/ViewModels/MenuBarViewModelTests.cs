@@ -1,6 +1,8 @@
 using BoardRentAndProperty.Tests.Fakes;
+using BoardRentAndProperty.Services;
 using BoardRentAndProperty.Utilities;
 using BoardRentAndProperty.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 
 namespace BoardRentAndProperty.Tests.ViewModels
@@ -18,7 +20,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
         public void SetUp()
         {
             this.sessionContext = new FakeSessionContext { Role = "Standard User" };
-            this.viewModel = new MenuBarViewModel(this.sessionContext);
+            this.viewModel = new MenuBarViewModel(new DesktopAuthorizationService(this.sessionContext));
             this.capturedNavigationTarget = null;
             this.navigationWasTriggered = false;
             this.navigationTriggerCount = 0;
@@ -35,6 +37,21 @@ namespace BoardRentAndProperty.Tests.ViewModels
             Assert.That(registeredMenuLabels, Does.Contain("My Requests"));
             Assert.That(registeredMenuLabels, Does.Contain("My Rentals"));
             Assert.That(registeredMenuLabels, Does.Contain("Notifications"));
+        }
+
+        [Test]
+        public void DependencyInjection_WhenBothConstructorDependenciesAreRegistered_ResolvesMenuBarViewModel()
+        {
+            var services = new ServiceCollection();
+            services.AddSingleton<ISessionContext>(new FakeSessionContext { Role = "Standard User" });
+            services.AddSingleton<IDesktopAuthorizationService, DesktopAuthorizationService>();
+            services.AddSingleton<MenuBarViewModel>();
+
+            using var provider = services.BuildServiceProvider();
+
+            var resolvedViewModel = provider.GetRequiredService<MenuBarViewModel>();
+
+            Assert.That(resolvedViewModel.NavigationActionsByMenuLabel.Keys, Does.Contain("My Games"));
         }
 
         [Test]

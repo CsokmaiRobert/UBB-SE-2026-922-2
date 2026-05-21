@@ -1,6 +1,8 @@
 namespace BoardRentAndProperty.ViewModels
 {
     using System;
+    using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
     using System.Threading.Tasks;
     using BoardRentAndProperty.ApiClient;
     using BoardRentAndProperty.Contracts.DataTransferObjects;
@@ -36,6 +38,10 @@ namespace BoardRentAndProperty.ViewModels
 
         public Action OnNavigateToRegister { get; set; }
 
+        [SuppressMessage(
+            "Design",
+            "CA1031:Do not catch general exception types",
+            Justification = "The login command must surface unexpected post-login/navigation failures in the UI.")]
         [RelayCommand]
         private async Task LoginAsync()
         {
@@ -70,6 +76,13 @@ namespace BoardRentAndProperty.ViewModels
                 {
                     this.ErrorMessage = loginResult.Error ?? "Login failed.";
                 }
+            }
+            catch (Exception exception)
+            {
+                Debug.WriteLine(exception);
+                this.ErrorMessage = string.IsNullOrWhiteSpace(exception.Message)
+                    ? "Login could not be completed."
+                    : $"Login could not be completed: {exception.Message}";
             }
             finally
             {

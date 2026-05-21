@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
 using BoardRentAndProperty.Tests.Fakes;
@@ -67,6 +68,27 @@ namespace BoardRentAndProperty.Tests.ViewModels
             await this.systemUnderTest.LoginCommand.ExecuteAsync(null);
 
             Assert.That(this.systemUnderTest.ErrorMessage, Is.EqualTo(serviceError));
+            Assert.That(this.systemUnderTest.IsLoading, Is.False);
+        }
+
+        [Test]
+        public async Task LoginAsync_SuccessCallbackThrows_SetsErrorMessageAndStopsLoading()
+        {
+            this.systemUnderTest.UsernameOrEmail = "user";
+            this.systemUnderTest.Password = "ValidPassword123!";
+            this.systemUnderTest.OnLoginSuccess = _ => throw new InvalidOperationException("Navigation failed.");
+
+            var profile = new AccountProfileDataTransferObject
+            {
+                Username = "user",
+                Role = new RoleDataTransferObject { Name = "Standard User" },
+            };
+
+            this.authService.LoginResult = ServiceResult<AccountProfileDataTransferObject>.Ok(profile);
+
+            await this.systemUnderTest.LoginCommand.ExecuteAsync(null);
+
+            Assert.That(this.systemUnderTest.ErrorMessage, Does.Contain("Navigation failed."));
             Assert.That(this.systemUnderTest.IsLoading, Is.False);
         }
 
