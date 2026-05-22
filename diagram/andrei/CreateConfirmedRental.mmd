@@ -1,19 +1,31 @@
 sequenceDiagram
-    participant User
-    participant RC as RentalsController<br/>RentalsController.cs
-    participant RS as RentalService<br/>RentalService.cs
-    participant RR as RentalRepository<br/>RentalRepository.cs
-    participant DB as Database<br/>AppDbContext.cs
+    autonumber
+    actor User
+    participant RC as RentalsController
+    participant RS as RentalService
+    participant RR as RentalRepository
+    participant DB as Database
 
-    User->>+RC: 1 : Create(CreateRentalDataTransferObject)
-    RC->>+RS: 2 : CreateConfirmedRental(gameId, renterId, ownerId, startDate, endDate)
+    User->>RC: POST /Rentals/Create (CreateRentalDataTransferObject)
+    activate RC
 
-    RS->>RS: 3 : HasValidFutureDateRange(startDate, endDate)
-    RS->>RS: 4 : IsSlotAvailable(gameId, startDate, endDate)
+    RC->>RS: CreateConfirmedRental(gameId, renterId, ownerId, startDate, endDate)
+    activate RS
 
-    RS->>+RR: 5 : AddConfirmed(rental)
-    RR->>+DB: 6 : SaveChanges()
-    DB-->>-RR: 7 : Success
-    RR-->>-RS: 8 : Rental Created
-    RS-->>-RC: 9 : Success
-    RC-->>-User: 10 : RedirectToAction(My)
+    RS->>RS: HasValidFutureDateRange(startDate, endDate)
+    RS->>RS: IsSlotAvailable(gameId, startDate, endDate)
+
+    RS->>RR: AddConfirmed(rental)
+    activate RR
+    RR->>DB: SaveChanges()
+    activate DB
+    DB-->>RR: Success
+    deactivate DB
+    RR-->>RS: Rental Created
+    deactivate RR
+
+    RS-->>RC: Success
+    deactivate RS
+
+    RC-->>User: RedirectToAction(My)
+    deactivate RC
