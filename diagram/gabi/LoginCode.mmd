@@ -1,0 +1,36 @@
+sequenceDiagram
+    actor User
+
+    participant WebCtrl as AuthController (GUI-BRAP)
+    participant ProxyAdapter as AuthProxyServiceAdapter (GUI-BRAP)
+    participant ApiClientSvc as AuthService (ApiClient)
+    participant ApiCtrl as AuthController (Api)
+    participant ApiSvc as AuthService (Api)
+    participant AccountRepo as AccountRepository (Api)
+    participant FailedRepo as FailedLoginRepository (Api)
+    participant DB as SQL Server
+
+    User->>WebCtrl: POST /login (LoginViewModel)
+    WebCtrl->>ProxyAdapter: LoginAsync(LoginDataTransferObject)
+    ProxyAdapter->>ApiClientSvc: LoginAsync(LoginDataTransferObject)
+    ApiClientSvc->>ApiCtrl: POST api/auth/login (HTTP)
+    ApiCtrl->>ApiSvc: LoginAsync(LoginDataTransferObject)
+
+    ApiSvc->>AccountRepo: GetByUsernameAsync(username) or GetByEmailAsync(email)
+    AccountRepo->>DB: SELECT Accounts WHERE Username or Email = ?
+    DB-->>AccountRepo: Account
+    AccountRepo-->>ApiSvc: Account
+
+    ApiSvc->>FailedRepo: GetByAccountIdAsync(accountId)
+    FailedRepo->>DB: SELECT FailedLoginAttempts WHERE AccountId = ?
+    DB-->>FailedRepo: FailedLoginAttempt
+    FailedRepo-->>ApiSvc: FailedLoginAttempt
+
+    ApiSvc->>FailedRepo: ResetAsync(accountId)
+    FailedRepo->>DB: UPDATE FailedLoginAttempts SET FailedAttempts = 0
+    ApiSvc-->>ApiCtrl: ServiceResult(AccountProfileDTO) success
+    ApiCtrl-->>ApiClientSvc: 200 OK + AccountProfileDTO
+    ApiClientSvc-->>ProxyAdapter: ServiceResult(AccountProfileDTO)
+    ProxyAdapter-->>WebCtrl: AccountProfileDTO
+    WebCtrl->>WebCtrl: SignInAsync(ClaimsPrincipal)
+    WebCtrl-->>User: Redirect to /games
