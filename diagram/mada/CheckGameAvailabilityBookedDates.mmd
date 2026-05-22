@@ -1,0 +1,83 @@
+sequenceDiagram
+    actor User
+    participant ApiClient as RequestService.cs<br/>(ApiClient)
+    participant Controller as RequestsController.cs<br/>(Api)
+    participant Service as RequestService.cs<br/>(Api)
+    participant GameRepo as GameRepository.cs
+    participant RentalRepo as RentalRepository.cs
+    participant RequestRepo as RequestRepository.cs
+    participant DB as AppDbContext
+
+    alt Check availability
+        User->>ApiClient: CheckAvailabilityAsync(gameId, startDate, endDate, cancellationToken)
+        ApiClient->>Controller: HTTP GET /api/requests/games/{gameId}/availability?startDate=...&endDate=...
+        Controller->>Service: CheckAvailability(gameId, startDate, endDate)
+
+        alt startDate or endDate > DateTime.UtcNow.AddMonths(AvailabilityWindowMonths)
+            Service-->>Controller: false
+        else game does not exist
+            Service->>GameRepo: Get(gameId)
+            GameRepo->>GameRepo: GamesWithOwner(dbContext)
+            GameRepo->>DB: dbContext.Games.Include(game => game.Owner)
+            DB-->>GameRepo: null
+            GameRepo-->>Service: throw KeyNotFoundException
+            Service-->>Controller: false
+        else game is inactive
+            Service->>GameRepo: Get(gameId)
+            GameRepo->>GameRepo: GamesWithOwner(dbContext)
+            GameRepo->>DB: dbContext.Games.Include(game => game.Owner)
+            DB-->>GameRepo: Game
+            GameRepo-->>Service: Game
+            Service-->>Controller: false
+        else rental conflict exists
+            Service->>GameRepo: Get(gameId)
+            GameRepo-->>Service: active Game
+            Service->>RentalRepo: GetRentalsByGame(gameId)
+            RentalRepo->>RentalRepo: RentalsWithNavigations(dbContext)
+            RentalRepo->>DB: dbContext.Rentals.Include(...).Where(rental.Game.Id == gameId)
+            DB-->>RentalRepo: rentals
+            RentalRepo-->>Service: ImmutableList<Rental>
+            Note over Service: startDate < rental.EndDate.AddHours(DomainConstants.RentalBufferHours)<br/>and endDate > rental.StartDate.AddHours(-DomainConstants.RentalBufferHours)
+            Service-->>Controller: false
+        else request conflict exists
+            Service->>GameRepo: Get(gameId)
+            GameRepo-->>Service: active Game
+            Service->>RentalRepo: GetRentalsByGame(gameId)
+            RentalRepo-->>Service: no rental conflict
+            Service->>RequestRepo: GetRequestsByGame(gameId)
+            RequestRepo->>RequestRepo: RequestsWithNavigations(dbContext)
+            RequestRepo->>DB: dbContext.Requests.Include(...).Where(request.Game.Id == gameId)
+            DB-->>RequestRepo: requests
+            RequestRepo-->>Service: ImmutableList<Request>
+            Note over Service: request.StartDate.AddHours(-DomainConstants.RentalBufferHours) < endDate<br/>and request.EndDate.AddHours(DomainConstants.RentalBufferHours) > startDate
+            Service-->>Controller: false
+        else no conflicts
+            Service->>GameRepo: Get(gameId)
+            GameRepo-->>Service: active Game
+            Service->>RentalRepo: GetRentalsByGame(gameId)
+            RentalRepo-->>Service: no rental conflict
+            Service->>RequestRepo: GetRequestsByGame(gameId)
+            RequestRepo-->>Service: no request conflict
+            Service-->>Controller: true
+        end
+
+        Controller-->>ApiClient: HTTP 200 OK (bool)
+        ApiClient-->>User: ServiceResult<bool>.Ok(available)
+
+    else Get booked dates
+        User->>ApiClient: GetBookedDatesAsync(gameId, calendarMonth, calendarYear, cancellationToken)
+        ApiClient->>Controller: HTTP GET /api/requests/games/{gameId}/booked-dates?month={calendarMonth}&year={calendarYear}
+        Controller->>Service: GetBookedDates(gameId, month, year)
+        Service->>Service: replace missing month/year with DateTime.UtcNow
+        Service->>RequestRepo: GetRequestsByGame(gameId)
+        RequestRepo->>RequestRepo: RequestsWithNavigations(dbContext)
+        RequestRepo->>DB: dbContext.Requests.Include(...).Where(request.Game.Id == gameId)
+        DB-->>RequestRepo: requests
+        RequestRepo-->>Service: ImmutableList<Request>
+        Service->>Service: Where(request.StartDate.Month == month && request.StartDate.Year == year)
+        Service->>Service: OrderBy(request.StartDate)
+        Service->>Service: Select(new BookedDateRange { EndDate = request.EndDate.AddHours(DomainConstants.RentalBufferHours) })
+        Service-->>Controller: ImmutableList<BookedDateRange>
+        Controller-->>ApiClient: HTTP 200 OK (IReadOnlyList<BookedDateRangeDataTransferObject>)
+        ApiClient-->>User: ServiceResult<IReadOnlyList<BookedDateRangeDataTransferObject>>.Ok(bookedDateRanges)
+    end
