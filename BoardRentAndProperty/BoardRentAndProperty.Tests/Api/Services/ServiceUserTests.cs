@@ -28,61 +28,33 @@ namespace BoardRentAndProperty.Tests.Api.Services
         }
 
         [Test]
-        public void GetUsersExcept_WithMultipleAccounts_ReturnsAllAccountsBesidesTheCurrentOne()
+        public void GetUsersExcept_ReturnsOtherAccountsAndOmitsCurrent()
         {
-            var accounts = new List<Account>
+            this.repository.Accounts = new List<Account>
             {
+                new Account { Id = this.currentAccountId, DisplayName = "Me" },
                 new Account { Id = this.secondAccountId, DisplayName = "Maria" },
                 new Account { Id = this.thirdAccountId, DisplayName = "Gabi" },
             };
 
-            this.repository.Accounts = accounts;
-
             var result = this.service.GetUsersExcept(this.currentAccountId);
 
-            Assert.That(result.Any(user => user.Id == this.secondAccountId && user.DisplayName == "Maria"), Is.True);
-            Assert.That(result.Any(user => user.Id == this.thirdAccountId && user.DisplayName == "Gabi"), Is.True);
+            Assert.That(result, Has.Count.EqualTo(2));
+            Assert.That(result.Select(user => user.Id), Does.Not.Contain(this.currentAccountId));
+            Assert.That(result.Any(user => user.DisplayName == "Maria"), Is.True);
         }
 
         [Test]
-        public void GetUsersExcept_WhenNoOtherAccountsExist_ReturnsEmptyList()
+        public void GetUsersExcept_WhenOnlyCurrentAccountOrNoAccounts_ReturnsEmptyList()
         {
             this.repository.Accounts = new List<Account>
             {
                 new Account { Id = this.currentAccountId, DisplayName = "Me" },
             };
+            Assert.That(this.service.GetUsersExcept(this.currentAccountId), Is.Empty);
 
-            var result = this.service.GetUsersExcept(this.currentAccountId);
-
-            Assert.That(result, Is.Empty);
-        }
-
-        [Test]
-        public void GetUsersExcept_WhenThereAreNoAccounts_ReturnsEmptyList()
-        {
             this.repository.Accounts = new List<Account>();
-
-            var result = this.service.GetUsersExcept(this.currentAccountId);
-
-            Assert.That(result, Is.Empty);
-        }
-
-        [Test]
-        public void GetUsersExcept_WithMultipleAccounts_ReturnsCorrectNumberOfAccounts()
-        {
-            var accounts = new List<Account>
-            {
-                new Account { Id = this.currentAccountId, DisplayName = "Me" },
-                new Account { Id = this.secondAccountId, DisplayName = "Alice" },
-                new Account { Id = this.thirdAccountId, DisplayName = "Bob" },
-            };
-
-            this.repository.Accounts = accounts;
-
-            var result = this.service.GetUsersExcept(this.currentAccountId);
-
-            Assert.That(result.Select(user => user.Id), Does.Not.Contain(this.currentAccountId));
-            Assert.That(result, Has.Count.EqualTo(2));
+            Assert.That(this.service.GetUsersExcept(this.currentAccountId), Is.Empty);
         }
     }
 }

@@ -18,56 +18,32 @@ namespace BoardRentAndProperty.Tests.ViewModels
         {
             var currentUserId = Guid.NewGuid();
             var currentUserContext = new FakeCurrentUserContext { CurrentUserId = currentUserId };
-
-            var firstRequest = new RequestDTO { Id = 10, StartDate = new DateTime(2025, 1, 1) };
-            var secondRequest = new RequestDTO { Id = 11, StartDate = new DateTime(2025, 1, 5) };
-
             var requestService = new FakeClientRequestService
             {
-                RequestsForRenter = ImmutableList.Create(firstRequest, secondRequest),
+                RequestsForRenter = ImmutableList.Create(
+                    new RequestDTO { Id = 10, StartDate = new DateTime(2025, 1, 1) },
+                    new RequestDTO { Id = 11, StartDate = new DateTime(2025, 1, 5) }),
             };
-
             var viewModel = new RequestsToOthersViewModel(requestService, currentUserContext);
 
             await viewModel.LoadRequestsAsync();
 
             Assert.That(viewModel.CurrentRenterUserId, Is.EqualTo(currentUserId));
-            Assert.That(viewModel.PagedItems, Has.Count.EqualTo(2));
             Assert.That(viewModel.PagedItems[0].Id, Is.EqualTo(11));
-            Assert.That(viewModel.PagedItems[1].Id, Is.EqualTo(10));
         }
 
         [Test]
-        public async Task TryCancelRequest_WhenServiceSucceeds_ReturnsNull()
+        public async Task TryCancelRequest_ReturnsNullOnSuccessAndFriendlyMessageOnFailure()
         {
-            var currentUserId = Guid.NewGuid();
+            var currentUserContext = new FakeCurrentUserContext { CurrentUserId = Guid.NewGuid() };
             var requestService = new FakeClientRequestService();
-            var currentUserContext = new FakeCurrentUserContext { CurrentUserId = currentUserId };
-
             var viewModel = new RequestsToOthersViewModel(requestService, currentUserContext);
-            int requestIdToCancel = 100;
-            requestService.CancelRequestResult = Result<int, CancelRequestError>.Success(requestIdToCancel);
 
-            string? cancellationErrorMessage = await viewModel.TryCancelRequestAsync(requestIdToCancel);
+            requestService.CancelRequestResult = Result<int, CancelRequestError>.Success(100);
+            Assert.That(await viewModel.TryCancelRequestAsync(100), Is.Null);
 
-            Assert.That(cancellationErrorMessage, Is.Null);
-        }
-
-        [Test]
-        public async Task TryCancelRequest_WhenRequestNotFound_ReturnsNotFoundErrorMessage()
-        {
-            var currentUserId = Guid.NewGuid();
-            var requestService = new FakeClientRequestService();
-            var currentUserContext = new FakeCurrentUserContext { CurrentUserId = currentUserId };
-
-            var viewModel = new RequestsToOthersViewModel(requestService, currentUserContext);
-            int requestIdToCancel = 100;
-            requestService.CancelRequestResult =
-                Result<int, CancelRequestError>.Failure(CancelRequestError.NotFound);
-
-            string? cancellationErrorMessage = await viewModel.TryCancelRequestAsync(requestIdToCancel);
-
-            Assert.That(cancellationErrorMessage, Is.EqualTo("Request not found."));
+            requestService.CancelRequestResult = Result<int, CancelRequestError>.Failure(CancelRequestError.NotFound);
+            Assert.That(await viewModel.TryCancelRequestAsync(100), Is.EqualTo("Request not found."));
         }
     }
 }

@@ -7,39 +7,27 @@ namespace BoardRentAndProperty.Tests.ViewModels
     public sealed class PriceInputParserTests
     {
         [Test]
-        public void TryParsePriceInput_NullString_ReturnsFalseAndZero()
+        public void TryParsePriceInput_NullOrWhitespaceInput_ReturnsFalseAndZero()
         {
-            bool parseSucceeded = PriceInputParser.TryParsePriceInput(null!, out double price);
+            bool nullParseSucceeded = PriceInputParser.TryParsePriceInput(null!, out double nullPrice);
+            Assert.That(nullParseSucceeded, Is.False);
+            Assert.That(nullPrice, Is.EqualTo(0));
 
-            Assert.That(parseSucceeded, Is.False);
-            Assert.That(price, Is.EqualTo(0));
+            bool whitespaceParseSucceeded = PriceInputParser.TryParsePriceInput("   ", out double whitespacePrice);
+            Assert.That(whitespaceParseSucceeded, Is.False);
+            Assert.That(whitespacePrice, Is.EqualTo(0));
         }
 
         [Test]
-        public void TryParsePriceInput_OnlyWhitespace_ReturnsFalseAndZero()
+        public void TryParsePriceInput_NumericValues_ParseCorrectly()
         {
-            bool parseSucceeded = PriceInputParser.TryParsePriceInput("   ", out double price);
+            bool wholeParsed = PriceInputParser.TryParsePriceInput("42", out double wholePrice);
+            Assert.That(wholeParsed, Is.True);
+            Assert.That(wholePrice, Is.EqualTo(42));
 
-            Assert.That(parseSucceeded, Is.False);
-            Assert.That(price, Is.EqualTo(0));
-        }
-
-        [Test]
-        public void TryParsePriceInput_WholeNumber_ParsesCorrectly()
-        {
-            bool parseSucceeded = PriceInputParser.TryParsePriceInput("42", out double price);
-
-            Assert.That(parseSucceeded, Is.True);
-            Assert.That(price, Is.EqualTo(42));
-        }
-
-        [Test]
-        public void TryParsePriceInput_DotDecimalSeparator_ParsesCorrectly()
-        {
-            bool parseSucceeded = PriceInputParser.TryParsePriceInput("12.50", out double price);
-
-            Assert.That(parseSucceeded, Is.True);
-            Assert.That(price, Is.EqualTo(12.5));
+            bool decimalParsed = PriceInputParser.TryParsePriceInput("12.50", out double decimalPrice);
+            Assert.That(decimalParsed, Is.True);
+            Assert.That(decimalPrice, Is.EqualTo(12.5));
         }
 
         [Test]

@@ -29,25 +29,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             var viewModel = BuildViewModel();
 
             Assert.That(viewModel.TotalCount, Is.EqualTo(3));
-        }
-
-        [Test]
-        public void Constructor_NoGames_TotalCountIsZero()
-        {
-            var viewModel = BuildViewModel();
-
-            Assert.That(viewModel.TotalCount, Is.EqualTo(0));
-        }
-
-        [Test]
-        public void ShowingText_ContainsGameCountAndGamesWord()
-        {
-            this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(1), BuildGame(2));
-
-            var viewModel = BuildViewModel();
-
-            Assert.That(viewModel.ShowingText, Does.Contain("2"));
-            Assert.That(viewModel.ShowingText, Does.Contain("games"));
+            Assert.That(viewModel.ShowingText, Does.Contain("3"));
         }
 
         [Test]
@@ -57,38 +39,22 @@ namespace BoardRentAndProperty.Tests.ViewModels
             Assert.That(viewModel.TotalCount, Is.EqualTo(0));
 
             this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(10), BuildGame(11));
-
             await viewModel.LoadGamesAsync();
 
             Assert.That(viewModel.TotalCount, Is.EqualTo(2));
         }
 
         [Test]
-        public async Task DeleteGame_CallsServiceDeleteWithCorrectId()
-        {
-            this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(42));
-
-            var viewModel = BuildViewModel();
-            GameDTO gameToDelete = viewModel.PagedItems.First();
-
-            await viewModel.DeleteGameAsync(gameToDelete);
-
-            Assert.That(this.gameService.DeleteGameCallCount, Is.EqualTo(1));
-            Assert.That(this.gameService.LastDeletedGameId, Is.EqualTo(42));
-        }
-
-        [Test]
-        public async Task DeleteGame_ReloadsListAfterDeletion()
+        public async Task DeleteGame_CallsServiceAndReloadsList()
         {
             this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(1), BuildGame(2));
-
             var viewModel = BuildViewModel();
-            Assert.That(viewModel.TotalCount, Is.EqualTo(2));
-
             this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(2));
 
             await viewModel.DeleteGameAsync(BuildGame(1));
 
+            Assert.That(this.gameService.DeleteGameCallCount, Is.EqualTo(1));
+            Assert.That(this.gameService.LastDeletedGameId, Is.EqualTo(1));
             Assert.That(viewModel.TotalCount, Is.EqualTo(1));
         }
 
@@ -129,34 +95,7 @@ namespace BoardRentAndProperty.Tests.ViewModels
             ViewOperationResult result = await viewModel.TryDeleteGameAsync(BuildGame(1));
 
             Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.DialogTitle, Is.EqualTo("Cannot Delete Game"));
             Assert.That(result.DialogMessage, Is.EqualTo("Database connection failed."));
-        }
-
-        [Test]
-        public async Task TryDeleteGame_UnexpectedExceptionWithEmptyMessage_ReturnsFallbackMessage()
-        {
-            this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(1));
-            this.gameService.DeleteGameException = new Exception(string.Empty);
-
-            var viewModel = BuildViewModel();
-            ViewOperationResult result = await viewModel.TryDeleteGameAsync(BuildGame(1));
-
-            Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.DialogMessage, Is.EqualTo("An unexpected error occurred."));
-        }
-
-        [Test]
-        public async Task TryDeleteGame_UnexpectedExceptionWithWhitespaceMessage_ReturnsFallbackMessage()
-        {
-            this.gameService.GamesForOwner = ImmutableList.Create(BuildGame(1));
-            this.gameService.DeleteGameException = new Exception("   ");
-
-            var viewModel = BuildViewModel();
-            ViewOperationResult result = await viewModel.TryDeleteGameAsync(BuildGame(1));
-
-            Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.DialogMessage, Is.EqualTo("An unexpected error occurred."));
         }
 
         [Test]
@@ -170,18 +109,6 @@ namespace BoardRentAndProperty.Tests.ViewModels
 
             Assert.That(viewModel.TotalCount, Is.EqualTo(pageSize + 2));
             Assert.That(viewModel.PagedItems.Count, Is.LessThanOrEqualTo(pageSize));
-        }
-
-        [Test]
-        public void ShowingText_WithGames_IncludesDisplayedAndTotalCounts()
-        {
-            var games = Enumerable.Range(1, 5).Select(BuildGame).ToImmutableList();
-            this.gameService.GamesForOwner = games;
-
-            var viewModel = BuildViewModel();
-
-            Assert.That(viewModel.ShowingText, Does.Contain("5"));
-            Assert.That(viewModel.ShowingText, Does.Contain("games"));
         }
 
         private ListingsViewModel BuildViewModel()

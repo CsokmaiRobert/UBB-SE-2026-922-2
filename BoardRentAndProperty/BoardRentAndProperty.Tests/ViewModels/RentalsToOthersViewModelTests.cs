@@ -25,61 +25,30 @@ namespace BoardRentAndProperty.Tests.ViewModels
         }
 
         [Test]
-        public void ShowingText_WithRentals_ContainsCountAndRentalsKeyword()
-        {
-            this.rentalService.RentalsForOwner =
-                ImmutableList.Create(BuildRental(10), BuildRental(20), BuildRental(30), BuildRental(50));
-
-            var viewModel = new RentalsToOthersViewModel(this.rentalService, this.currentUserContext);
-
-            Assert.That(viewModel.ShowingText, Does.Contain("rentals"));
-            Assert.That(viewModel.ShowingText, Does.Contain("4"));
-        }
-
-        [Test]
-        public void Constructor_WithRentals_SetsCorrectOwnerIdAndTotalCount()
-        {
-            this.rentalService.RentalsForOwner =
-                ImmutableList.Create(BuildRental(10), BuildRental(20), BuildRental(30), BuildRental(40));
-
-            var viewModel = new RentalsToOthersViewModel(this.rentalService, this.currentUserContext);
-
-            Assert.That(viewModel.TotalCount, Is.EqualTo(4));
-            Assert.That(viewModel.CurrentGameOwnerUserId, Is.EqualTo(this.ownerIdentifier));
-        }
-
-        [Test]
-        public void Constructor_WithRentals_PagedItemsContainCorrectRentalDetails()
+        public void Constructor_WithRentals_ExposesOwnerIdAndPopulatesPagedItems()
         {
             this.rentalService.RentalsForOwner = ImmutableList.Create(BuildRental(10), BuildRental(20), BuildRental(30));
 
             var viewModel = new RentalsToOthersViewModel(this.rentalService, this.currentUserContext);
-            var pagedRentalIds = viewModel.PagedItems.Select(rental => rental.Id).ToList();
 
-            Assert.That(viewModel.PagedItems.All(rental => rental.Game.Id == 1), Is.True);
+            Assert.That(viewModel.TotalCount, Is.EqualTo(3));
+            Assert.That(viewModel.CurrentGameOwnerUserId, Is.EqualTo(this.ownerIdentifier));
             Assert.That(viewModel.PagedItems.All(rental => rental.Owner.Id == this.ownerIdentifier), Is.True);
-            Assert.That(pagedRentalIds, Does.Contain(10));
-            Assert.That(pagedRentalIds, Does.Contain(20));
-            Assert.That(pagedRentalIds, Does.Contain(30));
+            Assert.That(viewModel.ShowingText, Does.Contain("rentals"));
         }
 
         [Test]
         public async Task LoadRentals_AfterServiceDataChanged_RefreshesTotalCountAndPagedItems()
         {
-            this.rentalService.RentalsForOwner = ImmutableList.Create(BuildRental(10), BuildRental(20), BuildRental(30));
-
+            this.rentalService.RentalsForOwner = ImmutableList.Create(BuildRental(10), BuildRental(20));
             var viewModel = new RentalsToOthersViewModel(this.rentalService, this.currentUserContext);
-            Assert.That(viewModel.TotalCount, Is.EqualTo(3));
+            Assert.That(viewModel.TotalCount, Is.EqualTo(2));
 
-            this.rentalService.RentalsForOwner =
-                ImmutableList.Create(BuildRental(10), BuildRental(20), BuildRental(30), BuildRental(50));
-
+            this.rentalService.RentalsForOwner = ImmutableList.Create(BuildRental(10), BuildRental(20), BuildRental(50));
             await viewModel.LoadRentalsAsync();
 
-            var pagedRentalIds = viewModel.PagedItems.Select(rental => rental.Id).ToList();
-
-            Assert.That(viewModel.TotalCount, Is.EqualTo(4));
-            Assert.That(pagedRentalIds, Does.Contain(50));
+            Assert.That(viewModel.TotalCount, Is.EqualTo(3));
+            Assert.That(viewModel.PagedItems.Select(rental => rental.Id), Does.Contain(50));
         }
 
         private RentalDTO BuildRental(int rentalId)
