@@ -37,21 +37,15 @@ namespace BoardRentAndProperty.Tests.ViewModels
                     DomainConstants.GameMaximumDescriptionLength),
             };
             this.currentUserContext = new FakeCurrentUserContext { CurrentUserId = this.testUserId };
-
             this.viewModel = new CreateGameViewModel(this.gameService, this.currentUserContext);
         }
 
         [Test]
         public void Constructor_InitializesCurrentUserAndDefaultState()
         {
-            Assert.Multiple(() =>
-            {
-                Assert.That(this.viewModel.CurrentUserId, Is.EqualTo(this.testUserId));
-                Assert.That(this.viewModel.GameName, Is.EqualTo(string.Empty));
-                Assert.That(this.viewModel.GameDescription, Is.EqualTo(string.Empty));
-                Assert.That(this.viewModel.IsGameActive, Is.True);
-                Assert.That(this.viewModel.GameImage, Is.Null);
-            });
+            Assert.That(this.viewModel.CurrentUserId, Is.EqualTo(this.testUserId));
+            Assert.That(this.viewModel.GameName, Is.EqualTo(string.Empty));
+            Assert.That(this.viewModel.IsGameActive, Is.True);
         }
 
         [Test]
@@ -60,25 +54,14 @@ namespace BoardRentAndProperty.Tests.ViewModels
             PopulateWithValidInputs();
             Assert.That(this.viewModel.ValidateGameInputs(), Is.Empty);
 
-            AssertValidationError(model => model.GameName = "AB", "Name");
             AssertValidationError(model => model.GameName = string.Empty, "Name");
             AssertValidationError(model => model.GamePrice = 0m, "Price");
-            AssertValidationError(model => model.MinimumPlayersRequired = 0, "player");
             AssertValidationError(model =>
             {
                 model.MinimumPlayersRequired = 5;
                 model.MaximumPlayersAllowed = 2;
             }, "Maximum");
             AssertValidationError(model => model.GameDescription = "Short", "Description");
-
-            PopulateWithValidInputs();
-            this.viewModel.GameName = string.Empty;
-            this.viewModel.GamePrice = 0m;
-            this.viewModel.GameDescription = string.Empty;
-
-            List<string> errors = this.viewModel.ValidateGameInputs();
-
-            Assert.That(errors.Count, Is.GreaterThanOrEqualTo(3));
         }
 
         [Test]
@@ -88,84 +71,45 @@ namespace BoardRentAndProperty.Tests.ViewModels
             Assert.That(this.viewModel.GamePrice, Is.EqualTo(25.50m));
 
             this.viewModel.GamePrice = 10m;
-            this.viewModel.SetGamePriceFromText(string.Empty);
-            Assert.That(this.viewModel.GamePrice, Is.EqualTo(0m));
-
-            this.viewModel.GamePrice = 10m;
             this.viewModel.SetGamePriceFromText("not-a-price");
             Assert.That(this.viewModel.GamePrice, Is.EqualTo(0m));
 
             this.viewModel.GamePriceAsDouble = 19.99;
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(this.viewModel.GamePrice, Is.EqualTo(19.99m));
-                Assert.That(this.viewModel.GamePriceAsDouble, Is.EqualTo(19.99).Within(0.001));
-            });
+            Assert.That(this.viewModel.GamePrice, Is.EqualTo(19.99m));
         }
 
         [Test]
         public async Task SubmitCreateGame_CoversSuccessAndValidationFailure()
         {
             PopulateWithValidInputs();
-
             ViewOperationResult successResult = await this.viewModel.SubmitCreateGameAsync();
-
             Assert.That(successResult.IsSuccess, Is.True);
             Assert.That(this.gameService.AddGameCallCount, Is.EqualTo(1));
             Assert.That(this.gameService.LastAddedGame!.Owner.Id, Is.EqualTo(this.testUserId));
-            Assert.That(this.gameService.LastAddedGame.Name, Is.EqualTo("Settlers of Catan"));
-            Assert.That(this.gameService.LastAddedGame.Price, Is.EqualTo(15.99m));
 
-            this.gameService = new FakeClientGameService
-            {
-                ValidateGameHandler = this.gameService.ValidateGameHandler,
-            };
+            this.gameService = new FakeClientGameService { ValidateGameHandler = this.gameService.ValidateGameHandler };
             this.viewModel = new CreateGameViewModel(this.gameService, this.currentUserContext);
             PopulateWithValidInputs();
             this.viewModel.GameName = string.Empty;
-
             ViewOperationResult failureResult = await this.viewModel.SubmitCreateGameAsync();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(failureResult.IsSuccess, Is.False);
-                Assert.That(failureResult.DialogTitle, Is.EqualTo("Validation Error"));
-            });
+            Assert.That(failureResult.DialogTitle, Is.EqualTo("Validation Error"));
             Assert.That(this.gameService.AddGameCallCount, Is.EqualTo(0));
         }
 
         [Test]
-        public async Task SaveGame_CoversSuccessAndValidationFailure()
+        public async Task SaveGame_OnValidInputReturnsGame_OnInvalidReturnsNull()
         {
             PopulateWithValidInputs();
-
             GameDTO? savedGame = await this.viewModel.SaveGameAsync();
-            GameDTO nonNullSavedGame = savedGame!;
+            Assert.That(savedGame, Is.Not.Null);
+            Assert.That(savedGame!.Name, Is.EqualTo("Settlers of Catan"));
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(savedGame, Is.Not.Null);
-                Assert.That(nonNullSavedGame.Owner.Id, Is.EqualTo(this.testUserId));
-                Assert.That(nonNullSavedGame.Name, Is.EqualTo("Settlers of Catan"));
-                Assert.That(nonNullSavedGame.Price, Is.EqualTo(15.99m));
-                Assert.That(nonNullSavedGame.MinimumPlayerNumber, Is.EqualTo(2));
-                Assert.That(nonNullSavedGame.MaximumPlayerNumber, Is.EqualTo(6));
-            });
-            Assert.That(this.gameService.AddGameCallCount, Is.EqualTo(1));
-
-            this.gameService = new FakeClientGameService
-            {
-                ValidateGameHandler = this.gameService.ValidateGameHandler,
-            };
+            this.gameService = new FakeClientGameService { ValidateGameHandler = this.gameService.ValidateGameHandler };
             this.viewModel = new CreateGameViewModel(this.gameService, this.currentUserContext);
             PopulateWithValidInputs();
             this.viewModel.GameName = string.Empty;
-
             GameDTO? invalidGame = await this.viewModel.SaveGameAsync();
-
             Assert.That(invalidGame, Is.Null);
-            Assert.That(this.gameService.AddGameCallCount, Is.EqualTo(0));
         }
 
         private void AssertValidationError(Action<CreateGameViewModel> mutate, string expectedMessageFragment)

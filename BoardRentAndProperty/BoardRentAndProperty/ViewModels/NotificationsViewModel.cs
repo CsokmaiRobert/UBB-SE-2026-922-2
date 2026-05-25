@@ -109,7 +109,10 @@ namespace BoardRentAndProperty.ViewModels
 
         public void OnNext(NotificationDTO incomingNotification)
         {
-            if (CurrentUserId == InvalidOrUnknownUserId) return;
+            if (CurrentUserId == InvalidOrUnknownUserId)
+            {
+                return;
+            }
 
             if (uiDispatcherQueue != null && !uiDispatcherQueue.HasThreadAccess)
             {

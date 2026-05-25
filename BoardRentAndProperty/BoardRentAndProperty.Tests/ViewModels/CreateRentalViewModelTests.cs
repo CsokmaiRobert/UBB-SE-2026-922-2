@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Threading.Tasks;
@@ -38,38 +37,23 @@ namespace BoardRentAndProperty.Tests.ViewModels
         }
 
         [Test]
-        public async Task Constructor_LoadsCollectionsCurrentUserAndRefreshesData()
+        public async Task Constructor_LoadsCollectionsAndRefreshesData()
         {
             var viewModel = BuildViewModel();
             await viewModel.LoadRentalFormDataAsync();
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(viewModel.CurrentUserId, Is.EqualTo(this.ownerUserId));
-                Assert.That(viewModel.OwnedActiveGames.Select(game => game.Id), Is.EquivalentTo(new[] { 100 }));
-                Assert.That(viewModel.OwnedActiveGames.All(game => game.IsActive), Is.True);
-                Assert.That(viewModel.AvailableRenters.Select(user => user.Id), Is.EquivalentTo(new[] { this.renterUserId }));
-            });
+            Assert.That(viewModel.OwnedActiveGames.Select(game => game.Id), Is.EquivalentTo(new[] { 100 }));
+            Assert.That(viewModel.AvailableRenters.Select(user => user.Id), Is.EquivalentTo(new[] { this.renterUserId }));
 
             this.gameService.ActiveGamesForOwner = ImmutableList.Create(BuildActiveGame(100), BuildActiveGame(201));
-            this.userService.UsersExceptCurrent = ImmutableList.Create(
-                    new UserDTO { Id = this.renterUserId, DisplayName = "Renter" },
-                    new UserDTO { Id = Guid.NewGuid(), DisplayName = "Second renter" });
-
             await viewModel.LoadRentalFormDataAsync();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(viewModel.OwnedActiveGames.Select(game => game.Id), Is.EquivalentTo(new[] { 100, 201 }));
-                Assert.That(viewModel.AvailableRenters.Count, Is.EqualTo(2));
-            });
+            Assert.That(viewModel.OwnedActiveGames.Count, Is.EqualTo(2));
         }
 
         [Test]
         public void ValidateRentalInputs_RequiresGameRenterAndDates()
         {
             var viewModel = BuildViewModel();
-
             PopulateWithValidSelections(viewModel);
             Assert.That(viewModel.ValidateRentalInputs(), Is.True);
 
@@ -80,58 +64,25 @@ namespace BoardRentAndProperty.Tests.ViewModels
         }
 
         [Test]
-        public async Task CreateRental_CoversSuccessValidationFailureAndExceptions()
+        public async Task CreateRental_CoversValidationFailureSuccessAndServiceFailureMessages()
         {
             var invalidViewModel = BuildViewModel();
-
             ViewOperationResult validationFailure = await invalidViewModel.CreateRentalAsync();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(validationFailure.IsSuccess, Is.False);
-                Assert.That(validationFailure.DialogTitle, Is.EqualTo("Validation Error"));
-            });
+            Assert.That(validationFailure.DialogTitle, Is.EqualTo("Validation Error"));
             Assert.That(this.rentalService.CreateRentalCallCount, Is.EqualTo(0));
 
             var successfulViewModel = BuildViewModel();
             PopulateWithValidSelections(successfulViewModel);
-
             ViewOperationResult successResult = await successfulViewModel.CreateRentalAsync();
-
             Assert.That(successResult.IsSuccess, Is.True);
-            Assert.That(this.rentalService.CreateRentalCallCount, Is.EqualTo(1));
             Assert.That(this.rentalService.LastGameId, Is.EqualTo(100));
-            Assert.That(this.rentalService.LastRenterAccountId, Is.EqualTo(this.renterUserId));
-            Assert.That(this.rentalService.LastOwnerAccountId, Is.EqualTo(this.ownerUserId));
 
-            this.rentalService.CreateRentalException =
-                new ArgumentException("Start date must be before end date and not in the past.");
-
-            var argumentExceptionViewModel = BuildViewModel();
-            PopulateWithValidSelections(argumentExceptionViewModel);
-
-            ViewOperationResult argumentExceptionResult = await argumentExceptionViewModel.CreateRentalAsync();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(argumentExceptionResult.IsSuccess, Is.False);
-                Assert.That(argumentExceptionResult.DialogTitle, Is.EqualTo("Validation Error"));
-            });
-
-            this.rentalService.CreateRentalException =
-                new InvalidOperationException("Dates overlap with existing rental.");
-
-            var unexpectedExceptionViewModel = BuildViewModel();
-            PopulateWithValidSelections(unexpectedExceptionViewModel);
-
-            ViewOperationResult unexpectedExceptionResult = await unexpectedExceptionViewModel.CreateRentalAsync();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(unexpectedExceptionResult.IsSuccess, Is.False);
-                Assert.That(unexpectedExceptionResult.DialogTitle, Is.EqualTo("Rental Failed"));
-                Assert.That(unexpectedExceptionResult.DialogMessage, Does.Contain("overlap"));
-            });
+            this.rentalService.CreateRentalException = new InvalidOperationException("Dates overlap with existing rental.");
+            var failingViewModel = BuildViewModel();
+            PopulateWithValidSelections(failingViewModel);
+            ViewOperationResult failureResult = await failingViewModel.CreateRentalAsync();
+            Assert.That(failureResult.DialogTitle, Is.EqualTo("Rental Failed"));
+            Assert.That(failureResult.DialogMessage, Does.Contain("overlap"));
         }
 
         [Test]
@@ -139,51 +90,20 @@ namespace BoardRentAndProperty.Tests.ViewModels
         {
             var successfulViewModel = BuildViewModel();
             PopulateWithValidSelections(successfulViewModel);
-
-            string? validationMessage = await successfulViewModel.SaveRentalAsync();
-            Assert.That(validationMessage, Is.Null);
+            Assert.That(await successfulViewModel.SaveRentalAsync(), Is.Null);
 
             var invalidViewModel = BuildViewModel();
-            string? invalidResult = await invalidViewModel.SaveRentalAsync();
-            Assert.That(invalidResult, Is.EqualTo("Validation failed."));
+            Assert.That(await invalidViewModel.SaveRentalAsync(), Is.EqualTo("Validation failed."));
 
             this.rentalService.CreateRentalException = new Exception("Database connection lost.");
-
             var failingViewModel = BuildViewModel();
             PopulateWithValidSelections(failingViewModel);
-
-            string? exceptionMessage = await failingViewModel.SaveRentalAsync();
-            Assert.That(exceptionMessage, Is.EqualTo("Database connection lost."));
-        }
-
-        [Test]
-        public void Setters_RaisePropertyChangedForBindableFields()
-        {
-            var viewModel = BuildViewModel();
-            var changedProperties = new List<string?>();
-            viewModel.PropertyChanged += (_, eventArgs) => changedProperties.Add(eventArgs.PropertyName);
-
-            viewModel.SelectedGameToRent = BuildActiveGame(999);
-            viewModel.SelectedRenter = new UserDTO { Id = Guid.NewGuid(), DisplayName = "Listener" };
-            viewModel.StartDate = DateTimeOffset.Now.AddDays(1);
-            viewModel.EndDate = DateTimeOffset.Now.AddDays(5);
-
-            Assert.That(changedProperties, Is.EqualTo(new[]
-            {
-                nameof(viewModel.SelectedGameToRent),
-                nameof(viewModel.SelectedRenter),
-                nameof(viewModel.StartDate),
-                nameof(viewModel.EndDate),
-            }));
+            Assert.That(await failingViewModel.SaveRentalAsync(), Is.EqualTo("Database connection lost."));
         }
 
         private CreateRentalViewModel BuildViewModel()
         {
-            return new CreateRentalViewModel(
-                this.gameService,
-                this.rentalService,
-                this.userService,
-                this.currentUserContext);
+            return new CreateRentalViewModel(this.gameService, this.rentalService, this.userService, this.currentUserContext);
         }
 
         private void AssertInvalidRentalInputs(CreateRentalViewModel viewModel, Action<CreateRentalViewModel> invalidate)

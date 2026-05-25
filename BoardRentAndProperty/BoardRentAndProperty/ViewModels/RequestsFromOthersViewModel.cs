@@ -107,6 +107,5 @@ namespace BoardRentAndProperty.ViewModels
                 _ => Constants.DialogMessages.UnexpectedErrorOccurred
             };
         }
-
     }
 }

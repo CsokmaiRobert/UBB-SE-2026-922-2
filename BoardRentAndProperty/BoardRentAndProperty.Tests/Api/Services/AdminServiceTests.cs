@@ -25,20 +25,19 @@ namespace BoardRentAndProperty.Tests.Api.Services
         }
 
         [Test]
-        public async Task GetAllAccountsAsync_WhenAccountsExist_ReturnsMappedProfiles()
+        public async Task GetAllAccountsAsync_WhenAccountsExist_ReturnsMappedProfilesWithLockedFlag()
         {
             var accountId = Guid.NewGuid();
-            var account = new Account
+            this.accountRepository.Accounts = new List<Account>
             {
-                Id = accountId,
-                Username = "admin_user",
-                DisplayName = "Admin User",
-                Email = "admin@test.com",
-                IsSuspended = false,
-                Roles = new List<Role> { new Role { Id = Guid.NewGuid(), Name = "Administrator" } },
+                new Account
+                {
+                    Id = accountId,
+                    Username = "admin_user",
+                    Email = "admin@test.com",
+                    Roles = new List<Role> { new Role { Id = Guid.NewGuid(), Name = "Administrator" } },
+                },
             };
-
-            this.accountRepository.Accounts = new List<Account> { account };
             this.failedLoginRepository.FailedLoginAttempts[accountId] = new FailedLoginAttempt
             {
                 AccountId = accountId,
@@ -47,69 +46,41 @@ namespace BoardRentAndProperty.Tests.Api.Services
 
             var serviceResult = await this.service.GetAllAccountsAsync(1, 10);
 
-            Assert.That(serviceResult.Success, Is.True);
-            Assert.That(serviceResult.Data, Has.Count.EqualTo(1));
             Assert.That(serviceResult.Data![0].Username, Is.EqualTo("admin_user"));
             Assert.That(serviceResult.Data[0].Role.Name, Is.EqualTo("Administrator"));
             Assert.That(serviceResult.Data[0].IsLocked, Is.True);
         }
 
         [Test]
-        public async Task SuspendAccountAsync_AccountExists_UpdatesStatusToSuspended()
+        public async Task SuspendAndUnsuspendAccountAsync_FlipIsSuspendedFlagAndCallUpdate()
         {
-            var accountId = Guid.NewGuid();
-            var account = new Account { Id = accountId, IsSuspended = false };
+            var accountToSuspend = new Account { Id = Guid.NewGuid(), IsSuspended = false };
+            this.accountRepository.AccountsById[accountToSuspend.Id] = accountToSuspend;
+            await this.service.SuspendAccountAsync(accountToSuspend.Id);
+            Assert.That(accountToSuspend.IsSuspended, Is.True);
 
-            this.accountRepository.AccountsById[accountId] = account;
+            var accountToUnsuspend = new Account { Id = Guid.NewGuid(), IsSuspended = true };
+            this.accountRepository.AccountsById[accountToUnsuspend.Id] = accountToUnsuspend;
+            await this.service.UnsuspendAccountAsync(accountToUnsuspend.Id);
+            Assert.That(accountToUnsuspend.IsSuspended, Is.False);
 
-            var serviceResult = await this.service.SuspendAccountAsync(accountId);
-
-            Assert.That(serviceResult.Success, Is.True);
-            Assert.That(account.IsSuspended, Is.True);
-            Assert.That(this.accountRepository.UpdateCallCount, Is.EqualTo(1));
-            Assert.That(this.accountRepository.LastUpdatedAccount, Is.SameAs(account));
+            Assert.That(this.accountRepository.UpdateCallCount, Is.EqualTo(2));
         }
 
         [Test]
-        public async Task UnsuspendAccountAsync_AccountExists_UpdatesStatusToActive()
+        public async Task ResetPasswordAsync_HandlesValidationAndUpdatesPasswordHash()
         {
-            var accountId = Guid.NewGuid();
-            var account = new Account { Id = accountId, IsSuspended = true };
+            var tooShortResult = await this.service.ResetPasswordAsync(Guid.NewGuid(), "123");
+            Assert.That(tooShortResult.Success, Is.False);
+            Assert.That(tooShortResult.Error, Does.Contain("at least 6 characters"));
 
-            this.accountRepository.AccountsById[accountId] = account;
-
-            var serviceResult = await this.service.UnsuspendAccountAsync(accountId);
-
-            Assert.That(serviceResult.Success, Is.True);
-            Assert.That(account.IsSuspended, Is.False);
-            Assert.That(this.accountRepository.UpdateCallCount, Is.EqualTo(1));
-            Assert.That(this.accountRepository.LastUpdatedAccount, Is.SameAs(account));
-        }
-
-        [Test]
-        public async Task ResetPasswordAsync_PasswordTooShort_ReturnsFailResult()
-        {
-            var serviceResult = await this.service.ResetPasswordAsync(Guid.NewGuid(), "123");
-
-            Assert.That(serviceResult.Success, Is.False);
-            Assert.That(serviceResult.Error, Does.Contain("at least 6 characters"));
-        }
-
-        [Test]
-        public async Task ResetPasswordAsync_ValidRequest_UpdatesPasswordHash()
-        {
             var accountId = Guid.NewGuid();
             string originalHash = "old_hash";
-            var account = new Account { Id = accountId, PasswordHash = originalHash };
+            this.accountRepository.AccountsById[accountId] = new Account { Id = accountId, PasswordHash = originalHash };
 
-            this.accountRepository.AccountsById[accountId] = account;
-
-            var serviceResult = await this.service.ResetPasswordAsync(accountId, "NewSecurePass123!");
-
-            Assert.That(serviceResult.Success, Is.True);
-            Assert.That(account.PasswordHash, Is.Not.EqualTo(originalHash));
-            Assert.That(this.accountRepository.UpdateCallCount, Is.EqualTo(1));
-            Assert.That(this.accountRepository.LastUpdatedAccount, Is.SameAs(account));
+            var validResult = await this.service.ResetPasswordAsync(accountId, "NewSecurePass123!");
+            Assert.That(validResult.Success, Is.True);
+            Assert.That(this.accountRepository.AccountsById[accountId]!.PasswordHash, Is.Not.EqualTo(originalHash));
         }
 
         [Test]

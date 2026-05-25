@@ -8,33 +8,21 @@ namespace BoardRentAndProperty.Tests.ViewModels
     public sealed class PagedViewModelTests
     {
         [Test]
-        public void PageCount_EmptyList_StillReturnsOne()
-        {
-            var viewModel = new FakePagedViewModel(BuildItems(0));
-
-            Assert.That(viewModel.PageCount, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void PageCount_ItemsFillExactlyThreePages_ReturnsThree()
+        public void PageCount_HandlesEmptyAndFilledAndPartialPages()
         {
             int pageSize = PagedViewModel<string>.PageSize;
-            var viewModel = new FakePagedViewModel(BuildItems(pageSize * 3));
+            var emptyViewModel = new FakePagedViewModel(BuildItems(0));
+            Assert.That(emptyViewModel.PageCount, Is.EqualTo(1));
 
-            Assert.That(viewModel.PageCount, Is.EqualTo(3));
+            var fullPagesViewModel = new FakePagedViewModel(BuildItems(pageSize * 3));
+            Assert.That(fullPagesViewModel.PageCount, Is.EqualTo(3));
+
+            var oneExtraItemViewModel = new FakePagedViewModel(BuildItems((pageSize * 3) + 1));
+            Assert.That(oneExtraItemViewModel.PageCount, Is.EqualTo(4));
         }
 
         [Test]
-        public void PageCount_OneExtraItemBeyondFullPage_RoundsUp()
-        {
-            int pageSize = PagedViewModel<string>.PageSize;
-            var viewModel = new FakePagedViewModel(BuildItems((pageSize * 3) + 1));
-
-            Assert.That(viewModel.PageCount, Is.EqualTo(4));
-        }
-
-        [Test]
-        public void NextPage_AlreadyOnLastPage_StaysOnLastPage()
+        public void NextPage_OnLastPage_StaysOnLastPage()
         {
             int pageSize = PagedViewModel<string>.PageSize;
             var viewModel = new FakePagedViewModel(BuildItems(pageSize));
@@ -45,25 +33,16 @@ namespace BoardRentAndProperty.Tests.ViewModels
         }
 
         [Test]
-        public void PrevPage_AlreadyOnFirstPage_StaysOnFirstPage()
+        public void PrevPage_OnFirstPageStaysAndOnMiddlePageGoesBackOne()
         {
             int pageSize = PagedViewModel<string>.PageSize;
-            var viewModel = new FakePagedViewModel(BuildItems(pageSize * 3));
+            var firstPageViewModel = new FakePagedViewModel(BuildItems(pageSize * 3));
+            firstPageViewModel.PrevPage();
+            Assert.That(firstPageViewModel.CurrentPage, Is.EqualTo(1));
 
-            viewModel.PrevPage();
-
-            Assert.That(viewModel.CurrentPage, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void PrevPage_OnMiddlePage_GoesBackOne()
-        {
-            int pageSize = PagedViewModel<string>.PageSize;
-            var viewModel = new FakePagedViewModel(BuildItems(pageSize * 3)) { CurrentPage = 2 };
-
-            viewModel.PrevPage();
-
-            Assert.That(viewModel.CurrentPage, Is.EqualTo(1));
+            var middlePageViewModel = new FakePagedViewModel(BuildItems(pageSize * 3)) { CurrentPage = 2 };
+            middlePageViewModel.PrevPage();
+            Assert.That(middlePageViewModel.CurrentPage, Is.EqualTo(1));
         }
 
         [Test]

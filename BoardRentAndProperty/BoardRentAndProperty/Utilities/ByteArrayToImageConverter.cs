@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -21,7 +22,19 @@ namespace BoardRentAndProperty.Utilities
                     gameImageBitmap.SetSource(imageByteStream.AsRandomAccessStream());
                     return gameImageBitmap;
                 }
-                catch
+                catch (ArgumentException)
+                {
+                }
+                catch (IOException)
+                {
+                }
+                catch (NotSupportedException)
+                {
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+                catch (COMException)
                 {
                 }
             }

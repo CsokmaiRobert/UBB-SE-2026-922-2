@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using BoardRentAndProperty.ApiClient;
 using BoardRentAndProperty.Contracts.DataTransferObjects;
@@ -72,6 +73,10 @@ namespace BoardRentAndProperty.ViewModels
             await this.ReloadAsync();
         }
 
+        [SuppressMessage(
+            "Design",
+            "CA1031:Do not catch general exception types",
+            Justification = "The view model converts delete failures into a user-facing dialog result.")]
         public async Task<ViewOperationResult> TryDeleteGameAsync(GameDTO gameToDelete)
         {
             try
