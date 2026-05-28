@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+#if WINDOWS
 using Microsoft.Toolkit.Uwp.Notifications;
+#endif
 
 namespace BoardRentAndProperty
 {
@@ -10,14 +12,19 @@ namespace BoardRentAndProperty
 
         public void Init()
         {
+#if WINDOWS
             ToastNotificationManagerCompat.OnActivated += OnToastActivated;
+#endif
         }
 
         public void Unregister()
         {
+#if WINDOWS
             ToastNotificationManagerCompat.OnActivated -= OnToastActivated;
+#endif
         }
 
+#if WINDOWS
         private void OnToastActivated(ToastNotificationActivatedEventArgsCompat args)
         {
             var toastArgs = ToastArguments.Parse(args.Argument);
@@ -29,6 +36,7 @@ namespace BoardRentAndProperty
 
             NotificationClicked?.Invoke(this, arguments);
         }
+#endif
 
         public void ProcessLaunchActivationArgs(IDictionary<string, string> arguments)
         {

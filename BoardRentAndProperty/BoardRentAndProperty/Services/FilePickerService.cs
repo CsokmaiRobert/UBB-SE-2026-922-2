@@ -17,8 +17,10 @@ namespace BoardRentAndProperty.Services
 
             FileOpenPicker fileOpenPicker = new FileOpenPicker();
 
-            IntPtr windowHandle = WindowNative.GetWindowHandle(App.MainWindow);
-            InitializeWithWindow.Initialize(fileOpenPicker, windowHandle);
+#if WINDOWS
+            IntPtr windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
+            WinRT.Interop.InitializeWithWindow.Initialize(fileOpenPicker, windowHandle);
+#endif
 
             fileOpenPicker.FileTypeFilter.Add(".jpg");
             fileOpenPicker.FileTypeFilter.Add(".png");

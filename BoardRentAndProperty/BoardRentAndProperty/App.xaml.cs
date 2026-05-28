@@ -13,14 +13,18 @@ using BoardRentAndProperty.Utilities;
 using BoardRentAndProperty.ViewModels;
 using BoardRentAndProperty.Views;
 using CommunityToolkit.Mvvm.DependencyInjection;
+#if WINDOWS
 using H.NotifyIcon;
+#endif
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Navigation;
+#if WINDOWS
 using Microsoft.Windows.AppLifecycle;
+#endif
 
 namespace BoardRentAndProperty
 {
@@ -52,9 +56,11 @@ namespace BoardRentAndProperty
         public int CurrentProcessSlot { get; }
         public NotificationsViewModel? NotificationsViewModel { get; private set; }
 
+#if WINDOWS
         private TaskbarIcon? trayIcon;
         private static Process? notificationServerProcess;
         private static Process? secondClientProcess;
+#endif
 
         private Window? mainWindow;
         private readonly bool shouldLaunchSecondClient;
@@ -64,6 +70,7 @@ namespace BoardRentAndProperty
         public App()
         {
             CurrentProcessSlot = GetProcessSlotFromArgs();
+#if WINDOWS
             shouldLaunchSecondClient = CurrentProcessSlot == DevModePrimaryProcessSlot && IsTwoWindowsEnabled();
 
             if (shouldLaunchSecondClient)
@@ -76,6 +83,11 @@ namespace BoardRentAndProperty
             notificationManager = new NotificationManager();
             SetupNotificationManager();
             EnsureSingleInstance(AppUserModelId);
+#else
+            shouldLaunchSecondClient = false;
+            AppUserModelId = "BoardRentAndProperty";
+            notificationManager = new NotificationManager();
+#endif
 
             ConfigureServices();
 
@@ -183,6 +195,7 @@ namespace BoardRentAndProperty
             return DefaultProcessSlot;
         }
 
+#if WINDOWS
         #region Two-window dev mode
 
         private static string? FindRepoRoot()
@@ -362,14 +375,19 @@ namespace BoardRentAndProperty
         }
 
         #endregion
+#endif
 
         private void SetupNotificationManager()
         {
             AppDomain.CurrentDomain.ProcessExit += (sender, eventArgs) =>
             {
+#if WINDOWS
                 notificationManager.Unregister();
+#endif
                 (notificationService as IDisposable)?.Dispose();
+#if WINDOWS
                 KillSpawnedChildProcesses();
+#endif
             };
 
             notificationManager.NotificationClicked += (sender, args) =>
@@ -386,7 +404,9 @@ namespace BoardRentAndProperty
                 });
             };
 
+#if WINDOWS
             notificationManager.Init();
+#endif
         }
 
         private void NavigateToNotificationsWithinShell()
@@ -419,6 +439,7 @@ namespace BoardRentAndProperty
 
         private void EnsureSingleInstance(string appUserModelId)
         {
+#if WINDOWS
             var appInstance = AppInstance.FindOrRegisterForKey(appUserModelId);
             if (!appInstance.IsCurrent)
             {
@@ -426,6 +447,7 @@ namespace BoardRentAndProperty
                 Environment.Exit(SuccessExitCode);
             }
             appInstance.Activated += (sender, args) => ActivateWindow();
+#endif
         }
 
         private void InitializeServices()
@@ -443,11 +465,13 @@ namespace BoardRentAndProperty
             rootGrid.Children.Add(RootFrame);
             MainWindow!.Content = rootGrid;
             RootFrame!.Navigate(typeof(LoginPage));
+#if WINDOWS
             CreateTrayIcon();
             if (shouldLaunchSecondClient)
             {
                 LaunchSecondClient();
             }
+#endif
         }
 
         public static void OnUserLoggedIn()
@@ -510,6 +534,7 @@ namespace BoardRentAndProperty
             });
         }
 
+#if WINDOWS
         private void CreateTrayIcon()
         {
             trayIcon = new TaskbarIcon
@@ -542,5 +567,6 @@ namespace BoardRentAndProperty
             byte[] hashBytes = MD5.HashData(seedBytes);
             return new Guid(hashBytes);
         }
+#endif
     }
 }

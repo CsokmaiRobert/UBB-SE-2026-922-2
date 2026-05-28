@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="../BoardRentAndProperty.ApiClient/BoardRentAndProperty.ApiClient.csproj" />
+  <Project Path="../BoardRentAndProperty.Contracts/BoardRentAndProperty.Contracts.csproj" />
+  <Project Path="../ServerCommunication/ServerCommunication.csproj" />
+  <Project Path="BoardRentAndProperty.csproj" />
+</Solution>

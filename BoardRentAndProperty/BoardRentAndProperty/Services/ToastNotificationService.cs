@@ -1,4 +1,5 @@
-using Microsoft.Toolkit.Uwp.Notifications;
+using Windows.UI.Notifications;
+using Windows.Data.Xml.Dom;
 
 namespace BoardRentAndProperty.Services
 {
@@ -9,11 +10,21 @@ namespace BoardRentAndProperty.Services
 
         public void Show(string notificationTitle, string notificationBody)
         {
-            new ToastContentBuilder()
-                .AddArgument(NavigationKey, NotificationsPageKey)
-                .AddText(notificationTitle)
-                .AddText(notificationBody)
-                .Show();
+            var toastXmlString = $@"
+                <toast launch=""{NavigationKey}={NotificationsPageKey}"">
+                    <visual>
+                        <binding template=""ToastGeneric"">
+                            <text>{notificationTitle}</text>
+                            <text>{notificationBody}</text>
+                        </binding>
+                    </visual>
+                </toast>";
+
+            var xmlDocument = new XmlDocument();
+            xmlDocument.LoadXml(toastXmlString);
+
+            var toast = new ToastNotification(xmlDocument);
+            ToastNotificationManager.CreateToastNotifier().Show(toast);
         }
     }
 }
