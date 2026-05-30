@@ -1,0 +1,65 @@
+sequenceDiagram
+    actor Owner
+    participant GuiController as RequestsController.cs<br/>(GUI-BRAP)
+    participant Proxy as RequestProxyServiceAdapter.cs
+    participant ApiClient as RequestService.cs<br/>(ApiClient)
+    participant ApiController as RequestsController.cs<br/>(Api)
+    participant Service as RequestService.cs<br/>(Api)
+    participant RequestRepo as RequestRepository.cs
+    participant NotificationService as NotificationService.cs
+    participant NotificationRepo as NotificationRepository.cs
+    participant DB as AppDbContext
+
+    Note over Owner,GuiController: Offer approves the request and creates the rental.
+
+    Owner->>GuiController: Offer(int id)
+    GuiController->>GuiController: Guid ownerAccountId = User.GetAccountId()
+    GuiController->>Proxy: OfferGameAsync(id, new RequestActionDataTransferObject { AccountId = ownerAccountId })
+    Proxy->>ApiClient: OfferGameAsync(requestId, body)
+    ApiClient->>ApiController: HTTP PUT /api/requests/{requestId}/offer
+    ApiController->>Service: OfferGame(requestId, body.AccountId)
+    Service->>RequestRepo: Get(requestId)
+    RequestRepo->>DB: RequestsWithNavigations(...).FirstOrDefault(...)
+    DB-->>RequestRepo: request / null
+    RequestRepo-->>Service: req / throw KeyNotFoundException
+
+    alt request not found
+        Service-->>ApiController: Failure(OfferError.NotFound)
+    else owner is not request owner
+        Service-->>ApiController: Failure(OfferError.NotOwner)
+    else request is not open
+        Service-->>ApiController: Failure(OfferError.RequestNotOpen)
+    else request is open
+        Service->>Service: buffStart / buffEnd
+        Service->>RequestRepo: GetOverlappingRequests(req.Game?.Id ?? MissingForeignKeyId, req.Id, buffStart, buffEnd)
+        RequestRepo->>DB: RequestsWithNavigations(...).Where(...)
+        DB-->>RequestRepo: overlapping requests
+        RequestRepo-->>Service: conflicts
+
+        Service->>RequestRepo: ApproveAtomically(req, conflicts)
+        alt approval transaction succeeds
+            RequestRepo->>DB: ExecuteDelete + Rentals.Add(newRental) + SaveChanges + Commit
+            DB-->>RequestRepo: rentalId
+            RequestRepo-->>Service: rentalId
+
+            loop for conflicting requests
+                Service->>NotificationService: SendNotificationToUser(conflict.RenterId, BookingUnavailable)
+                NotificationService->>NotificationRepo: Add(notification)
+                NotificationRepo->>DB: Notifications.Add(...) + SaveChanges()
+            end
+
+            Service->>NotificationService: SendNotificationToUser(renterId, RentalRequestApproved)
+            NotificationService->>NotificationRepo: Add(notification)
+            NotificationRepo->>DB: Notifications.Add(...) + SaveChanges()
+
+            Service-->>ApiController: Success(rentalId)
+        else transaction fails
+            RequestRepo-->>Service: throw Exception
+            Service-->>ApiController: Failure(OfferError.TransactionFailed)
+        end
+    end
+
+    ApiController-->>ApiClient: HTTP response
+    ApiClient-->>Proxy: ServiceResult<int>.Ok(rentalId) / failed result
+    Proxy-->>GuiController: success / exception
+    GuiController-->>Owner: Redirect to Others with message
